@@ -1,9 +1,11 @@
 /**
- * THE PLUGIN CONTRACT, AS NCLITE HOLDS IT (journal-plugin DESIGN_01, R1; `docs/plugins.md` § The contract). What a host
- * gives a plugin's view and engine, what they give back, and every shape that crosses a process or is stored. nclite is
- * the source: a plugin built to it carries a byte-identical copy (the Journal's `src/vendor/plugin-host/plugin-host.ts`),
- * and its folder's `vendored.json` names this file's sha256, which a test in nclite compares. The board was built to its
- * own seam before this file existed and is adapted to it, never the other way round (`docs/plugins.md` § The board's adapter).
+ * THE PLUGIN CONTRACT, AS NCLITE HOLDS IT (DESIGN_01, R1; `docs/plugins.md` § The contract). What a host gives a plugin's view
+ * and engine, what they give back, and every shape that crosses a process or is stored. nclite is the source.
+ *
+ * HELD BY STRUCTURE, NOT BYTES. A plugin built to it compiles against a copy, and nclite compiles its host against that
+ * plugin's `plugin.d.ts` (one block per plugin in the app's type checks) and pins the plugin's seam number in its row. Those
+ * two are the guarantee. The sha256 a plugin's `vendored.json` gives for this file records what it was built against; it is
+ * not compared for equality. A plugin built before this file is adapted to it, never the other way round.
  *
  * IT IMPORTS NOTHING AND NAMES NO DOM-ONLY TYPE, so the engine (Node's types), the app (the DOM's) and a plugin's own build
  * all compile it. `mount` names `HTMLElement`, so a plugin's `plugin.d.ts` declares it; here it is {@link Mount}.
@@ -11,9 +13,9 @@
  * IT NAMES NO PLUGIN. The literals are bounds, keys and examples, and none holds a space: `shared/` is read by the words
  * guard, and nothing here is a sentence anyone reads.
  *
- * A BREAKING CHANGE HERE moves every plugin's seam: a member taken out or renamed, one the host gives that now holds less, one
- * a plugin gives that is now required, a bound made tighter. A member the host gives in addition, or a bound made looser, is
- * not breaking (`docs/plugins.md` § The seam number).
+ * A BREAKING CHANGE HERE moves the seam of every plugin built to it: a member taken out or renamed, one the host gives that
+ * now holds less, one a plugin gives that is now required, a bound made tighter. A member the host gives in addition, or a
+ * bound made looser, is not breaking, and needs no plugin rebuilt (`docs/plugins.md` § The seam number).
  */
 
 /* ── Bounded references ───────────────────────────────────────────────────────────────────────────────────────────── */
@@ -179,15 +181,27 @@ export interface PluginHost {
 	imageRoute: string;
 }
 
+/**
+ * How long the host waits for a view: for `leave()` to answer or open the pane's confirm, and for a Send's `record` to answer.
+ * A plugin that waits on something of its own inside either (a save) answers well within it.
+ */
+export const VIEW_ANSWER_MS = 10000;
+
 /** What `mount` gives back. Every call the host makes into it is guarded: a throw or a hang there is the plugin's alone. */
 export interface PluginView {
 	/** Removes every listener it added and empties `root`. Never asks: the host calls `leave()` first. */
 	unmount(): void;
 	/** Synchronous: the view holds the person's words not yet saved. */
 	unsaved(): boolean;
-	/** Saves or asks before words are lost: true when the view may be unmounted, false when the person kept it open. */
+	/**
+	 * Saves or asks before words are lost: true when the view may be unmounted, false when the person kept it open. When it
+	 * throws, or neither answers nor opens the pane's confirm within {@link VIEW_ANSWER_MS}, the host reads `unsaved()`
+	 * (guarded): false, it closes the view; true or a throw, it asks the person on the pane whether to close a plugin that is
+	 * not answering. An answer that comes after is dropped. A plugin switched off is closed without asking.
+	 */
 	leave(): Promise<boolean>;
-	/** The chip for what is on show, for the pane header's Add to chat; null when nothing is. */
+	/** The chip for what is on show, for the pane header's Add to chat; null when nothing is, or when the plugin's own `resolve`
+	 *  would refuse it as too much: it never offers more than `resolve` accepts. */
 	pageChip(): Chip | null;
 	/** Brings into view what a change line or a sent chip names. A ref it cannot show is said through `notify`, never thrown. */
 	reveal(ref: Ref): void;
@@ -215,7 +229,10 @@ export interface EngineRequest {
 	body?: unknown;
 }
 
-/** An answer. A problem is `{ title, status, … }` with `status` equal to the reply's; the host drops every header but `Allow`. */
+/**
+ * An answer. A problem is `{ title, status, … }` with `status` equal to the reply's; the host drops every header but `Allow`.
+ * As JSON it is at most {@link REPLY_LIMITS} `bytes`, as is every other answer but a picture's.
+ */
 export interface EngineReply {
 	status: number;
 	body: unknown;
@@ -249,7 +266,12 @@ export interface EngineTools {
 /** What `createEngine` gives back. It runs in a jailed child, one per bot; every value it sends is checked by the host. */
 export interface PluginEngine {
 	route(req: EngineRequest, ctx: EngineContext): Promise<EngineReply | null>;
-	/** A picture under the data folder, for `imageRoute`; left out, every picture is a 404. */
+	/**
+	 * A picture under the data folder, for `imageRoute`; left out, every picture is a 404. The host asks only a GET. A picture
+	 * is status 200, `body` its bytes (a `Uint8Array`), `headers['Content-Type']` one of {@link IMAGE_LIMITS} `types`, at most
+	 * `bytes` long; any other status is a problem. The host checks all of it, sets every header it sends itself, and answers
+	 * `If-None-Match` from the bytes.
+	 */
 	image?(req: { method: string; path: string }): EngineReply | Promise<EngineReply>;
 	/** What a chip says now, or why it cannot go. Every `ref` shape the plugin ever made is answered or refused, never thrown at. */
 	resolve(kind: string, ref: unknown): ResolveAnswer | Promise<ResolveAnswer>;
@@ -257,6 +279,20 @@ export interface PluginEngine {
 	/** Every change to the data, from anyone (another writer on the folder included). Returns the stop. */
 	watch(onChange: (ref: Ref) => void): () => void;
 }
+
+/**
+ * The most bytes one answer of the engine may hold as JSON (a route's, a tool's, a resolve's, a tool list's). An answer over it
+ * is answered by the host as too large (a problem, a tool refusal, an unreadable chip), and the engine keeps running.
+ */
+export const REPLY_LIMITS = {
+	bytes: 1048576,
+} as const;
+
+/** A picture's limits: its size and the content types it may name. */
+export const IMAGE_LIMITS = {
+	bytes: 8388608,
+	types: ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml'],
+} as const;
 
 /** What the host gives `createEngine`, every member. `flags` are the plugin row's `engineFlags`. */
 export interface PluginEngineOptions {
@@ -314,7 +350,11 @@ export interface PluginManifest {
 /** The most bytes a `skill.md` may hold unless the plugin's row grants more: it rides every turn while the plugin is on. */
 export const SKILL_BYTES = 8192;
 
-/** A file of the plugin folder: the sha256 of each nclite source file the plugin carries a copy of, by its path in nclite. */
+/**
+ * A file of the plugin folder: the sha256 of each nclite source file the plugin carries a copy of, by its path in nclite. A
+ * copy of code the plugin runs (the Markdown parser) is held equal by nclite's tests; the entry for this file is a record of
+ * what the plugin was built against, never compared.
+ */
 export const VENDORED_FILE = 'vendored.json';
 export type Vendored = Readonly<Record<string, string>>;
 
@@ -377,27 +417,28 @@ export const CHANGE_EXAMPLES = {
 
 /**
  * Every custom property a host may set for a plugin to read, on the view's root or above it, each a finished value for the
- * mode the root is in. A plugin reads these and its own `--<scope>-*`, and declares none of these. The meaning of each, its
- * contrast tier and its default are the board spec's § Theme and host styling, which this list follows.
+ * mode the root is in. Any of them may be unset: the plugin then uses its own. A plugin reads these and its own
+ * `--<scope>-*`, and declares none of these. Contrast is APCA Lc, measured in each mode the host gives; a pair the host leaves
+ * half unset counts the plugin's own value for the other half.
  */
 export const HOST_PROPERTIES = [
-	'--host-font',
-	'--host-font-mono',
-	'--host-text-scale',
-	'--host-accent',
-	'--host-accent-strong',
-	'--host-accent-fill',
-	'--host-accent-fill-hover',
-	'--host-on-accent',
-	'--host-canvas',
-	'--host-surface',
-	'--host-surface-sunken',
-	'--host-ink',
-	'--host-ink-muted',
-	'--host-line',
-	'--host-line-strong',
-	'--host-focus',
-	'--host-color-scheme',
+	'--host-font', // the text face, a font-family list; no tier
+	'--host-font-mono', // the face of code and figures, a font-family list; no tier
+	'--host-text-scale', // the plugin's text size, a number; no tier
+	'--host-accent', // the selection, the active state, a ring; a primary fill when no accent-fill is set; no tier of its own
+	'--host-accent-strong', // the accent where it carries text, and the fill's hover when none is set; Lc 45 as text on surface and canvas
+	'--host-accent-fill', // a primary button's fill; carries on-accent at Lc 60
+	'--host-accent-fill-hover', // that fill under the pointer; carries on-accent at Lc 60
+	'--host-on-accent', // text and icons on the fill and its hover; Lc 60 on each
+	'--host-canvas', // the ground behind containers; carries ink and ink-muted at Lc 60
+	'--host-surface', // containers, cards, menus; carries ink and ink-muted at Lc 60
+	'--host-surface-sunken', // wells and fields; carries ink and ink-muted at Lc 60
+	'--host-ink', // body and strong text; Lc 60 on canvas, surface and sunken
+	'--host-ink-muted', // secondary text; Lc 60 on canvas, surface and sunken
+	'--host-line', // hairlines and borders; no tier, faint by design
+	'--host-line-strong', // borders that must be seen; no tier
+	'--host-focus', // the focus ring, the accent when unset; Lc 30 on surface and canvas
+	'--host-color-scheme', // light, dark, or both (the system's), for the root's color-scheme; no tier
 ] as const;
 
 export type HostProperty = (typeof HOST_PROPERTIES)[number];

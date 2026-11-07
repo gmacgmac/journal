@@ -5,8 +5,8 @@ beside the chat; the bot reads and writes through tools; each sees the other's c
 nclite's contract, and this page is its interface: what its folder holds, what its engine and view give, its routes, its
 references, its tools, its words and its look. Built for nclite, vendored with nclite's `scripts/plugin-vendor.ts`.
 
-**The contract is nclite's**, not this repo's: `src/vendor/plugin-host/plugin-host.ts` is a byte-identical copy of nclite's
-`shared/plugin-host.ts`, and its members are described there and in nclite's `docs/plugins.md`. This page names a contract
+**The contract is nclite's**, not this repo's: `src/vendor/plugin-host/plugin-host.ts` is a copy of nclite's `shared/plugin-host.ts`
+(§ The copies of nclite's files), and its members are described there and in nclite's `docs/plugins.md`. This page names a contract
 type where the Journal gives or takes one and says only what the Journal does with it. Where this page and the contract
 disagree, the contract wins.
 
@@ -32,21 +32,27 @@ the same bytes; nothing names the machine.
 | `plugin.d.ts` | The types a host compiles against (§ The types) | `src/vendor/plugin-host/plugin-host.ts` and `src/seam-types.ts` |
 | `vendored.json` | The sha256 of each nclite file this repo carries a copy of, by its path in nclite (§ The copies of nclite's files) | `src/vendor/*/SHA256.json` |
 
-Proven by `tests/build.test.ts`: "a clean build writes exactly the folder parts" (build: add `vendored.json`), "two builds give
-the same bytes", "the engine bundle imports only node: modules", "the view is one file with no import and exports only
-mount", "the folder names no absolute path or user name".
+Proven by `tests/build.test.ts`: "a clean build writes exactly the folder parts", "two builds give the same bytes", "the
+engine bundle imports only node: modules", "the view is one file with no import, exporting only mount", "the folder names no
+absolute path or user name".
 
 ## The copies of nclite's files
 
-Two folders of this repo are nclite's files, byte for byte, never edited here:
+Two folders of this repo are copies of nclite's files, never edited here, and they are held in two different ways:
 
 - `src/vendor/markdown/`: nclite's `shared/markdown/*.ts` (not the tests): the parser the chat uses, with block offsets
-  (`parseMarkdownSpans`) and the serializer (`blockMarkdown`, `blocksMarkdown`, `inlineMarkdown`).
-- `src/vendor/plugin-host/plugin-host.ts`: nclite's `shared/plugin-host.ts`, the contract.
+  (`parseMarkdownSpans`) and the serializer (`blockMarkdown`, `blocksMarkdown`, `inlineMarkdown`). **Code the Journal runs,
+  so held byte for byte**: nclite's test compares each entry of `vendored.json` with its own file, and **a change to nclite's
+  parser fails nclite's tests until this repo is synced, rebuilt and vendored again** (`docs/plugins.md` § How a plugin
+  reaches nclite).
+- `src/vendor/plugin-host/plugin-host.ts`: nclite's `shared/plugin-host.ts`, the contract. **Types and bounds the Journal is
+  built against, so held by structure**: nclite pins the Journal's seam in its row and compiles its host against this repo's
+  `plugin.d.ts`. Its `vendored.json` entry records what this build was made against and is never compared, so a change to the
+  contract that is not breaking needs no rebuild here; one that is breaking fails nclite's app check until this repo is
+  synced, `SEAM` is raised, and the Journal is rebuilt and vendored.
 
-Each folder has a `SHA256.json` (file name to sha256). `npm run sync:nclite -- <nclite checkout>` copies both (build: it
-replaces `sync:markdown`, and copies `shared/plugin-host.ts` too). The build writes `vendored.json` from the two manifests,
-keyed by nclite's path:
+Each folder has a `SHA256.json` (file name to sha256), written by `npm run sync:nclite -- <nclite checkout>`
+(`bin/sync-nclite.ts`). The build writes `vendored.json` from the two manifests, keyed by nclite's path:
 
 ```json
 { "shared/markdown/index.ts": "<64 hex>", "shared/markdown/inline.ts": "<64 hex>", "shared/markdown/parse.ts": "<64 hex>",
@@ -54,10 +60,9 @@ keyed by nclite's path:
   "shared/plugin-host.ts": "<64 hex>" }
 ```
 
-nclite's test compares each entry with its own file (`docs/plugins.md` § How a plugin reaches nclite), so **a change to
-nclite's parser or contract fails nclite's tests until this repo is synced, rebuilt and vendored again**. Proven by
-`tests/build.test.ts` "the vendored markdown matches its sha256 manifest" and, build, "the vendored contract matches its
-sha256 manifest" and "vendored.json names every copied file by its nclite path".
+Proven by `tests/build.test.ts`: "the vendored … holds exactly the files its manifest lists, each matching its sha256" (for
+each copy), "the vendored … holds no test files", "vendored.json names every copied file by its nclite path, with its
+sha256".
 
 ## The manifest
 
@@ -164,8 +169,14 @@ interface Day {
 	problems: string[];         // the Journal's sentences; [] for a day that keeps the rules
 }
 interface Block { key: string; start: number; end: number; text: string }
-// 200: { "days": Day[] }        400 problem, code "dates": not dates, backwards, or more than 93 days
+// 200: { "days": Day[], "next"?: "YYYY-MM-DD" }
+// 400 problem, code "dates": not dates, backwards, or more than 93 days
 ```
+
+The answer holds **whole days from `from` until the next would take the days' text past `DAYS_MAX_CHARS` (300,000
+characters)**, always at least one; `next` is then the first day left out, and the view reads on from it. A day is at most
+`MAX_DAY_BYTES`, so every answer stays well under the contract's `REPLY_LIMITS` `bytes`, which holds every answer of the
+engine (the host answers one over it as too large).
 
 **`POST edit`**, body one `Edit`, JSON (the proof's four edits, `src/store/edits.ts` `plan`), each anchored to bytes the view
 saw and refused, never merged, when they changed:
@@ -182,7 +193,15 @@ type Edit =
 ```
 
 Every saved edit answers the edit that undoes it. An `entry` at a time the day already has is refused `entry-exists`.
+
+**A block open for writing survives a write earlier in the same day.** The person opens a block; the bot adds an entry above
+it; the person's offsets are now stale. For `replace` and `insert`, when the block at `start`..`end` is not `before` but
+exactly one top-level block of the day's text now equals `before`, the engine anchors to that block instead; when none, or
+more than one, does, the edit is refused `changed` with the day as it is. `range` (an undo) is never moved: it is exact
+bytes. The answer's `day` gives the view the block's new offsets.
 Proven by JR_02 `tests/routes.test.ts`: "days answers every day in the range, gaps included, and refuses a bad range",
+"days stops before DAYS_MAX_CHARS, always gives one day, and says next", "an open block's save lands after a write earlier in
+the same day: its text found once, it is moved", "a before found twice, or not at all, is refused changed",
 "an edit anchored to bytes that moved is refused with the day as it is now", "every saved edit answers its undo, and the
 undo puts the bytes back", "a caller that is not the person is refused", "a path the Journal does not serve is null".
 
@@ -239,10 +258,12 @@ and the atomic write the person's edits use; a refusal is a result with `isError
 `structuredContent: { refused: <code> }`, its text one sentence saying why and what to do, never a throw. A tool's
 `caller` is `{ by: 'agent', agent }`; the Journal records nothing of it.
 
-**Every change is anchored and versioned.** The bot names the day, the entry (its time) and the block's whole text as
-`read_days` showed it, and passes the day's `version` from that read: a day that changed since is refused `stale`, an
-anchor that matches more than one block is refused `ambiguous` unless `nth` says which, and the offsets the anchor found
-are then checked against the bytes, as the person's edits are.
+**Every change of existing writing is anchored and versioned.** For `replace_block`, `delete_block` and `insert_after` the
+bot names the day, the entry (its time) and the block's whole text as `read_days` showed it, and passes the day's `version`
+from that read (required): a day that changed since is refused `stale`, an anchor that matches more than one block is refused
+`ambiguous` unless `nth` says which, and the offsets the anchor found are then checked against the bytes, as the person's
+edits are. `add_entry` changes no existing writing (it places a new entry by its time), so its `version` is optional: given,
+it is checked the same way; left out, the entry is placed in the day as it is now.
 
 Shared schema parts (`$defs` written out in each tool's schema; each `description` is a words key's text, § Words):
 
@@ -256,7 +277,7 @@ Shared schema parts (`$defs` written out in each tool's schema; each `descriptio
 | Tool | Input (`type: object`, `additionalProperties: false`) | Does |
 |---|---|---|
 | `read_days` | `from` (date, required), `to` (date) | Reads `from` to `to` (`to` defaults to `from`), at most `READ_MAX_DAYS` (31) days and `READ_MAX_CHARS` (60,000) characters: whole days from `from` until the next would not fit, and then says where to read on |
-| `add_entry` | `date`, `time`, `version` (null for a day with no page), `text` (required); `title` (string, at most 80 characters, one line) | A new entry `## time` or `## time · title` with `text` as its body, placed before the first later entry; makes the day's page when it has none |
+| `add_entry` | `date`, `time`, `text` (required); `version` (null for a day with no page; checked when given); `title` (string, at most 80 characters, one line) | A new entry `## time` or `## time · title` with `text` as its body, placed before the first later entry; makes the day's page when it has none |
 | `replace_block` | `date`, `version`, `entry` (a time), `block` (text), `text` (required); `nth` (integer from 1) | The block under the entry at `entry` whose whole text is `block` becomes `text`. The entry's heading is a block too: replacing it gives the entry a new time or title |
 | `delete_block` | `date`, `version`, `entry`, `block` (required); `nth` | Removes that block and the blank line after it |
 | `insert_after` | `date`, `version`, `entry`, `block`, `text` (required); `nth` | New writing after that block, under the same entry |
@@ -348,7 +369,7 @@ Undo is a toast inside `root`.
 
 | Member | The Journal's use |
 |---|---|
-| `api` | `days?from=…&to=…` (GET) and `edit` (POST, `content-type: application/json`), paths with no leading `/`; a reply with status 400 or more is a problem (§ Routes) |
+| `api` | `days?from=…&to=…` (GET, followed by `next` until the range is read) and `edit` (POST, `content-type: application/json`), paths with no leading `/`; a reply with status 400 or more is a problem (§ Routes) |
 | `events` | `{ date }` within the range shown reads that day again; `{}` reads every day shown again; any other ref is ignored |
 | `chat` | `add(chip)` for a block's Add to chat in the writing bar (a `block` chip); nothing is staged by `attach`; no `send` |
 | `settings` | Nothing |
@@ -363,8 +384,8 @@ Undo is a toast inside `root`.
 |---|---|
 | `unmount()` | Removes every listener and timer it added, empties `root` and takes its class off. Never asks and never saves: the host calls `leave()` first |
 | `unsaved()` | True while a block open for writing holds text other than what was saved |
-| `leave()` | Nothing unsaved: true at once. Else saves it: saved, true. Refused, or not answered within `LEAVE_SAVE_MS` (4,000 ms, under nclite's wait for a `leave`): asks through `confirm` ("Your writing wasn't saved", the reason, "Discard it"), true when discarded, false to keep writing, focus back in the block. A call while one is asking gets the same answer |
-| `pageChip()` | A `days` chip for the range shown: label "2 Nov – 8 Nov", detail "7 days" (§ Words) |
+| `leave()` | Nothing unsaved: true at once. Else saves it: saved, true. Refused, or not answered within half the contract's `VIEW_ANSWER_MS` (`LEAVE_SAVE_MS = VIEW_ANSWER_MS / 2`, from the contract copy, never a number of its own): asks through `confirm` ("Your writing wasn't saved", the reason, "Discard it"), true when discarded, false to keep writing, focus back in the block. So it always answers, or opens the pane's confirm, within the host's wait. A call while one is asking gets the same answer. If the host gave up and closed it anyway, nothing after `unmount` acts |
+| `pageChip()` | A `days` chip for the range shown: label "2 Nov – 8 Nov", detail "7 days" (§ Words). Never more than `resolve` takes: null when the range is longer than `CHIP_DAYS` or the days shown hold more than `CHIP_TEXT_CHARS` of text, so the header's Add to chat has nothing to add rather than a chip that would be refused |
 | `reveal(ref)` | `{ date }` or `{ date, key }`: shows the week holding `date` and marks the block with `key`, or the day when the key is gone; `{ from, to }`: shows that range. A ref of another shape, or a date that is not one, is said through `notify`, and nothing moves |
 
 A chip is `{ kind: 'block', ref: { date, key }, label: "Sat 7 Nov · 21:30 · Walk", detail: <the block's first 72
@@ -375,9 +396,10 @@ document. Undo is `Cmd/Ctrl+Z` only while focus is in `root`.
 
 Proven by `tests/view/` (pure parts, and the whole mount on its fake DOM, `tests/view/fake-dom.ts`): JR_03
 `tests/view/mount.test.ts` (two journals in one page share nothing, and unmount leaves nothing behind); JR_04 "the range opens
-on the current week, Monday to Sunday", "a block's Add to chat calls chat.add with a chip inside CHIP_LIMITS", "a reveal of
+on the current week, Monday to Sunday", "a block's Add to chat calls chat.add with a chip inside CHIP_LIMITS", "pageChip is
+null for a range longer than CHIP_DAYS or holding more than CHIP_TEXT_CHARS", "a range is read in parts, following next", "a reveal of
 each ref shape the Journal has made is understood, and any other is said through notify", "leave saves, and asks through
-confirm only when the save is refused or slow", "an event of {} reads every day shown again". In a real browser, by nclite's smoke rows for the Journal (INT_01): opens on
+confirm only when the save is refused or slower than VIEW_ANSWER_MS / 2", "an event of {} reads every day shown again". In a real browser, by nclite's smoke rows for the Journal (INT_01): opens on
 the current week, writes in place, two bots' Journals open at once without sharing, closing with unsaved writing saves it.
 
 ## The look
@@ -440,8 +462,8 @@ src/ is a sentence" (src/vendor/ excepted), "every placeholder a sentence holds 
 
 `plugin.d.ts`, made at build from the code (`bin/types.ts` `pluginTypes`), never by hand: the declarations of the vendored
 contract, `src/vendor/plugin-host/plugin-host.ts`, then those of `src/seam-types.ts`, which may import from the contract copy
-and from nothing else (build: the one import is dropped from the output, since its declarations come first). One module,
-no import. `src/seam-types.ts` declares:
+and from nothing else; the one import is dropped from the output, since its declarations come first. One module, no import.
+`src/seam-types.ts` declares:
 
 ```ts
 export declare function mount(root: HTMLElement, host: PluginHost): PluginView;
@@ -456,9 +478,9 @@ export interface WriteResult { date: string; version: string; entry: string; key
 ```
 
 `src/engine/engine.ts` and `src/view/view.ts` are typed by these, so the build fails when the code and the types part.
-nclite compiles its host against this file (`docs/plugins.md` § The seam number). Proven by `tests/build.test.ts` (build):
-"plugin.d.ts is one module with no import, and compiles alone with the DOM's types", "a host that gives the contract's
-PluginHost compiles against it".
+nclite compiles its host against this file (`docs/plugins.md` § The seam number): that, with the seam its row pins, is
+what holds the Journal to the contract. Proven by `tests/build.test.ts`: "plugin.d.ts is one module with no import, and
+compiles alone with the DOM types", "a host that gives the contract's PluginHost compiles against it".
 
 ## Not covered
 
