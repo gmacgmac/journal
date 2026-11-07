@@ -15,8 +15,10 @@ refused and nothing is saved: read again and work from what is there.
 
 - `read_days`: one day or a range (at most 31 days); when it doesn't all fit, read on from the day it names.
 - `add_entry`: a new entry at a time, with an optional title; it goes in time order and starts the day's
-  page if there is none. For a day with no page, pass `null` as the version or leave it out.
-- `insert_after`: new writing after a block, under the same entry.
+  page if there is none. For a day with no page, pass `null` as the version or leave it out. Log on
+  today's page at the time now, unless the person names the page; a note about a day to come goes today.
+- `insert_after`: new writing after a block, under the same entry, as a block of its own. To add an item
+  to a list, `replace_block` the whole list with the item in it.
 - `replace_block`: one block becomes new writing; replacing an entry's heading changes its time or title.
 - `delete_block`: removes one block.
 

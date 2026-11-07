@@ -46,4 +46,26 @@ describe('the skill', () => {
 		const bullet = skill.slice(skill.indexOf('- `add_entry`')).split(/\n- |\n\n/)[0]!;
 		assert.match(bullet, /`null`/);
 	});
+	// Real turns on Haiku 5.5 (nclite, 2026-11-07): asked to add a to-do, the bot once used insert_after, which leaves a
+	// second one-item list under the first. The skill and the tool's words send a list item to replace_block instead.
+	it('an item added with insert_after after a list is a block of its own, so the skill and the tool send list items to replace_block', async (t) => {
+		const { dir, done } = scratch(true);
+		t.after(done);
+		const engine = createEngine({ dir, name: () => 'A bot', warn: () => {}, flags: {} });
+		const ctx = { caller: { by: 'agent' as const, agent: 'bot-0123456789abcdef' }, signal: new AbortController().signal };
+		await engine.tools.call('add_entry', { date: '2026-11-07', time: '09:00', text: '- [ ] One\n- [ ] Two', version: null }, ctx);
+		const day = async () => ((await engine.tools.call('read_days', { from: '2026-11-07' }, ctx)).structuredContent as { days: { version: string; text: string }[] }).days[0]!;
+		const { version } = await day();
+		await engine.tools.call('insert_after', { date: '2026-11-07', version, entry: '09:00', block: '- [ ] One\n- [ ] Two', text: '- [ ] Three' }, ctx);
+		const page = (await day()).text;
+		assert.ok(page.includes('- [ ] Two\n\n- [ ] Three'), 'a block of its own');
+		const bullet = skill.slice(skill.indexOf('- `insert_after`')).split(/\n- |\n\n/)[0]!;
+		assert.match(bullet, /list.*`replace_block`/s);
+		assert.match(WORDS['journal.tool.insert_after']!, /list.*replace_block/s);
+	});
+	// The same run: told "the engineer is coming on Tuesday", the bot once wrote the note on Tuesday's page.
+	it('the skill says a note goes on today\'s page unless the person names the page', () => {
+		const bullet = skill.slice(skill.indexOf('- `add_entry`')).split(/\n- |\n\n/)[0]!;
+		assert.match(bullet, /today/);
+	});
 });

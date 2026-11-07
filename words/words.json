@@ -13,7 +13,7 @@
 	"journal.tool.replace_block": "Replace one block (a paragraph, a list or a quote) with new writing. Name it by the day, the time of its entry and its whole text as read_days showed it, with the day’s version. An entry’s heading is a block too: replacing it gives the entry a new time or title.",
 	"journal.tool.replace_block.text": "The new writing in Markdown. For a heading, ## HH:MM or ## HH:MM · Title.",
 	"journal.tool.delete_block": "Remove one block, named as for replace_block: the day, the time of its entry, its whole text and the day’s version.",
-	"journal.tool.insert_after": "Add new writing right after one block, under the same entry. Name the block as for replace_block.",
+	"journal.tool.insert_after": "Add new writing right after one block, under the same entry, as a block of its own. To add an item to a list, use replace_block with the whole list instead. Name the block as for replace_block.",
 	"journal.tool.field.date": "The day, YYYY-MM-DD.",
 	"journal.tool.field.version": "The day’s version from read_days.",
 	"journal.tool.field.entry": "The time of the block’s entry, HH:MM, as its heading shows it.",
