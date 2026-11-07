@@ -373,7 +373,7 @@ Undo is a toast inside `root`.
 | `events` | `{ date }` within the range shown reads that day again; `{}` reads every day shown again; any other ref is ignored |
 | `chat` | `add(chip)` for a block's Add to chat in the writing bar (a `block` chip); nothing is staged by `attach`; no `send` |
 | `settings` | Nothing |
-| `notify` | A refused save or tick (`error`), and a reveal it cannot show |
+| `notify` | A refused save or tick (`error`), and a reveal it cannot show. A refused save that is a clash stays in the writing bar with its two choices instead |
 | `confirm` | Only from `leave()`, when writing could not be saved |
 | `store` | Nothing |
 | `imageRoute` | Nothing |
@@ -423,7 +423,7 @@ paper as its own look when the host sets none.
 | `--journal-page` | `color-mix(in oklab, var(--host-surface) 95%, var(--host-accent) 5%)` | `light-dark(#fbf6ec, #1c1916)` |
 | `--journal-field` | `var(--host-surface)`: the ground of a block open for writing | `light-dark(#fffdf8, #25211e)` |
 | `--journal-hover` | `var(--host-surface-sunken)` | `light-dark(#f4ecdf, #25211e)` |
-| `--journal-fresh` | `color-mix(in oklab, var(--journal-page) 78%, var(--host-accent) 22%)`: a block just changed or revealed | `light-dark(#f3dfc1, #3b2d22)` |
+| `--journal-fresh` | `color-mix(in oklab, var(--journal-page) 78%, var(--host-accent) 10%)`: a block just changed or revealed (22% failed the contrast rule with the host's values: muted text Lc 53.6 in light, links Lc 43.8 in dark) | `light-dark(#f3dfc1, #3b2d22)` |
 | `--journal-rule`, `--journal-field-line` | `var(--host-line)`, `var(--host-line-strong)` | `light-dark(#e4d8c4, #332d29)`, `light-dark(#d8c8b0, #463f3a)` |
 | `--journal-ink`, `--journal-ink-soft` | `var(--host-ink)`, `var(--host-ink-muted)` | `light-dark(#2a241e, #ece5da)`, `light-dark(#6f5f4a, #c6baac)` |
 | `--journal-date-ink`, `--journal-link` | `var(--host-accent-strong)` | `light-dark(#8a4320, #f2a77c)`, `light-dark(#9b4519, #ff9a66)` |
@@ -434,7 +434,7 @@ paper as its own look when the host sets none.
 Each token is declared on `.journal` with its host form, whose `var()` falls back to the right-hand column. **Contrast**: ink
 and soft ink on desk, page, field, hover and fresh meet APCA Lc 60, and date ink and links Lc 45, for the host values of
 nclite's table (the board spec's § Theme and host styling) in light and dark, and for the Journal's own: the mixes stay small
-enough that the host's own pairs carry over. Proven by JR_04 `tests/colours.test.ts` (its own APCA-W3 0.0.98G-4g, a test
+enough that the host's own pairs carry over. Proven by JR_04 `tests/view/colours.test.ts` (its own APCA-W3 0.0.98G-4g, a test
 helper): "every pair meets its tier with the host's values and without them, light and dark", "the stylesheet reads only host
 properties of the contract's list", "every rule is under .journal".
 
