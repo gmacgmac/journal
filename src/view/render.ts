@@ -6,6 +6,7 @@
 //     exactly the tree it was drawn from;
 //   - a list item that is one paragraph renders tight, with no <p>.
 import { parseMarkdown, safeHref, type Block, type Inline, type ListItem } from '../vendor/markdown/index.ts';
+import { say } from './words.ts';
 
 /** An element with attributes and children, the one way the view makes markup. */
 export function el<K extends keyof HTMLElementTagNameMap>(
@@ -50,7 +51,7 @@ export function inlines(nodes: Inline[]): Node[] {
 function item(it: ListItem): HTMLElement {
 	const [only] = it.children;
 	// A to-do's box is live: ticking it saves. It is never part of the text being typed.
-	const attrs: Record<string, string> = { type: 'checkbox', class: 'todo', contenteditable: 'false', 'aria-label': 'Done' };
+	const attrs: Record<string, string> = { type: 'checkbox', class: 'todo', contenteditable: 'false', 'aria-label': say('journal.view.todo') };
 	const box = it.checked === null ? [] : [el('input', [], it.checked ? { ...attrs, checked: '' } : attrs)];
 	const body = it.children.length === 1 && only?.kind === 'paragraph' ? inlines(only.children) : blocks(it.children);
 	return el('li', [...box, ...body], it.checked === null ? {} : { class: 'task' });

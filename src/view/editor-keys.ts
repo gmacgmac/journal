@@ -11,6 +11,7 @@
 import { caretIn, caretOffset, collapsed, cutAfterCaret, placeCaret, selection } from './caret.ts';
 import { el } from './render.ts';
 import type { BlockNode, Session } from './session.ts';
+import { say } from './words.ts';
 
 /** Formatting a journal can't hold, and structure only the keys above may make. */
 const BLOCKED = new Set([
@@ -21,7 +22,7 @@ const BLOCKED = new Set([
 ]);
 
 export const checkbox = (checked = false): HTMLInputElement => el('input', [], {
-	type: 'checkbox', class: 'todo', contenteditable: 'false', 'aria-label': 'Done', ...(checked ? { checked: '' } : {}),
+	type: 'checkbox', class: 'todo', contenteditable: 'false', 'aria-label': say('journal.view.todo'), ...(checked ? { checked: '' } : {}),
 });
 
 /** An empty item keeps a <br> so the caret has somewhere to stand; the reader drops it. */
@@ -37,7 +38,8 @@ function caretIntoItem(li: HTMLElement, at = 0): void {
 }
 
 export function onKeyDown(e: KeyboardEvent, s: Session): void {
-	if (e.isComposing) return;
+	// A key another handler already took is not this editor's.
+	if (e.isComposing || e.defaultPrevented) return;
 	const mod = e.metaKey || e.ctrlKey;
 	const key = e.key.toLowerCase();
 	if (e.key === 'Escape' || (mod && e.key === 'Enter')) {

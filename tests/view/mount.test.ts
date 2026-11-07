@@ -1,150 +1,165 @@
-// The whole mount on a fake DOM: two journals in one page share nothing, and unmount leaves nothing behind.
-// What needs a real browser (the caret, focus, layout, typing) is INT_01's smoke walk.
+// The whole mount on a fake DOM and a fake host: it opens on the current week, reads a range in parts, follows the
+// host's events, keeps two journals apart, and unmount leaves nothing behind and saves nothing.
+// What needs a real browser (the caret, focus, layout, typing) is nclite's smoke walk (INT_01).
 import assert from 'node:assert/strict';
 import { before, describe, it } from 'node:test';
-import { fire, installDom, newRoot, settle, type FakeElement } from './fake-dom.ts';
-import type { Chip, Day, DayBlock, DayEvent, Edit, JournalApp } from '../../src/view/app.ts';
-import { addDays, shift, spanOf } from '../../src/view/dates.ts';
-// `view.ts` passes straight through to `mountJournal` and imports the stylesheet, which Node cannot load; the build
-// test holds `view.ts` itself (one module, exporting only `mount`).
-import { mountJournal as mount, SAMPLE_WEEK } from '../../src/view/journal.ts';
-
-/** A day with one entry holding one to-do; its key changes with the box so a save is a real change. */
-function dayOf(date: string, done = false): Day {
-	const texts = [`# ${date}`, '## 08:00', `- [${done ? 'x' : ' '}] water the plants`];
-	let at = 0;
-	const blocks: DayBlock[] = texts.map((text) => {
-		const b = { start: at, end: at + text.length, text, key: `${date}:${text}` };
-		at = b.end + 2;
-		return b;
-	});
-	return { date, title: date, exists: true, blocks };
-}
-
-/** A host as the view's adapter sees it, recording every call. */
-function fakeApp() {
-	const calls = { gets: [] as string[], edits: [] as Edit[], chips: [] as Chip[] };
-	const listeners = { events: new Set<(e: DayEvent) => void>(), settings: new Set<() => void>() };
-	const settings: Record<string, string> = { 'week-start': 'monday' };
-	const app: JournalApp = {
-		async api(path, init) {
-			if (init?.method === 'POST') {
-				const e = init.body as Extract<Edit, { op: 'replace' }>;
-				calls.edits.push(e);
-				return { ok: true, day: dayOf(e.date, e.after.includes('[x]')), undo: { op: 'range', date: e.date, start: e.start, end: e.end, before: e.after, after: e.before } };
-			}
-			calls.gets.push(path);
-			const q = new URLSearchParams(path.split('?')[1]);
-			const days: Day[] = [];
-			for (let d = q.get('from')!; d <= q.get('to')!; d = addDays(d, 1)) days.push(dayOf(d));
-			return days;
-		},
-		events: (fn) => (listeners.events.add(fn), () => void listeners.events.delete(fn)),
-		addToChat: (chip) => void calls.chips.push(chip),
-		settings: {
-			get: (k) => settings[k],
-			on: (fn) => (listeners.settings.add(fn), () => void listeners.settings.delete(fn)),
-		},
-	};
-	const emit = (date: string) => { for (const fn of listeners.events) fn({ ref: { date } }); };
-	return { app, calls, listeners, settings, emit };
-}
+import { addDays, daysBetween } from '../../src/format/index.ts';
+import { shift } from '../../src/view/dates.ts';
+import { FakeEvent, fire, installDom, settle, type FakeElement } from './fake-dom.ts';
+import { fileOf, mounted, thisWeek } from './fake-host.ts';
 
 const q = (root: HTMLElement, sel: string) => root.querySelector(sel) as unknown as FakeElement;
-
-async function mounted() {
-	const root = newRoot();
-	const host = fakeApp();
-	const view = mount(root, host.app);
-	await settle();
-	return { root, view, ...host };
-}
+const daysQuery = (from: string, to: string) => `days?from=${from}&to=${to}`;
 
 describe('mount', () => {
 	before(() => installDom());
 
-	it('opens on the proof’s sample week and draws its days', async () => {
+	it('the range opens on the current week, Monday to Sunday', async () => {
 		const m = await mounted();
-		const week = { from: SAMPLE_WEEK, to: addDays(SAMPLE_WEEK, 6) };
-		assert.deepEqual(m.calls.gets, [`/days?from=${week.from}&to=${week.to}`]);
+		const week = thisWeek();
+		assert.equal(new Date(`${week.from}T00:00:00Z`).getUTCDay(), 1, 'Monday');
+		assert.equal(daysBetween(week.from, week.to), 7);
+		assert.deepEqual(m.calls.gets, [daysQuery(week.from, week.to)]);
 		assert.equal(m.root.querySelectorAll('.day').length, 7);
 		assert.equal(q(m.root, '[data-range="from"]').value, week.from);
-		assert.deepEqual(m.view.pageChip().ref, week);
-		assert.deepEqual(m.view.pageChip(), { kind: 'days', ref: week, label: 'Mon 28 Sep – Sun 4 Oct', detail: '7 days' });
+		assert.equal(q(m.root, '[data-range="to"]').value, week.to);
+		assert.deepEqual(m.view.pageChip()?.ref, week);
 		m.view.unmount();
 	});
 
-	it('two mounts in one page share nothing: range, hint, toast, chips', async () => {
-		const a = await mounted();
-		const b = await mounted();
-		// Their hints are their own, and every block points at its own mount's.
+	it('a range is read in parts, following next', async () => {
+		const m = await mounted((h) => (h.knobs.perAnswer = 3));
+		const { from, to } = thisWeek();
+		assert.deepEqual(m.calls.gets, [daysQuery(from, to), daysQuery(addDays(from, 3), to), daysQuery(addDays(from, 6), to)]);
+		assert.deepEqual([...m.root.querySelectorAll('.day')].map((d) => d.getAttribute('data-date')), [0, 1, 2, 3, 4, 5, 6].map((n) => addDays(from, n)));
+		m.view.unmount();
+	});
+
+	it('a range that cannot be read is said through notify, and the page stays', async () => {
+		const m = await mounted();
+		const drawn = m.root.querySelector('.day');
+		m.knobs.down = true;
+		fire(q(m.root, '[data-range="next"]'), 'click');
+		await settle();
+		assert.equal(m.calls.notes.length, 1);
+		assert.equal(m.calls.notes[0]![1], 'error');
+		assert.equal(m.root.querySelector('.day'), drawn);
+		assert.deepEqual(m.view.pageChip()?.ref, thisWeek());
+		m.view.unmount();
+	});
+
+	it('an event of {} reads every day shown again, in place', async () => {
+		const { from, to } = thisWeek();
+		const m = await mounted((h) => h.files.set(from, fileOf(from, '## 08:00', 'Morning.')));
+		const kept = m.root.querySelector(`.day[data-date="${from}"]`);
+		m.files.set(from, fileOf(from, '## 08:00', 'Morning.', 'Coffee.'));
+		m.emit({});
+		await settle();
+		assert.deepEqual(m.calls.gets.slice(1), [daysQuery(from, to)]);
+		assert.equal(m.root.querySelector(`.day[data-date="${from}"]`), kept, 'patched, not drawn anew');
+		assert.equal(kept!.querySelectorAll('.block').length, 3);
+		m.view.unmount();
+	});
+
+	it('an event of { date } reads that day again when it is shown, and is ignored otherwise', async () => {
+		const { from } = thisWeek();
+		const m = await mounted();
+		m.emit({ date: from });
+		m.emit({ date: addDays(from, 30) });
+		m.emit({ board: 'b1' });
+		await settle();
+		assert.deepEqual(m.calls.gets.slice(1), [daysQuery(from, from)]);
+		m.view.unmount();
+	});
+
+	it('two mounts in one page share nothing: range, hint, toast, events', async () => {
+		const { from } = thisWeek();
+		const file = fileOf(from, '## 08:00', '- [ ] water the plants');
+		const a = await mounted((h) => h.files.set(from, file));
+		const b = await mounted((h) => h.files.set(from, file));
 		const hintA = q(a.root, '.edit-hint').id;
 		const hintB = q(b.root, '.edit-hint').id;
 		assert.notEqual(hintA, hintB);
 		assert.ok([...a.root.querySelectorAll('.block')].every((n) => n.getAttribute('aria-describedby') === hintA));
 		assert.ok([...b.root.querySelectorAll('.block')].every((n) => n.getAttribute('aria-describedby') === hintB));
 
-		// Moving A on leaves B where it was.
 		fire(q(a.root, '[data-range="next"]'), 'click');
 		await settle();
-		const weekA = shift({ from: SAMPLE_WEEK, to: addDays(SAMPLE_WEEK, 6) }, 1);
-		assert.deepEqual(a.view.pageChip().ref, weekA);
-		assert.deepEqual(b.view.pageChip().ref, { from: SAMPLE_WEEK, to: addDays(SAMPLE_WEEK, 6) });
+		assert.deepEqual(a.view.pageChip()?.ref, shift(thisWeek(), 1));
+		assert.deepEqual(b.view.pageChip()?.ref, thisWeek());
 
-		// Ticking a to-do in B saves through B's host and shows B's toast only.
 		const box = q(b.root, 'input.todo');
 		box.checked = true;
 		fire(box, 'click');
 		await settle();
 		assert.equal(b.calls.edits.length, 1);
 		assert.equal(a.calls.edits.length, 0);
-		assert.match(b.calls.edits[0]!.op === 'replace' ? b.calls.edits[0]!.after : '', /\[x\]/);
-		assert.equal(q(b.root, '.toast').querySelector('span')!.textContent, 'Done.');
 		assert.ok(!q(b.root, '.toast').hidden);
 		assert.ok(q(a.root, '.toast').hidden);
 
-		// A change event reaches only the mount whose host sent it, and only for a day it shows.
-		const before = a.calls.gets.length;
-		a.emit(weekA.from);
-		b.emit(addDays(SAMPLE_WEEK, 30));
+		const gets = b.calls.gets.length;
+		a.emit({ date: addDays(from, 7) });
 		await settle();
-		assert.deepEqual(a.calls.gets.slice(before), [`/days?from=${weekA.from}&to=${weekA.from}`]);
-		assert.equal(b.calls.gets.length, 1);
+		assert.equal(b.calls.gets.length, gets);
 		a.view.unmount();
 		b.view.unmount();
 	});
 
-	it('the paper follows its setting, live', async () => {
-		const m = await mounted();
-		assert.equal(q(m.root, '.paper').getAttribute('data-paper'), 'follow');
-		m.settings.paper = 'dark';
-		for (const fn of m.listeners.settings) fn();
-		assert.equal(q(m.root, '.paper').getAttribute('data-paper'), 'dark');
+	it('a refused tick is said through notify and the box goes back', async () => {
+		const { from } = thisWeek();
+		const m = await mounted((h) => h.files.set(from, fileOf(from, '## 08:00', '- [ ] water the plants')));
+		m.knobs.edit = () => new Response(JSON.stringify({ title: 'Refused for the test.', status: 422, code: 'rules' }), { status: 422 });
+		const box = q(m.root, 'input.todo');
+		box.checked = true;
+		fire(box, 'click');
+		await settle();
+		assert.deepEqual(m.calls.notes, [['Refused for the test.', 'error']]);
+		assert.equal(box.checked, false);
 		m.view.unmount();
 	});
 
-	it('reveal brings a day into view and marks the block', async () => {
-		const m = await mounted();
-		const far = addDays(SAMPLE_WEEK, 10);
-		await m.view.reveal({ date: far, key: `${far}:## 08:00` });
-		const { from, to } = m.view.pageChip().ref as { from: string; to: string };
-		assert.ok(from <= far && far <= to && spanOf(from, to) === 7);
-		assert.ok(q(m.root, `.block[data-key="${far}:## 08:00"]`).classList.contains('fresh'));
-		await m.view.reveal({ from: far, to: far });
-		assert.ok(q(m.root, `.day[data-date="${far}"]`).classList.contains('fresh'));
+	it('a page that breaks the rules opens nothing for writing', async () => {
+		const { from } = thisWeek();
+		const m = await mounted((h) => {
+			h.files.set(from, fileOf(from, '## 08:00', 'Morning.'));
+			h.problems.set(from, ['A problem.']);
+		});
+		const block = q(m.root, `.day[data-date="${from}"]`).querySelector('.block')!;
+		fire(block, 'click');
+		const enter = new FakeEvent('keydown', { key: 'Enter' });
+		block.dispatchEvent(enter);
+		assert.equal(m.root.querySelector('.editing'), null);
+		assert.ok(!enter.defaultPrevented);
 		m.view.unmount();
 	});
 
-	it('unmount leaves nothing behind and stops listening', async () => {
-		const m = await mounted();
+	it('an Enter another handler already took opens nothing', async () => {
+		const { from } = thisWeek();
+		const m = await mounted((h) => h.files.set(from, fileOf(from, '## 08:00', 'Morning.')));
+		const taken = new FakeEvent('keydown', { key: 'Enter' });
+		taken.preventDefault();
+		q(m.root, '.block').dispatchEvent(taken);
+		assert.equal(m.root.querySelector('.editing'), null);
 		m.view.unmount();
+	});
+
+	it('unmount leaves nothing behind, stops listening and saves nothing', async () => {
+		const { from } = thisWeek();
+		const m = await mounted((h) => h.files.set(from, fileOf(from, '## 08:00', 'Morning.')));
+		const block = q(m.root, '.block[data-kind="paragraph"]');
+		fire(block, 'click');
+		block.querySelector('p')!.replaceChildren('Morning, changed.');
+		assert.equal(m.view.unsaved(), true);
+		m.view.unmount();
+		await settle();
+		assert.deepEqual(m.calls.edits, []);
+		assert.deepEqual(m.calls.asks, []);
 		assert.equal(m.root.childNodes.length, 0);
 		assert.ok(!m.root.classList.contains('journal'));
-		assert.equal(m.listeners.events.size, 0);
-		assert.equal(m.listeners.settings.size, 0);
+		assert.equal(m.listeners.size, 0);
 		assert.equal((m.root as unknown as FakeElement).listenerCount(), 0);
 		const gets = m.calls.gets.length;
-		m.emit(SAMPLE_WEEK);
+		m.emit({ date: from });
 		await settle();
 		assert.equal(m.calls.gets.length, gets);
 	});

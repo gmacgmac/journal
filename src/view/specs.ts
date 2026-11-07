@@ -7,6 +7,7 @@ import { readInlines } from './dom-tree.ts';
 import { bodyMarkdown } from './editor.ts';
 import { el, renderMarkdown } from './render.ts';
 import { startOf, type BlockNode, type Session, type Spec } from './session.ts';
+import { say } from './words.ts';
 
 const range = (node: BlockNode) => ({ date: node.dataset.date!, start: Number(node.dataset.start), end: Number(node.dataset.end) });
 const clones = (node: Node): Node[] => [...node.childNodes].map((c) => c.cloneNode(true));
@@ -49,7 +50,7 @@ export type Heading = { time: string; title: string | null } | { problem: string
 /** Read a time and title into an entry heading's Markdown, or say what is wrong. */
 export function headingMarkdown(time: Pick<Node, 'textContent'>, title: Node | null): Heading {
 	const t = (time.textContent ?? '').trim();
-	if (!TIME_RE.test(t)) return { problem: 'A time looks like 21:30.' };
+	if (!TIME_RE.test(t)) return { problem: say('journal.view.write.timeShape') };
 	const words = title === null ? '' : inlineMarkdown(readInlines(title)).trim();
 	return { time: t.padStart(5, '0'), title: words === '' ? null : words };
 }
@@ -82,7 +83,7 @@ export function headingSpec(node: BlockNode): Spec {
 		canTitle: () => title === null,
 		addTitle() {
 			node.classList.add('has-title');
-			title = el('span', [el('br')], { class: 'title', 'data-placeholder': 'Title' });
+			title = el('span', [el('br')], { class: 'title', 'data-placeholder': say('journal.view.write.title') });
 			node.append(title);
 			node._editor?.arm(title);
 			title.focus();

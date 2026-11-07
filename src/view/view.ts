@@ -1,10 +1,7 @@
-// The view entry: one export, `mount`, and one stylesheet. This file is the adapter between whoever shows the
-// Journal and the view's own `JournalApp` (`app.ts`): today it hands the proof's `app` shape straight through; the
-// host rewiring (JR_04) makes it turn nclite's host into a `JournalApp` here, and nowhere else.
-import type { JournalApp, JournalView } from './app.ts';
+// The view entry: one export, `mount`, and one stylesheet (spec § The view). `mount` is typed by the seam's own
+// declaration (`src/seam-types.ts`), so the build fails when the view and the types it publishes part.
+import type * as Seam from '../seam-types.ts';
 import { mountJournal } from './journal.ts';
 import './journal.css';
 
-export function mount(root: HTMLElement, app: JournalApp): JournalView {
-	return mountJournal(root, app);
-}
+export const mount: typeof Seam.mount = (root, host) => mountJournal(root, host);

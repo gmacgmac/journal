@@ -1,21 +1,23 @@
 // Undo, one stack and one toast per mount.
 import assert from 'node:assert/strict';
 import { before, describe, it, mock } from 'node:test';
-import { fire, installDom, newRoot, settle } from './fake-dom.ts';
-import type { Day, EditResult, RangeEdit } from '../../src/view/app.ts';
+import { FakeEvent, fire, installDom, newRoot, settle } from './fake-dom.ts';
+import type { Day, EditResult, RangeEdit } from '../../src/view/wire.ts';
 import { el } from '../../src/view/render.ts';
 import { createUndo, TOAST_MS, type UndoPage } from '../../src/view/undo.ts';
+import { say } from '../../src/view/words.ts';
 
-const DAY: Day = { date: '2026-10-01', title: 'D', exists: true, blocks: [] };
+const DAY: Day = { date: '2026-10-01', title: 'D', exists: true, version: null, blocks: [], problems: [] };
 const undoEdit = (n: number): RangeEdit => ({ op: 'range', date: DAY.date, start: n, end: n + 1, before: 'x', after: '' });
 
 /** A page that records what undo asked of it and answers each edit with `answer`. */
 function fakePage(answer: (e: RangeEdit) => EditResult = (e) => ({ ok: true, day: DAY, undo: e })) {
-	const calls = { edits: [] as RangeEdit[], patched: 0, focused: [] as [string, number][] };
+	const calls = { edits: [] as RangeEdit[], patched: 0, focused: [] as [string, number][], notes: [] as [string, string | undefined][] };
 	const page: UndoPage = {
 		edit: async (e) => (calls.edits.push(e), answer(e)),
 		patch: () => void (calls.patched += 1),
 		focusAt: (date, start) => void calls.focused.push([date, start]),
+		notify: (text, tone) => void calls.notes.push([text, tone]),
 	};
 	return { page, calls };
 }
@@ -42,20 +44,20 @@ describe('undo', () => {
 		assert.ok(u.offered() && !u.toast.hidden);
 		await u.undo.undoLast();
 		assert.deepEqual(u.calls.edits, [undoEdit(2)]);
-		assert.equal(u.words(), 'Undone.');
+		assert.equal(u.words(), say('journal.view.undo.done'));
 		assert.ok(!u.offered());
 		assert.deepEqual(u.calls.focused, [[DAY.date, 2]]);
 		assert.equal(u.undo.depth, 1);
 		u.undo.dispose();
 	});
 
-	it('says when there is nothing to undo, and when the page changed since', async () => {
+	it('says when there is nothing to undo, and a refused undo through the host', async () => {
 		const u = setup(() => ({ ok: false, status: 409, reason: 'changed', day: DAY }));
 		await u.undo.undoLast();
-		assert.equal(u.words(), 'Nothing to undo.');
+		assert.equal(u.words(), say('journal.view.undo.nothing'));
 		u.undo.push(undoEdit(1));
 		await u.undo.undoLast();
-		assert.equal(u.words(), 'Can’t undo: that part has changed since.');
+		assert.deepEqual(u.calls.notes, [[say('journal.view.undo.changed'), 'error']]);
 		assert.equal(u.calls.patched, 1);
 		assert.deepEqual(u.calls.focused, []);
 		u.undo.dispose();
@@ -75,6 +77,17 @@ describe('undo', () => {
 		u.undo.dispose();
 	});
 
+	it('a ⌘Z another handler already took is left alone', async () => {
+		const u = setup();
+		u.undo.push(undoEdit(1));
+		const taken = new FakeEvent('keydown', { key: 'z', metaKey: true });
+		taken.preventDefault();
+		u.root.dispatchEvent(taken as unknown as Event);
+		await settle();
+		assert.deepEqual(u.calls.edits, []);
+		u.undo.dispose();
+	});
+
 	it('two mounts keep their own stacks and toasts', async () => {
 		const a = setup();
 		const b = setup();
@@ -82,7 +95,7 @@ describe('undo', () => {
 		assert.equal(b.undo.depth, 0);
 		assert.ok(b.toast.hidden);
 		await b.undo.undoLast();
-		assert.equal(b.words(), 'Nothing to undo.');
+		assert.equal(b.words(), say('journal.view.undo.nothing'));
 		assert.equal(a.words(), 'Saved in A.');
 		assert.equal(a.undo.depth, 1);
 		a.undo.dispose();
@@ -93,7 +106,8 @@ describe('undo', () => {
 		mock.timers.enable({ apis: ['setTimeout'] });
 		try {
 			const u = setup();
-			u.undo.notify('A line.');
+			void u.undo.undoLast();
+			assert.ok(!u.toast.hidden);
 			mock.timers.tick(TOAST_MS.plain);
 			assert.ok(u.toast.hidden);
 			u.undo.push(undoEdit(1));

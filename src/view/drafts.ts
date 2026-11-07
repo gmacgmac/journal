@@ -3,17 +3,18 @@
 //   paragraph  under an entry heading that has no writing yet; saved as an insert
 //   entry      at the end of a day, its time filled in with now; the title is optional (Add title in the bar); saved
 //              as an entry, which also starts the day's page when it has none
-import { entryHeading } from './dates.ts';
+import { entryHeading } from '../format/index.ts';
 import { bodyMarkdown, startSession } from './editor.ts';
 import { el } from './render.ts';
 import type { BlockNode, Page, Session } from './session.ts';
 import { headingMarkdown } from './specs.ts';
+import { say } from './words.ts';
 
-const blank = (placeholder: string) => el('p', [el('br')], { 'data-placeholder': placeholder });
+const blank = () => el('p', [el('br')], { 'data-placeholder': say('journal.view.write.placeholder') });
 
 /** A new paragraph after `anchor`, an existing block. */
 export function draftAfter(anchor: BlockNode, host: Page): Session {
-	const node: BlockNode = el('div', [blank('Write…')], { class: 'block draft', 'data-date': anchor.dataset.date! });
+	const node: BlockNode = el('div', [blank()], { class: 'block draft', 'data-date': anchor.dataset.date! });
 	anchor.after(node);
 	return startSession(node, host, {
 		kind: 'draft',
@@ -39,8 +40,8 @@ export function entryDraft(section: HTMLElement, host: Page): Session {
 		entries = el('div', [], { class: 'entries' });
 		section.querySelector('header')!.after(entries);
 	}
-	const time = el('span', [timeNow()], { class: 'time', 'aria-label': 'Time' });
-	const body = el('div', [blank('Write…')], { class: 'entry-body', 'aria-label': 'Entry' });
+	const time = el('span', [timeNow()], { class: 'time', 'aria-label': say('journal.view.write.time') });
+	const body = el('div', [blank()], { class: 'entry-body', 'aria-label': say('journal.view.write.entry') });
 	// The title, once added, sits above the writing and outside it, as a heading's title does.
 	const column = el('div', [body], { class: 'entry-column' });
 	const node: BlockNode = el('div', [time, column], { class: 'block draft entry-draft', 'data-date': section.dataset.date! });
@@ -77,7 +78,7 @@ export function entryDraft(section: HTMLElement, host: Page): Session {
 		},
 		canTitle: () => title === null,
 		addTitle() {
-			title = el('span', [el('br')], { class: 'title', 'data-placeholder': 'Title' });
+			title = el('span', [el('br')], { class: 'title', 'data-placeholder': say('journal.view.write.title') });
 			column.prepend(title);
 			node._editor?.arm(title);
 			title.focus();

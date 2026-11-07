@@ -7,28 +7,10 @@ import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import { build } from 'vite';
 import { viewBuild } from '../../vite.config.ts';
-
-/** The preludes of the sheet's top-level rules and at-rules, in order. */
-function topLevel(css: string): string[] {
-	const out: string[] = [];
-	let depth = 0;
-	let start = 0;
-	for (let i = 0; i < css.length; i += 1) {
-		if (css[i] === '{') {
-			if (depth === 0) out.push(css.slice(start, i).trim());
-			depth += 1;
-		} else if (css[i] === '}') {
-			depth -= 1;
-			if (depth === 0) start = i + 1;
-		}
-	}
-	return out;
-}
+import { topLevel, withoutComments } from './css.ts';
 
 /** Every selector or at-rule prelude in the sheet, at any depth: the text before each `{`. */
 const preludes = (css: string) => [...css.matchAll(/([^{};]*)\{/g)].map((m) => m[1]!.trim());
-
-const withoutComments = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
 describe('the built view', () => {
 	let tmp: string;

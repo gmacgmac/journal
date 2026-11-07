@@ -3,10 +3,11 @@
 //
 // Its buttons never take focus from the writing (mousedown is cancelled), and a keyboard user who tabs into it gets
 // the selection put back before it acts. One bar per mount: `createBar` keeps everything it knows inside.
-import type { DayBlock } from './app.ts';
+import type { Block } from './wire.ts';
 import { keepSelection } from './caret.ts';
 import { el, renderMarkdown } from './render.ts';
 import type { Session } from './session.ts';
+import { say } from './words.ts';
 
 export interface Bar {
 	inBar(node: EventTarget | null): boolean;
@@ -16,7 +17,7 @@ export interface Bar {
 	/** Say something in the bar; nothing clears it. */
 	say(...parts: Node[]): void;
 	/** The page's current version of a block, drawn as it reads, with the two ways on. */
-	clash(reason: string, current: DayBlock | null, keep: () => void, take: () => void): void;
+	clash(reason: string, current: Block | null, keep: () => void, take: () => void): void;
 	/** Ask for a link's address; `apply` gets it with the selection back in place. */
 	askLink(apply: (url: string) => void): void;
 }
@@ -55,12 +56,12 @@ export function createBar(bar: HTMLElement): Bar {
 			room();
 		},
 		clash(reason, current, keep, take) {
-			const mine = el('button', ['Keep my words'], { type: 'button' });
-			const theirs = el('button', ['Use the new text'], { type: 'button' });
+			const mine = el('button', [say('journal.view.clash.keep')], { type: 'button' });
+			const theirs = el('button', [say('journal.view.clash.take')], { type: 'button' });
 			mine.addEventListener('click', keep);
 			theirs.addEventListener('click', take);
-			if (current === null) return api.say(warn(reason), el('p', ['It is no longer on the page.']));
-			api.say(warn(reason), el('p', ['It now reads:']), el('blockquote', renderMarkdown(current.text), { class: 'current' }), el('div', [mine, theirs], { class: 'actions' }));
+			if (current === null) return api.say(warn(reason), el('p', [say('journal.view.clash.gone')]));
+			api.say(warn(reason), el('p', [say('journal.view.clash.now')]), el('blockquote', renderMarkdown(current.text), { class: 'current' }), el('div', [mine, theirs], { class: 'actions' }));
 		},
 		askLink(apply) {
 			restore = keepSelection();

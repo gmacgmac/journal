@@ -1,6 +1,6 @@
 // The shapes a writing session is made of (see `editor.ts`), in one place so the editor, the specs and the drafts
 // import types, never each other in a circle. Nothing here holds state: every session belongs to one mount's `Page`.
-import type { Day, DayBlock, Edit, EditResult, RangeEdit } from './app.ts';
+import type { Block, Day, Edit, EditResult, RangeEdit } from './wire.ts';
 import type { Bar } from './bar.ts';
 
 /** A block on the page: its file text and, while it is written in, its session. */
@@ -36,7 +36,7 @@ export interface Spec {
 	restore(): void;
 	/** Where the saved writing now starts in the file. */
 	landing(saved: Saved): number;
-	rebase?(now: DayBlock, which: 'mine' | 'theirs'): void;
+	rebase?(now: Block, which: 'mine' | 'theirs'): void;
 	merge?(s: Session, prev: BlockNode): void;
 	enter?(target: EventTarget | null): boolean;
 	canTitle?(): boolean;
@@ -51,14 +51,19 @@ export interface Session {
 	kind: Spec['kind'];
 	root: HTMLElement;
 	busy: boolean;
+	/** The save on its way, or null. */
+	saving: Promise<string | null> | null;
 	/** The block above, kept when this one is removed so the caret can go to its end. */
 	prev?: BlockNode | null;
 	canTitle(): boolean;
 	focus(where?: Where): void;
 	act(name: string, restore?: () => void): void;
 	arm(e: HTMLElement): void;
-	finish(o?: { then?: Then }): Promise<void>;
-	save(edit: Edit, then: Then, landing?: number | null): Promise<void>;
+	/** Null once nothing is left unsaved, else why not. */
+	finish(o?: { then?: Then }): Promise<string | null>;
+	save(edit: Edit, then: Then, landing?: number | null): Promise<string | null>;
+	/** Close without saving, the block as it was. */
+	discard(): void;
 	remove(): void;
 	stale(day: Day): void;
 }
@@ -75,6 +80,8 @@ export interface Page {
 	open(node: BlockNode, at?: Where): Session | null;
 	draftAfter(anchor: BlockNode): Session;
 	ask(node: BlockNode): void;
+	/** Says a refusal, through the host. */
+	notify(text: string, tone?: 'info' | 'error'): void;
 	bar: Bar;
 	/** The one session open in this mount, or null. */
 	sessions: { current: Session | null };

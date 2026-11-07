@@ -2,6 +2,8 @@
 // data attributes, classes, the simple selectors the view uses (a compound like `.block[data-key="k"]:not(.draft)`,
 // a `:scope > ` prefix, a comma list) and bubbling events. Not a browser: caret, focus and layout are not modelled.
 // `installDom()` puts `document`, `Node` and `window` on `globalThis` for one test file.
+// The selection is always empty and a range does nothing, which is enough to open a writing session and read it back:
+// where the caret lands is the browser walk's to prove.
 
 type Listener = { fn: (e: FakeEvent) => void; once?: boolean };
 
@@ -245,6 +247,30 @@ function matchCompound(el: FakeElement, c: Compound): boolean {
 	return !c.not.some((n) => matchCompound(el, n));
 }
 
+/** A range that holds nothing and does nothing. */
+class FakeRange {
+	startContainer: FakeNode | null = null;
+	startOffset = 0;
+	collapsed = true;
+	setStart(): void {}
+	setEnd(): void {}
+	setStartBefore(): void {}
+	collapse(): void {}
+	selectNodeContents(): void {}
+	cloneRange(): FakeRange { return new FakeRange(); }
+	toString(): string { return ''; }
+}
+
+/** The page's selection, always empty. */
+const fakeSelection = {
+	rangeCount: 0,
+	anchorNode: null,
+	isCollapsed: true,
+	removeAllRanges(): void {},
+	addRange(): void {},
+	getRangeAt(): FakeRange { return new FakeRange(); },
+};
+
 class FakeDocument {
 	documentElement = new FakeElement('html');
 	body = new FakeElement('body');
@@ -252,6 +278,16 @@ class FakeDocument {
 	constructor() { this.documentElement.append(this.body); }
 	createElement(tag: string): FakeElement { return new FakeElement(tag); }
 	createTextNode(t: string): FakeText { return new FakeText(t); }
+	createRange(): FakeRange { return new FakeRange(); }
+	elementFromPoint(): null { return null; }
+	/** Walks the text nodes under `root`, in order. */
+	createTreeWalker(root: FakeNode): { nextNode(): FakeNode | null } {
+		const texts: FakeNode[] = [];
+		const walk = (n: FakeNode) => n.childNodes.forEach((c) => (c.nodeType === FakeNode.TEXT_NODE ? texts.push(c) : walk(c)));
+		walk(root);
+		let at = 0;
+		return { nextNode: () => texts[at++] ?? null };
+	}
 }
 
 let doc = new FakeDocument();
@@ -263,6 +299,8 @@ export function installDom(): FakeDocument {
 	g.document = doc;
 	g.Node = FakeNode;
 	g.window = g;
+	g.getSelection = () => fakeSelection;
+	g.NodeFilter = { SHOW_TEXT: 4 };
 	return doc;
 }
 

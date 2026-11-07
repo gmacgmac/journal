@@ -6,26 +6,22 @@
 // One session at a time per mount, held on the mount's page (`host.sessions`), never in this module. A session is
 // the same whether it edits a block, a new paragraph or a new entry; only its spec differs (`session.ts` § Spec).
 import { blocksMarkdown, parseMarkdown } from '../vendor/markdown/index.ts';
-import type { Day, DayBlock, Edit, EditResult } from './app.ts';
+import type { Block, Day, Edit, EditResult } from './wire.ts';
 import { warn } from './bar.ts';
 import { placeCaret, placeCaretAtPoint, selection } from './caret.ts';
 import { readBlocks, same } from './dom-tree.ts';
 import { onBeforeInput, onInput, onKeyDown, toTodo } from './editor-keys.ts';
 import type { BlockNode, Page, Session, Spec, Then, Where } from './session.ts';
+import { say } from './words.ts';
 
 export { isEditing } from './session.ts';
-
-/** Save whatever is being written now: the view is going away (`mount`'s `unmount`). */
-export function finishOpen(host: Page): void {
-	void host.sessions.current?.finish({ then: 'stay' });
-}
 
 /** The writing under `root` as Markdown, or why it can't be saved as it looks. */
 export function bodyMarkdown(root: Node): { md: string } | { problem: string } {
 	const blocks = readBlocks(root);
 	if (blocks.length === 0) return { md: '' };
 	const md = blocksMarkdown(blocks);
-	return same(parseMarkdown(md), blocks) ? { md } : { problem: 'This can’t be saved exactly as it looks, so nothing was saved.' };
+	return same(parseMarkdown(md), blocks) ? { md } : { problem: say('journal.view.write.inexact') };
 }
 
 export function startSession(node: BlockNode, host: Page, spec: Spec, at: Where = 'end'): Session {
@@ -34,7 +30,7 @@ export function startSession(node: BlockNode, host: Page, spec: Spec, at: Where 
 	if (open !== null && open.node !== node) void open.finish({ then: 'stay' });
 	const listening = new AbortController();
 	const s: Session = {
-		node, host, spec, kind: spec.kind, root: spec.root ?? node, busy: false,
+		node, host, spec, kind: spec.kind, root: spec.root ?? node, busy: false, saving: null,
 		canTitle: () => spec.addTitle !== undefined && spec.canTitle?.() === true,
 		focus(where = 'end') {
 			if (typeof where === 'object') {
@@ -52,6 +48,10 @@ export function startSession(node: BlockNode, host: Page, spec: Spec, at: Where 
 			placeCaret(first, where);
 		},
 		act, arm, finish, save, remove, stale,
+		discard() {
+			close();
+			spec.restore();
+		},
 	};
 	node._editor = s;
 	sessions.current = s;
@@ -108,41 +108,56 @@ export function startSession(node: BlockNode, host: Page, spec: Spec, at: Where 
 		const sel = selection();
 		const inLink = sel.anchorNode?.parentElement?.closest('a, [data-href]');
 		if (inLink && node.contains(inLink)) return void document.execCommand('unlink');
-		if (sel.isCollapsed) return bar.say(warn('Select the words to link first.'));
+		if (sel.isCollapsed) return bar.say(warn(say('journal.view.write.linkSelect')));
 		bar.askLink((url) => {
-			if (!/^(https?:\/\/\S+|mailto:\S+)$/.test(url)) return bar.say(warn('A link needs an address that starts with https://.'));
+			if (!/^(https?:\/\/\S+|mailto:\S+)$/.test(url)) return bar.say(warn(say('journal.view.write.linkAddress')));
 			document.execCommand('createLink', false, url);
 		});
 	}
 
-	/** Save what is on screen; `then` says where the person goes next. */
-	async function finish({ then = 'stay' }: { then?: Then } = {}): Promise<void> {
-		if (s.busy || node._editor !== s) return;
+	/**
+	 * Save what is on screen; `then` says where the person goes next. Resolves null once nothing is left unsaved (saved,
+	 * or nothing to save), else why not; a save already on its way is waited for, never sent twice.
+	 */
+	async function finish({ then = 'stay' }: { then?: Then } = {}): Promise<string | null> {
+		if (node._editor !== s) return null;
+		if (s.saving !== null) return s.saving;
 		const r = spec.read();
-		if ('problem' in r) return bar.say(warn(r.problem));
+		if ('problem' in r) {
+			bar.say(warn(r.problem));
+			return r.problem;
+		}
 		if (r.edit === null) {
 			close();
 			spec.restore();
-			return land(then, Number(node.dataset.start));
+			land(then, Number(node.dataset.start));
+			return null;
 		}
 		return save(r.edit, then);
 	}
 
-	async function save(edit: Edit, then: Then, landing: number | null = null): Promise<void> {
+	function save(edit: Edit, then: Then, landing: number | null = null): Promise<string | null> {
 		s.busy = true;
 		node.classList.add('busy');
-		const res = await host.edit(edit);
-		s.busy = false;
-		node.classList.remove('busy');
-		if (res.ok) {
-			close();
-			node.remove();
-			host.patch(res.day, false);
-			host.undo(res.undo, 'after' in edit && edit.after === '' ? 'Deleted.' : 'Saved.');
-			return land(then, landing ?? spec.landing({ edit, res }));
-		}
-		if (res.day) host.patch(res.day);
-		refused(res);
+		s.saving = host.edit(edit).then((res) => {
+			s.busy = false;
+			s.saving = null;
+			node.classList.remove('busy');
+			// Discarded while it was on its way (`leave()`, `unmount()`): the answer is recorded, nothing reopens.
+			const open = node._editor === s;
+			if (res.ok) {
+				if (open) close();
+				node.remove();
+				host.patch(res.day, false);
+				host.undo(res.undo, say('after' in edit && edit.after === '' ? 'journal.view.deleted' : 'journal.view.saved'));
+				if (open) land(then, landing ?? spec.landing({ edit, res }));
+				return null;
+			}
+			if (res.day) host.patch(res.day);
+			if (open) refused(res);
+			return res.reason;
+		});
+		return s.saving;
 	}
 
 	function land(then: Then, start: number): void {
@@ -168,7 +183,7 @@ export function startSession(node: BlockNode, host: Page, spec: Spec, at: Where 
 		sessions.current = s;
 		bar.showBar(s);
 		s.focus();
-		if (res.status !== 409 || spec.rebase === undefined) return bar.say(warn(res.reason));
+		if (res.status !== 409 || spec.rebase === undefined) return host.notify(res.reason, 'error');
 		const now = blockAtStart(res.day, node);
 		bar.clash(res.reason, now, () => rebase(now, 'mine'), () => rebase(now, 'theirs'));
 	}
@@ -176,12 +191,12 @@ export function startSession(node: BlockNode, host: Page, spec: Spec, at: Where 
 	/** The block changed on disk while open: the words stay, and the person chooses. */
 	function stale(day: Day): void {
 		node.classList.add('stale');
-		if (spec.rebase === undefined) return bar.say(warn('The page changed round this while you were writing.'));
+		if (spec.rebase === undefined) return bar.say(warn(say('journal.view.clash.around')));
 		const now = blockAtStart(day, node);
-		bar.clash('This part just changed on the page. Your words are still here.', now, () => rebase(now, 'mine'), () => rebase(now, 'theirs'));
+		bar.clash(say('journal.view.clash.changed'), now, () => rebase(now, 'mine'), () => rebase(now, 'theirs'));
 	}
 
-	function rebase(now: DayBlock | null, which: 'mine' | 'theirs'): void {
+	function rebase(now: Block | null, which: 'mine' | 'theirs'): void {
 		// The proof's own behaviour: the choice is offered only with a block to rebase onto (`clash` draws no buttons otherwise).
 		if (now === null) return;
 		node.parentElement?.querySelector(`.block[data-key="${now.key}"]:not(.editing)`)?.remove();
@@ -192,5 +207,5 @@ export function startSession(node: BlockNode, host: Page, spec: Spec, at: Where 
 	}
 }
 
-const blockAtStart = (day: Day | null, node: BlockNode): DayBlock | null =>
+const blockAtStart = (day: Day | null, node: BlockNode): Block | null =>
 	day?.blocks.find((b) => b.start === Number(node.dataset.start)) ?? null;

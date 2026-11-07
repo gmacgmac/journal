@@ -1,18 +1,19 @@
 // Undo: every saved edit comes back from the engine with the edit that undoes it. They stack, newest last. The toast
 // offers the newest; ⌘Z outside the writing takes it too (inside the writing, ⌘Z is the browser's own typing undo).
 // An undo is an edit like any other, so it is refused if the page has changed. One stack and one toast per mount.
-import type { Day, EditResult, RangeEdit } from './app.ts';
+import type { Day, EditResult, RangeEdit } from './wire.ts';
+import { say } from './words.ts';
 
 /** What undo needs from its page. */
 export interface UndoPage {
 	edit(e: RangeEdit): Promise<EditResult>;
 	patch(day: Day, fresh?: boolean): void;
 	focusAt(date: string, start: number): void;
+	/** Says a refused undo, through the host. */
+	notify(text: string, tone?: 'info' | 'error'): void;
 }
 
 export interface Undo {
-	/** A line in the toast with nothing to undo. */
-	notify(text: string): void;
 	push(undo: RangeEdit, label?: string): void;
 	undoLast(): Promise<void>;
 	/** How many edits can be undone. */
@@ -41,17 +42,18 @@ export function createUndo(page: UndoPage, toast: HTMLElement, scope: HTMLElemen
 
 	async function undoLast(): Promise<void> {
 		const undo = stack.pop();
-		if (undo === undefined) return show('Nothing to undo.', false);
+		if (undo === undefined) return show(say('journal.view.undo.nothing'), false);
 		const r = await page.edit(undo);
 		if (r.day) page.patch(r.day);
-		show(r.ok ? 'Undone.' : 'Can’t undo: that part has changed since.', false);
-		if (r.ok) page.focusAt(undo.date, undo.start);
+		if (!r.ok) return page.notify(r.status === 409 ? say('journal.view.undo.changed') : r.reason, 'error');
+		show(say('journal.view.undo.done'), false);
+		page.focusAt(undo.date, undo.start);
 	}
 
 	function onKey(e: KeyboardEvent): void {
 		const t = e.target as HTMLElement;
 		const writing = t.isContentEditable || ['INPUT', 'TEXTAREA'].includes(t.tagName);
-		if (writing || !(e.metaKey || e.ctrlKey) || e.shiftKey || e.key.toLowerCase() !== 'z') return;
+		if (e.defaultPrevented || writing || !(e.metaKey || e.ctrlKey) || e.shiftKey || e.key.toLowerCase() !== 'z') return;
 		e.preventDefault();
 		void undoLast();
 	}
@@ -60,8 +62,7 @@ export function createUndo(page: UndoPage, toast: HTMLElement, scope: HTMLElemen
 	button.addEventListener('click', onClick);
 	scope.addEventListener('keydown', onKey);
 	return {
-		notify: (text) => show(text, false),
-		push(undo, label = 'Saved.') {
+		push(undo, label = say('journal.view.saved')) {
 			stack.push(undo);
 			show(label, true);
 		},
