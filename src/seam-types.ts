@@ -1,6 +1,6 @@
 // The seam's types: the source of `plugin.d.ts` (bin/types.ts emits it after the contract's own declarations). This file may
 // import the contract copy and nothing else; the import is left out of the emitted file.
-// The engine's shapes are the spec's (docs/specification/plugin.md § Routes, § References); JR_05 adds the tools' results.
+// The engine's shapes are the spec's (docs/specification/plugin.md § Routes, § References, § Tools).
 import type { PluginEngine, PluginEngineOptions, PluginHost, PluginView } from './vendor/plugin-host/plugin-host.ts';
 
 /** The view's one export: shows the Journal in `root`, on the host it is given. */
@@ -72,4 +72,29 @@ export interface RouteProblem {
 	status: number;
 	code: string;
 	day?: Day;
+}
+
+/** One day as `read_days` gives it: its file's text as it is (`''` when there is none or it is not read). */
+export interface ReadDay {
+	date: string;
+	title: string;
+	exists: boolean;
+	version: string | null;
+	text: string;
+	problems: string[];
+}
+
+/** `read_days`' `structuredContent`: whole days from `from`; `next` the first day not read, when the range did not fit. */
+export interface ReadResult {
+	days: ReadDay[];
+	next?: string;
+}
+
+/** A write tool's `structuredContent`: the day, its new version, the entry's time, and the changed or new block's key. */
+export interface WriteResult {
+	date: string;
+	version: string;
+	entry: string;
+	/** Absent for a removal. */
+	key?: string;
 }

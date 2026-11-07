@@ -2,14 +2,13 @@
 // `pageChip()` offers for the days on show. Each carries the plugin's id, its kind and a ref the engine's `resolve`
 // answers, inside the contract's `CHIP_LIMITS`; the days chip never offers more than `resolve` takes.
 import { CHIP_DAYS, CHIP_TEXT_CHARS, daysBetween } from '../format/index.ts';
+import { PLUGIN_ID } from '../manifest.ts';
 import { CHIP_LIMITS, type Chip } from '../vendor/plugin-host/plugin-host.ts';
 import { dayMonth, shortDate, snippet, type Range } from './dates.ts';
 import type { BlockNode } from './session.ts';
 import type { Day } from './wire.ts';
 import { say } from './words.ts';
 
-/** The manifest's id. */
-export const PLUGIN_ID = 'journal';
 
 const clamp = (text: string, max: number) => (text.length <= max ? text : `${text.slice(0, max - 1)}…`);
 

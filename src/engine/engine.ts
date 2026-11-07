@@ -4,16 +4,17 @@
 import type { PluginEngine, PluginEngineOptions } from '../vendor/plugin-host/plugin-host.ts';
 import { createResolve } from './resolve.ts';
 import { createRoutes } from './routes.ts';
+import { createTools } from './tools/index.ts';
 import { createWatch } from './watch.ts';
 
 export function createEngine(options: PluginEngineOptions): PluginEngine {
 	const { dir, warn } = options;
 	const watcher = createWatch(dir, warn);
+	const wrote = (date: string) => watcher.wrote(date);
 	return {
-		route: createRoutes(dir, (date) => watcher.wrote(date), warn),
+		route: createRoutes(dir, wrote, warn),
 		resolve: createResolve(dir, warn),
-		// The bot's tools are JR_05's (docs/specification/plugin.md § Tools).
-		tools: { list: () => [], call: async () => ({ content: [], isError: true }) },
+		tools: createTools(dir, wrote, warn),
 		watch: (onChange) => watcher.watch(onChange),
 	};
 }
