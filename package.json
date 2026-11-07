@@ -1,0 +1,19 @@
+{
+	"name": "journal",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "A journal plugin for nclite: one note per day, written in place or by the bot.",
+	"engines": { "node": ">=24" },
+	"scripts": {
+		"build:plugin": "node bin/build-plugin.ts",
+		"test": "node --test tests/*.test.ts",
+		"check": "tsc --noEmit",
+		"sync:markdown": "node bin/sync-markdown.ts"
+	},
+	"devDependencies": {
+		"@types/node": "26.1.1",
+		"typescript": "6.0.3",
+		"vite": "8.1.6"
+	}
+}
