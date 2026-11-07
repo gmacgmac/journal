@@ -11,9 +11,15 @@ import { TOO_BIG_VARS, plan, readDayFile, version as versionOf, writeDay, type R
 import { problemText, word } from '../words.ts';
 import { done, refused } from './result.ts';
 
-export interface EntryInput { date: string; time: string; text: string; title?: string; version?: string | null }
-export interface AnchorInput { date: string; version: string | null; entry: string; block: string; nth?: number }
+export interface EntryInput { date: string; time: string; text: string; title?: string; version?: string | null; future?: boolean }
+export interface AnchorInput { date: string; version: string | null; entry: string; block: string; nth?: number; future?: boolean }
 export type BlockOp = 'replace' | 'delete' | 'insert';
+
+/** The refusal for a write to a day after `today` that did not pass `future: true`; null when the write may go on. */
+function tooLate(date: string, future: boolean | undefined, today: () => string): ToolResult | null {
+	const now = today();
+	return isDate(date) && date > now && future !== true ? refused('future', { title: dateTitle(date), today: now }) : null;
+}
 
 /** The words every refusal about a day may fill. */
 const about = (date: string) => ({ title: dateTitle(date), path: dayPath(date) });
@@ -93,7 +99,9 @@ function save(dir: string, before: string | null, e: Edit, how: Wrote, wrote: (d
 }
 
 /** `add_entry`: a new entry placed by its time; the day's page is made when it has none. */
-export function addEntry(dir: string, input: EntryInput, wrote: (date: string) => void): ToolResult {
+export function addEntry(dir: string, input: EntryInput, wrote: (date: string) => void, today: () => string): ToolResult {
+	const late = tooLate(input.date, input.future, today);
+	if (late !== null) return late;
 	const day = opened(dir, input.date, input.version, false);
 	if ('content' in day) return day;
 	if (input.text.trim() === '') return refused('input', { field: 'text' });
@@ -107,7 +115,9 @@ export function addEntry(dir: string, input: EntryInput, wrote: (date: string) =
 }
 
 /** `replace_block`, `delete_block` and `insert_after`: one anchored block replaced, removed, or written after. */
-export function changeBlock(dir: string, op: BlockOp, input: AnchorInput & { text?: string }, wrote: (date: string) => void): ToolResult {
+export function changeBlock(dir: string, op: BlockOp, input: AnchorInput & { text?: string }, wrote: (date: string) => void, today: () => string): ToolResult {
+	const late = tooLate(input.date, input.future, today);
+	if (late !== null) return late;
 	const day = opened(dir, input.date, input.version, true);
 	if ('content' in day) return day;
 	const before = day.text!;

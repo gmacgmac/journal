@@ -2,6 +2,7 @@
 // against its own schema here (nclite passes it through unread), every refusal a result and never a throw. The caller is
 // the bot; the Journal records nothing of it.
 import type { EngineTools, ToolResult } from '../../vendor/plugin-host/plugin-host.ts';
+import { localToday } from '../../format/index.ts';
 import { word } from '../words.ts';
 import { badField } from './check.ts';
 import { readDaysTool } from './read.ts';
@@ -14,16 +15,16 @@ export { READ_MAX_CHARS, READ_MAX_DAYS, TOOL_NAMES, listedTools, toolDecls, type
 const isTool = (name: string): name is ToolName => (TOOL_NAMES as readonly string[]).includes(name);
 
 /** The tools over the data folder `dir`. `wrote` hears each day a tool saved, at once, as the routes' writes are heard. */
-export function createTools(dir: string, wrote: (date: string) => void, warn: (message: string) => void): EngineTools {
+export function createTools(dir: string, wrote: (date: string) => void, warn: (message: string) => void, today: () => string = () => localToday()): EngineTools {
 	const listed = listedTools();
 	const schemas = new Map(listed.map((t) => [t.name, t.inputSchema]));
 	const run = (name: ToolName, input: Record<string, unknown>): ToolResult => {
 		switch (name) {
 			case 'read_days': return readDaysTool(dir, input as { from: string; to?: string });
-			case 'add_entry': return addEntry(dir, input as unknown as EntryInput, wrote);
-			case 'replace_block': return changeBlock(dir, 'replace', input as unknown as AnchorInput & { text: string }, wrote);
-			case 'delete_block': return changeBlock(dir, 'delete', input as unknown as AnchorInput, wrote);
-			case 'insert_after': return changeBlock(dir, 'insert', input as unknown as AnchorInput & { text: string }, wrote);
+			case 'add_entry': return addEntry(dir, input as unknown as EntryInput, wrote, today);
+			case 'replace_block': return changeBlock(dir, 'replace', input as unknown as AnchorInput & { text: string }, wrote, today);
+			case 'delete_block': return changeBlock(dir, 'delete', input as unknown as AnchorInput, wrote, today);
+			case 'insert_after': return changeBlock(dir, 'insert', input as unknown as AnchorInput & { text: string }, wrote, today);
 		}
 	};
 	return {

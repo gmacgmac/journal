@@ -7,14 +7,15 @@ import { createRoutes } from './routes.ts';
 import { createTools } from './tools/index.ts';
 import { createWatch } from './watch.ts';
 
-export function createEngine(options: PluginEngineOptions): PluginEngine {
+/** `clock` is for tests: the person's today, `YYYY-MM-DD`; the host's own local date when left out. */
+export function createEngine(options: PluginEngineOptions, clock: { today?: () => string } = {}): PluginEngine {
 	const { dir, warn } = options;
 	const watcher = createWatch(dir, warn);
 	const wrote = (date: string) => watcher.wrote(date);
 	return {
 		route: createRoutes(dir, wrote, warn),
 		resolve: createResolve(dir, warn),
-		tools: createTools(dir, wrote, warn),
+		tools: createTools(dir, wrote, warn, clock.today),
 		watch: (onChange) => watcher.watch(onChange),
 	};
 }

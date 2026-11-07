@@ -5,6 +5,7 @@ import { chmodSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { createEngine } from '../src/engine/engine.ts';
+import { word } from '../src/engine/words.ts';
 import { READ_MAX_CHARS } from '../src/engine/tools/index.ts';
 import { MAX_DAY_BYTES, blocksOf, dateHeading, keyedBlocks } from '../src/format/index.ts';
 import { CHANGE_WORDS, PLUGIN_ID } from '../src/manifest.ts';
@@ -18,11 +19,14 @@ import { scratch } from './fixtures/days.ts';
 const DATE = '2026-10-01';
 const BOT = { caller: { by: 'agent' as const, agent: 'bot-0123456789abcdef' }, signal: new AbortController().signal };
 
-function toolsOn(t: { after: (fn: () => void) => void }, empty = false) {
+/** The tools' today in these tests: after every day they write, before the future days the `future` tests use. */
+const TODAY = '2026-11-30';
+
+function toolsOn(t: { after: (fn: () => void) => void }, empty = false, today = TODAY) {
 	const { dir, done } = scratch(empty);
 	t.after(done);
 	const warned: string[] = [];
-	const engine = createEngine({ dir, name: () => 'A bot', warn: (m) => warned.push(m), flags: {} });
+	const engine = createEngine({ dir, name: () => 'A bot', warn: (m) => warned.push(m), flags: {} }, { today: () => today });
 	const heard: Ref[] = [];
 	t.after(engine.watch((ref) => heard.push(ref)));
 	const call = (name: string, input: Record<string, unknown>) => engine.tools.call(name, input, BOT);
@@ -92,6 +96,57 @@ describe('read_days', () => {
 		assert.equal(broken!.problems.length, 1);
 		assert.ok(text(r).includes(broken!.problems[0]!) && text(r).includes('Writing outside an entry.'));
 		assert.deepEqual([big!.exists, big!.version, big!.text, big!.problems.length], [true, null, '', 1]);
+	});
+});
+
+describe('a write to a day after today', () => {
+	const TOMORROW = '2026-12-01';
+	const page = (date: string) => `${dateHeading(date)}\n\n## 09:00\n\nPlanned.\n`;
+	// Each write tool aimed at `date`, whose page (when it has one) holds a `## 09:00` entry with the block `Planned.`.
+	const writes: [string, (date: string, v: string | null) => Record<string, unknown>][] = [
+		['add_entry', (date, v) => ({ date, time: '10:00', text: 'Later.', version: v })],
+		['insert_after', (date, v) => ({ date, version: v, entry: '09:00', block: 'Planned.', text: 'More.' })],
+		['replace_block', (date, v) => ({ date, version: v, entry: '09:00', block: 'Planned.', text: 'Changed.' })],
+		['delete_block', (date, v) => ({ date, version: v, entry: '09:00', block: 'Planned.' })],
+	];
+
+	for (const [tool, input] of writes) {
+		it(`${tool} is refused for tomorrow as future, with the words, and nothing is written`, async (t) => {
+			const { call, dir, snapshot, heard } = toolsOn(t);
+			writeDay(dir, TOMORROW, page(TOMORROW));
+			const before = snapshot();
+			const r = await call(tool, input(TOMORROW, version(page(TOMORROW))));
+			assert.equal(refusal(r), 'future', text(r));
+			assert.equal(text(r), word('journal.refusal.future', { title: 'Tuesday 1 December 2026', today: TODAY }));
+			assert.deepEqual(snapshot(), before);
+			assert.deepEqual(heard, []);
+			// A day with no page is refused the same way, not as `no-page`.
+			assert.equal(refusal(await call(tool, input('2027-01-15', null))), 'future');
+		});
+
+		it(`${tool} on today or yesterday is not affected, with or without future`, async (t) => {
+			const { call, dir } = toolsOn(t);
+			for (const date of [TODAY, '2026-11-29']) {
+				writeDay(dir, date, page(date));
+				assert.equal(refusal(await call(tool, input(date, version(page(date))))), null, date);
+			}
+			writeDay(dir, '2026-11-28', page('2026-11-28'));
+			wrote(await call(tool, { ...input('2026-11-28', version(page('2026-11-28'))), future: true }));
+		});
+	}
+
+	it('with future: true a page that exists is changed by every tool', async (t) => {
+		const { call, dir, read } = toolsOn(t);
+		for (const [tool, input] of writes) {
+			writeDay(dir, TOMORROW, page(TOMORROW));
+			wrote(await call(tool, { ...input(TOMORROW, version(page(TOMORROW))), future: true }));
+			assert.notEqual(read(TOMORROW), page(TOMORROW), tool);
+		}
+	});
+
+	it('future must be a boolean', async (t) => {
+		const { call } = toolsOn(t);
+		assert.equal(refusal(await call('add_entry', { date: TOMORROW, time: '10:00', text: 'x', future: 'yes' })), 'input');
 	});
 });
 

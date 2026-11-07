@@ -16,7 +16,7 @@ refused and nothing is saved: read again and work from what is there.
 - `read_days`: one day or a range (at most 31 days); when it doesn't all fit, read on from the day it names.
 - `add_entry`: a new entry at a time, with an optional title; it goes in time order and starts the day's
   page if there is none. For a day with no page, pass `null` as the version or leave it out. Log on
-  today's page at the time now, unless the person names the page; a note about a day to come goes today.
+  today's page at the time now unless the person names the day. A write to a day after today is refused as `future`: pass `future: true` only when the person asked for that day.
 - `insert_after`: new writing after a block, under the same entry, as a block of its own. To add an item
   to a list, `replace_block` the whole list with the item in it.
 - `replace_block`: one block becomes new writing; replacing an entry's heading changes its time or title.
@@ -45,6 +45,7 @@ The refusal says why and what to do. Most often:
 
 - `stale`: the day changed since you read it. Read it again, then make the change against what is there now.
 - `ambiguous`: several blocks under that entry have that text. Pass `nth` (1 is the top one).
+- `future`: the day is after today. If the person asked for that day, call again with `future: true`; if not, write on today's page.
 - `malformed`: the page already breaks its rules, so the tools can't change it. Fix the file with your
   own file tools, changing nothing but what breaks the rules, then read the day again, and tell the
   person what you fixed.

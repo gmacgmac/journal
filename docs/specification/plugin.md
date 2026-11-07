@@ -324,11 +324,14 @@ Shared schema parts (`$defs` written out in each tool's schema; each `descriptio
 | Tool | Input (`type: object`, `additionalProperties: false`) | Does |
 |---|---|---|
 | `read_days` | `from` (date, required), `to` (date) | Reads `from` to `to` (`to` defaults to `from`), at most `READ_MAX_DAYS` (31) days and `READ_MAX_CHARS` (60,000) characters, and `REPLY_BUDGET` bytes as JSON (each day counted twice: its sentences and its `structuredContent`): whole days from `from` until the next would not fit, and then says where to read on |
-| `add_entry` | `date`, `time`, `text` (required); `version` (null for a day with no page; checked when given); `title` (string, at most 80 characters, one line) | A new entry `## time` or `## time · title` with `text` as its body, placed before the first later entry; makes the day's page when it has none |
-| `replace_block` | `date`, `version`, `entry` (a time), `block` (text), `text` (required); `nth` (integer from 1) | The block under the entry at `entry` whose whole text is `block` becomes `text`. The entry's heading is a block too: replacing it gives the entry a new time or title |
-| `delete_block` | `date`, `version`, `entry`, `block` (required); `nth` | Removes that block and the blank line after it |
-| `insert_after` | `date`, `version`, `entry`, `block`, `text` (required); `nth` | New writing after that block, under the same entry |
+| `add_entry` | `date`, `time`, `text` (required); `version` (null for a day with no page; checked when given); `title` (string, at most 80 characters, one line); `future` (boolean) | A new entry `## time` or `## time · title` with `text` as its body, placed before the first later entry; makes the day's page when it has none |
+| `replace_block` | `date`, `version`, `entry` (a time), `block` (text), `text` (required); `nth` (integer from 1); `future` (boolean) | The block under the entry at `entry` whose whole text is `block` becomes `text`. The entry's heading is a block too: replacing it gives the entry a new time or title |
+| `delete_block` | `date`, `version`, `entry`, `block` (required); `nth`, `future` | Removes that block and the blank line after it |
+| `insert_after` | `date`, `version`, `entry`, `block`, `text` (required); `nth`, `future` | New writing after that block, under the same entry |
 
+- **A day after today needs `future: true`.** Each write tool refuses a `date` after the engine host's local date
+  (`localToday`) as `future`, and saves nothing, unless `future` is `true`; `future` on today or an earlier day changes
+  nothing. The check comes before the day is read, so a later day with no page is refused `future`, not `no-page`.
 - **`block` is matched whole**: the block's text equals `block` with leading and trailing whitespace of both set aside.
   `nth` counts matches under that entry from the top.
 - **`text` holds body writing only** (paragraphs, lists, quotes) except in `replace_block` of a heading; a heading in it is
@@ -367,6 +370,7 @@ the day and the block's new key (no `key` for a removal). A refusal carries no c
 | `no-block` | No block under that entry has that whole text | Copy the block from `read_days`, whole |
 | `ambiguous` | More than one does, and no `nth` | Pass `nth` (1 to the number of matches) |
 | `entry-exists` | `add_entry` at a time the day has | Add to that entry with `insert_after`, or pick another time |
+| `future` | A write to a day after today, without `future: true` | Call again with `future: true` if the person asked for that day; otherwise write on today's page |
 | `heading` / `date-heading` | Writing that holds a heading / a change to the date line | Use `add_entry` for a new entry; leave the date line |
 | `rules` | The day would break its rules | The rules broken are named |
 | `malformed` | The day already breaks its rules | Fix only what breaks the rules, with its own file tools, naming the file `.journal/YYYY/MM/YYYY-MM-DD.md`, and tell the person what was fixed |

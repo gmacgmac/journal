@@ -25,6 +25,7 @@ const date = (key: WordKey = 'journal.tool.field.date') => described(key, { type
 const time = (key: WordKey) => described(key, { type: 'string', pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' });
 const version = (key: WordKey = 'journal.tool.field.version') => described(key, { type: ['string', 'null'], pattern: '^[0-9a-f]{16}$' });
 const text = (key: WordKey) => described(key, { type: 'string', minLength: 1, maxLength: TEXT_MAX_CHARS });
+const future = () => described('journal.tool.field.future', { type: 'boolean' });
 const nth = () => described('journal.tool.field.nth', { type: 'integer', minimum: 1 });
 
 const object = (properties: Record<string, Schema>, required: string[]) =>
@@ -61,19 +62,20 @@ function defs(): ToolDef[] {
 				title: described('journal.tool.add_entry.title', { type: 'string', maxLength: TITLE_MAX_CHARS, pattern: '^[^\\r\\n]*$' }),
 				text: text('journal.tool.field.writing'),
 				version: version('journal.tool.add_entry.version'),
+				future: future(),
 			}, ['date', 'time', 'text']),
 		},
 		{
 			name: 'replace_block', words: 'journal.tool.replace_block', writes: true, destructive: true,
-			input: object({ ...anchor(), text: text('journal.tool.replace_block.text'), nth: nth() }, ['date', 'version', 'entry', 'block', 'text']),
+			input: object({ ...anchor(), text: text('journal.tool.replace_block.text'), nth: nth(), future: future() }, ['date', 'version', 'entry', 'block', 'text']),
 		},
 		{
 			name: 'delete_block', words: 'journal.tool.delete_block', writes: true, destructive: true,
-			input: object({ ...anchor(), nth: nth() }, ['date', 'version', 'entry', 'block']),
+			input: object({ ...anchor(), nth: nth(), future: future() }, ['date', 'version', 'entry', 'block']),
 		},
 		{
 			name: 'insert_after', words: 'journal.tool.insert_after', writes: true, destructive: false,
-			input: object({ ...anchor(), text: text('journal.tool.field.writing'), nth: nth() }, ['date', 'version', 'entry', 'block', 'text']),
+			input: object({ ...anchor(), text: text('journal.tool.field.writing'), nth: nth(), future: future() }, ['date', 'version', 'entry', 'block', 'text']),
 		},
 	];
 }

@@ -6,7 +6,7 @@ import { word, type WordKey } from '../words.ts';
 /** Why a tool did not do what it was asked (docs/specification/plugin.md § Tools, Refusals). */
 export type ToolRefusal =
 	| 'input' | 'dates' | 'stale' | 'no-page' | 'no-entry' | 'ambiguous-entry' | 'no-block' | 'ambiguous' | 'entry-exists'
-	| 'heading' | 'date-heading' | 'rules' | 'malformed' | 'too-big' | 'tool' | 'failed';
+	| 'future' | 'heading' | 'date-heading' | 'rules' | 'malformed' | 'too-big' | 'tool' | 'failed';
 
 /** Each refusal's sentence. A store refusal that already has its words (`would-be-too-big`) passes its own key. */
 const REFUSAL_WORDS: Record<ToolRefusal, WordKey> = {
@@ -19,6 +19,7 @@ const REFUSAL_WORDS: Record<ToolRefusal, WordKey> = {
 	'no-block': 'journal.refusal.no-block',
 	ambiguous: 'journal.refusal.ambiguous',
 	'entry-exists': 'journal.refusal.entry-exists',
+	future: 'journal.refusal.future',
 	heading: 'journal.refusal.heading',
 	'date-heading': 'journal.refusal.date-heading',
 	rules: 'journal.refusal.rules',
