@@ -388,7 +388,7 @@ export interface StoredChange {
 export const CHANGE_LIMITS = {
 	/** A whole number from 0. */
 	maxCount: 1000000,
-	/** No control character (U+0000 to U+001F, U+007F). */
+	/** No control or format character (Unicode `Cc` and `Cf`: C0, DEL, C1, bidi controls, zero-width marks). */
 	subjectChars: 120,
 } as const;
 

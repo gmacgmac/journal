@@ -45,9 +45,15 @@ function escapeLineStart(line: string): string {
 	return `${lead}\\${rest}`;
 }
 
+/** The longest of `runs`, or `floor` when none is longer: a loop, so a text with any number of runs fits the stack. */
+function longest(runs: readonly string[], floor: number): number {
+	let max = floor;
+	for (const r of runs) if (r.length > max) max = r.length;
+	return max;
+}
+
 function codeSpan(text: string): string {
-	const runs = text.match(/`+/g) ?? [];
-	const fence = '`'.repeat(Math.max(0, ...runs.map((r) => r.length)) + 1);
+	const fence = '`'.repeat(longest(text.match(/`+/g) ?? [], 0) + 1);
 	const pad = text.startsWith('`') || text.endsWith('`') ? ' ' : '';
 	return `${fence}${pad}${text}${pad}${fence}`;
 }
@@ -118,7 +124,7 @@ export function blockMarkdown(block: Block): string {
 		case 'list': return listMarkdown(block);
 		case 'blockquote': return block.children.map(blockMarkdown).join('\n\n').split('\n').map((l) => (l === '' ? '>' : `> ${l}`)).join('\n');
 		case 'code': {
-			const fence = '`'.repeat(Math.max(3, ...(block.text.match(/`{3,}/g) ?? []).map((r) => r.length + 1)));
+			const fence = '`'.repeat(Math.max(3, longest(block.text.match(/`{3,}/g) ?? [], 0) + 1));
 			return `${fence}${block.lang ?? ''}\n${block.text}\n${fence}`;
 		}
 		case 'hr': return '---';

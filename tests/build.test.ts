@@ -21,6 +21,12 @@ const diagnose = (files: string[]) => {
 	return ts.getPreEmitDiagnostics(program).map((d) => ts.flattenDiagnosticMessageText(d.messageText, '\n'));
 };
 
+/** Every file under `dir`, by its `/`-joined path relative to `dir` (a copy may carry sub-folders). */
+const filesIn = (dir: string): string[] =>
+	(fs.readdirSync(dir, { recursive: true }) as string[])
+		.filter((n) => fs.statSync(path.join(dir, n)).isFile())
+		.map((n) => n.split(path.sep).join('/'));
+
 describe('the plugin folder', () => {
 	let tmp: string;
 	let a: string;
@@ -75,7 +81,7 @@ describe('the plugin folder', () => {
 		assert.deepEqual(Object.keys(v), Object.keys(v).sort());
 		for (const copy of COPIES) {
 			const dir = path.join(ROOT, copy.dest);
-			for (const f of fs.readdirSync(dir).filter((n) => n !== MANIFEST)) {
+			for (const f of filesIn(dir).filter((n) => n !== MANIFEST)) {
 				assert.equal(v[copy.take ? `${copy.source}/${f}` : copy.source], sha256(fs.readFileSync(path.join(dir, f))), f);
 			}
 		}
@@ -124,7 +130,7 @@ describe('the vendored copies of nclite files', () => {
 		const what = copy.take ? 'markdown' : 'contract';
 
 		it(`the vendored ${what} holds exactly the files its manifest lists, each matching its sha256`, () => {
-			assert.deepEqual(fs.readdirSync(dir).filter((f) => f !== MANIFEST).sort(), Object.keys(sums).sort());
+			assert.deepEqual(filesIn(dir).filter((f) => f !== MANIFEST).sort(), Object.keys(sums).sort());
 			for (const [f, sum] of Object.entries(sums)) assert.equal(sha256(fs.readFileSync(path.join(dir, f))), sum, f);
 		});
 

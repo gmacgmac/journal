@@ -31,7 +31,10 @@ export const sha256 = (bytes: Uint8Array) => createHash('sha256').update(bytes).
 export function syncCopy(copy: Copy, from: string, root = ROOT): Record<string, string> {
 	const src = path.join(from, copy.source);
 	const dir = copy.take ? src : path.dirname(src);
-	const names = copy.take ? fs.readdirSync(dir).filter(copy.take).sort() : [path.basename(src)];
+	// A folder copy takes its sub-folders too (nclite's `shared/markdown/inline/`), by `/`-joined relative name.
+	const names = copy.take
+		? (fs.readdirSync(dir, { recursive: true }) as string[]).map((n) => n.split(path.sep).join('/')).filter(copy.take).sort()
+		: [path.basename(src)];
 	if (!names.length) throw new Error(`no sources in ${src}`);
 	const to = path.join(root, copy.dest);
 	const files = names.map((name) => [name, fs.readFileSync(path.join(dir, name))] as const);
@@ -39,6 +42,7 @@ export function syncCopy(copy: Copy, from: string, root = ROOT): Record<string, 
 	fs.mkdirSync(to, { recursive: true });
 	const sums: Record<string, string> = {};
 	for (const [name, bytes] of files) {
+		fs.mkdirSync(path.dirname(path.join(to, name)), { recursive: true });
 		fs.writeFileSync(path.join(to, name), bytes);
 		sums[name] = sha256(bytes);
 	}

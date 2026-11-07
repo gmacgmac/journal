@@ -130,7 +130,32 @@ function isHr(line: string): boolean {
 	return /^ {0,3}([-*_])[ \t]*(?:\1[ \t]*){2,}$/.test(line);
 }
 
-const HEADING_RE = /^ {0,3}(#{1,6})(?:[ \t]+(.*?))?[ \t]*$/;
+/** Up to three spaces, one to six `#`, then a blank or the end; the rest of the line is the heading's. */
+const HEADING_RE = /^ {0,3}(#{1,6})(?=[ \t]|$)(.*)$/;
+
+const isBlankChar = (ch: string | undefined): boolean => ch === ' ' || ch === '\t';
+
+/**
+ * The heading this line is, or `null`. Its text drops the blanks around it, and
+ * a closing run of `#` that has a blank before it. Found by walking indexes:
+ * the regexes this replaces — `(.*?)[ \t]*$` and `[ \t]+#+$` — re-scanned a run
+ * of blanks from every position in it (REVIEW_03 S1).
+ */
+function headingAt(line: string): { level: HeadingLevel; content: string } | null {
+	const m = HEADING_RE.exec(line);
+	if (m === null) return null;
+	const rest = m[2]!;
+	let from = 0;
+	let to = rest.length;
+	while (from < to && isBlankChar(rest[from])) from += 1;
+	while (to > from && isBlankChar(rest[to - 1])) to -= 1;
+	let hashes = to;
+	while (hashes > from && rest[hashes - 1] === '#') hashes -= 1;
+	let cut = hashes;
+	while (cut > from && isBlankChar(rest[cut - 1])) cut -= 1;
+	if (hashes < to && cut < hashes) to = cut;
+	return { level: m[1]!.length as HeadingLevel, content: rest.slice(from, to) };
+}
 
 interface Marker {
 	indent: number;
@@ -163,7 +188,7 @@ function startsBlock(lines: string[], at: number): boolean {
 	const line = lines[at]!;
 	if (isBlank(line)) return true;
 	if (fenceOpen(line) !== null) return true;
-	if (HEADING_RE.test(line)) return true;
+	if (headingAt(line) !== null) return true;
 	if (isHr(line)) return true;
 	if (/^ {0,3}>/.test(line)) return true;
 	if (listMarker(line) !== null) return true;
@@ -207,14 +232,9 @@ function parseBlocks(lines: string[], depth: number, marks: [number, number][] |
 			continue;
 		}
 
-		const heading = HEADING_RE.exec(line);
+		const heading = headingAt(line);
 		if (heading !== null) {
-			const content = (heading[2] ?? '').replace(/[ \t]+#+$/, '');
-			blocks.push({
-				kind: 'heading',
-				level: heading[1]!.length as HeadingLevel,
-				children: parseInline(content),
-			});
+			blocks.push({ kind: 'heading', level: heading.level, children: parseInline(heading.content) });
 			i += 1;
 			continue;
 		}
