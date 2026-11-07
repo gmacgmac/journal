@@ -23,11 +23,11 @@ const until = async (ok: () => boolean, ms = 2000): Promise<boolean> => {
 };
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-function watching(t: { after: (fn: () => void) => void }, opts: { pollMs?: number; sweepMs?: number; maxFiles?: number } = {}) {
+function watching(t: { after: (fn: () => void) => void }, opts: { pollMs?: number; sweepMs?: number; maxFiles?: number; maxEvents?: number } = {}) {
 	const { dir, done } = scratch();
 	const warned: string[] = [];
 	const heard: Ref[] = [];
-	const w = createWatch(dir, (m) => warned.push(m), { pollMs: opts.pollMs ?? POLL, sweepMs: opts.sweepMs ?? 60000, maxFiles: opts.maxFiles ?? 20000, today });
+	const w = createWatch(dir, (m) => warned.push(m), { pollMs: opts.pollMs ?? POLL, sweepMs: opts.sweepMs ?? 60000, maxFiles: opts.maxFiles ?? 20000, maxEvents: opts.maxEvents ?? 50, today });
 	const stop = w.watch((ref) => heard.push(ref));
 	t.after(() => {
 		stop();
@@ -143,5 +143,18 @@ describe('watch', () => {
 		await pause(POLL * 3);
 		assert.deepEqual(dates(), ['2026-09-28']);
 		assert.equal(warned.length, 1);
+	});
+
+	it('a pass with more than maxEvents changes says one catch-up {} instead', async (t) => {
+		const slow = 200;
+		const { dir, heard } = watching(t, { pollMs: slow, maxEvents: 3 });
+		await pause(slow / 2);
+		for (const date of ['2026-10-01', '2026-10-02']) appendFileSync(dayFile(dir, date), '\nA few.\n');
+		await pause(slow);
+		assert.deepEqual(heard, [{ date: '2026-10-01' }, { date: '2026-10-02' }], 'a few changes are said one by one');
+		heard.length = 0;
+		for (const date of ['2026-10-04', '2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08']) appendFileSync(dayFile(dir, date), '\nMany.\n');
+		await pause(slow * 2);
+		assert.deepEqual(heard, [{}], 'many in one pass are one catch-up');
 	});
 });

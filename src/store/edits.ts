@@ -10,11 +10,12 @@
 // A block open for writing survives a write earlier in the day (D29): when `start..end` no longer holds `before` but exactly
 // one top-level block of the day now equals it, a `replace` or an `insert` anchors to that block. A `range` never moves.
 import {
-	MAX_DAY_BYTES, TIME_RE, blocksOf, checkDay, dateHeading, entryHeading, entryOf, kindsOf,
+	MAX_DAY_BLOCKS, MAX_DAY_BYTES, TIME_RE, blocksOf, checkDay, dateHeading, entryHeading, entryOf, kindsOf,
 	type Problem, type SpanBlock,
 } from '../format/index.ts';
 import type { WordKey } from '../engine/words.ts';
 import type { Edit, RangeEdit } from '../seam-types.ts';
+import { dayFits } from './size.ts';
 
 export type RefusalCode = 'unreadable' | 'changed' | 'rules' | 'heading' | 'date-heading' | 'entry-exists' | 'malformed' | 'too-big';
 
@@ -33,12 +34,14 @@ export type Plan = { ok: true; text: string } | Refusal;
 const refuse = (status: Refusal['status'], code: RefusalCode, say: WordKey, vars?: Refusal['vars']): Refusal =>
 	vars === undefined ? { ok: false, status, code, say } : { ok: false, status, code, say, vars };
 
-const KB = MAX_DAY_BYTES / 1024;
+/** What a too-big sentence fills: a page's limits in KB and in blocks. */
+export const TOO_BIG_VARS: Readonly<Record<string, number>> = { max: MAX_DAY_BYTES / 1024, blocks: MAX_DAY_BLOCKS };
 
-/** The day after the edit, if it keeps the rules and fits. */
+/** The day after the edit, if it keeps the rules and fits (`dayFits`). */
 function checked(date: string, text: string): Plan {
-	if (Buffer.byteLength(text, 'utf8') > MAX_DAY_BYTES) return refuse(422, 'too-big', 'journal.problem.would-be-too-big', { max: KB });
-	const problems = checkDay(date, text);
+	const blocks = blocksOf(text);
+	if (!dayFits(text, blocks)) return refuse(422, 'too-big', 'journal.problem.would-be-too-big', TOO_BIG_VARS);
+	const problems = checkDay(date, text, blocks);
 	return problems.length === 0 ? { ok: true, text } : { ...refuse(422, 'rules', 'journal.problem.malformed'), problems };
 }
 

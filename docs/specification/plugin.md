@@ -131,14 +131,18 @@ default `.<id>`). Inside, one file per day:
 **A day that breaks the rules** (the bot or the person edited the file by hand) is read, never crashed on: its blocks are
 parsed as they are, and its `problems` list what is wrong, in the Journal's words. It is shown as it is, read only, with
 its problems over it, and every write to it is refused (`malformed`), the bot's tools included, which tell the bot to fix
-the file itself. A file larger than `MAX_DAY_BYTES` (256 KiB) is not read: its day says `too-big` and shows nothing else.
+the file itself. A day that is too big is not read: its day says `too-big` and shows nothing else. Too big is any of: over
+`MAX_DAY_BYTES` (256 KiB) as a file, over `MAX_DAY_BLOCKS` (2,000) top-level blocks, or over `MAX_DAY_JSON_BYTES` (384 KiB)
+as its text sent as a JSON string (`dayFits`, `src/store/size.ts`). The last two keep a day legal by size from answering
+past the contract's reply limit: each block costs an answer its key and offsets, and a control character is sent as six
+bytes, so a 256 KiB day of tiny blocks once answered 5.5 MB, and one of U+0001, 1.57 MB (review S2).
 Anything in `.journal/` that is not a day file at its own path (`YYYY/MM/YYYY-MM-DD.md`, the date real) is not read.
 
 **The bot can change `.journal/`, so the engine reads and writes it as an equal's ground** (the store's `DayFile` state
 `odd`): a day path that is a link or a folder, or that sits under a month or year folder resolving outside the data
 folder, is never read through or written through. Its day is shown with the problem `journal.problem.not-a-file` and
 every write to it is refused. The file is opened with `O_NOFOLLOW`, and each folder above it is checked by its real path
-against the data folder. A write that would make a day over `MAX_DAY_BYTES` is refused `too-big` and writes nothing. An
+against the data folder. A write that would make a day too big (any of the three) is refused `too-big` and writes nothing. An
 edit's offsets must be whole numbers from 0 with `end` not before `start`, or the edit is refused `unreadable` (a negative
 `start` once counted from the end). A day lists at most 20 problems (`MAX_PROBLEMS`), each said once, so a broken page
 still answers small.
@@ -146,7 +150,8 @@ still answers small.
 Proven by JR_02 `tests/format.test.ts` and `tests/store.test.ts` (carried from the proof, with the sample days of
 2026-09-28 to 2026-10-09 as fixtures under `tests/fixtures/days/`, never shipped) and: "a day that breaks the rules is read
 with its problems and refused for every write", "a day over MAX_DAY_BYTES is too-big and not read, and no write makes
-one", "a write leaves every untouched block’s bytes as they were, over every sample day", "a write is atomic: a reader sees
+one", "a day over MAX_DAY_BLOCKS blocks, or whose text as JSON is over MAX_DAY_JSON_BYTES, is too-big, and no write makes
+one" (FIX_01b), "a write leaves every untouched block’s bytes as they were, over every sample day", "a write is atomic: a reader sees
 the old file or the new one, and no temp file is left", "an edit writes only under the data folder: a bad date, a link, or
 a folder leading out is refused", "a day that breaks the rules says each problem once" (`tests/format.test.ts`).
 
@@ -185,9 +190,10 @@ interface Block { key: string; start: number; end: number; text: string }
 ```
 
 The answer holds **whole days from `from` until the next would take the days' text past `DAYS_MAX_CHARS` (300,000
-characters)**, always at least one; `next` is then the first day left out, and the view reads on from it. A day is at most
-`MAX_DAY_BYTES`, so every answer stays well under the contract's `REPLY_LIMITS` `bytes`, which holds every answer of the
-engine (the host answers one over it as too large).
+characters), or the answer past `REPLY_BUDGET` bytes as JSON** (the contract's `REPLY_LIMITS` `bytes` less 64 KiB for the
+host's wrapping, `src/store/size.ts`, measured with `jsonBytes` as the host measures it), always at least one; `next` is then
+the first day left out, and the view reads on from it. A day that is not too big (§ The data) answers well inside
+`REPLY_BUDGET` alone, so the first day always fits; the host answers anything over `REPLY_LIMITS` as too large.
 
 **`POST edit`**, body one `Edit`, JSON (the proof's four edits, `src/store/edits.ts` `plan`), each anchored to bytes the view
 saw and refused, never merged, when they changed:
@@ -203,7 +209,10 @@ type Edit =
 //     "entry-exists", "malformed", "too-big" (with day)
 ```
 
-Every saved edit answers the edit that undoes it. An `entry` at a time the day already has, or a heading replaced to such
+Every saved edit answers the edit that undoes it. **The answer is built and measured before the write** (`planEdit`, then
+`writeDay`): when the day with the undo would be over `REPLY_BUDGET` (a large change of control characters), the edit is
+refused `too-big` (`journal.problem.edit-too-big`) and nothing is written. So an edit that lands always answers `200`, and
+one answered as refused never landed (review S2: a landed save once answered `502`). An `entry` at a time the day already has, or a heading replaced to such
 a time, is refused `entry-exists`.
 
 **The wire, beyond the routes above.** A served path with the wrong method is `405` (`method`) naming the method it takes
@@ -215,7 +224,10 @@ it; the person's offsets are now stale. For `replace` and `insert`, when the blo
 exactly one top-level block of the day's text now equals `before`, the engine anchors to that block instead; when none, or
 more than one, does, the edit is refused `changed` with the day as it is. `range` (an undo) is never moved: it is exact
 bytes. The answer's `day` gives the view the block's new offsets.
-Proven by JR_02 `tests/routes.test.ts`: "days answers every day in the range, gaps included, and refuses a bad range",
+Proven by FIX_01b `tests/budget.test.ts`: "a legal day of tiny blocks lets its week be read, and an edit to it answers
+within the limit", the same for "U+0001 text", "an edit that lands never answers as if it failed, even with a large undo", "a
+day at every limit at once still answers alone within the limit, by the route and the tool"; and JR_02 `tests/routes.test.ts`:
+"days answers every day in the range, gaps included, and refuses a bad range",
 "days stops before DAYS_MAX_CHARS, always gives one day, and says next", "a day that breaks the rules, or is too big, is
 answered as it is, with its problems", "an open block’s save lands after a write earlier in the same day: its text found once,
 it is moved", "a before found twice, or not at all, is refused changed", "an edit anchored to bytes that moved is refused with
@@ -241,14 +253,17 @@ watcher (the board's ledger polls the same way):
   local today's; the timer does not hold the process open (`unref`) and stops with the last listener; a listener that throws
   does not stop the others;
 - a failure to read the folder is `warn`ed once, until a pass succeeds, and the next poll tries again; it never throws out of
-  the timer; more than `WATCH_MAX_FILES` day files is `warn`ed once and the rest are not watched.
+  the timer; more than `WATCH_MAX_FILES` day files is `warn`ed once and the rest are not watched;
+- a pass with more than `WATCH_MAX_EVENTS` (50) changed days says one catch-up `{}` instead of a `{ date }` each (review S8),
+  so a burst of files never floods the host's event stream.
 
-The host turns each into an event `{ plugin: 'journal', ref: { date } }`; `{}` is nclite's catch-up, on which the view reads
-again every day it shows. Proven by JR_02 `tests/watch.test.ts`: "a day written by another writer is said within two polls",
+The host turns each into an event `{ plugin: 'journal', ref: { date } }` (or `ref: {}`); `{}`, the watch's or nclite's own
+catch-up, makes the view read again every day it shows. Proven by JR_02 `tests/watch.test.ts`: "a day written by another writer is said within two polls",
 "an in-place edit of an old month is said by the next sweep", "a burst of writes to one day between two polls is said once",
 "the engine’s own write is said at once, and not again by the next poll", "a folder it cannot read is warned once and never
 throws", "a listener that throws does not stop the others, and the last stop ends the polls", "at most maxFiles day files are
-watched, and the cap is warned once"; in nclite's real jail, by nclite's INT_01 test "a day file written straight into the
+watched, and the cap is warned once", "a pass with more than maxEvents changes says one catch-up {} instead" (FIX_01b); in
+nclite's real jail, by nclite's INT_01 test "a day file written straight into the
 folder is heard by a watcher, in the jail".
 
 ### References
@@ -260,7 +275,7 @@ ever made, or refuses it, never throws:
 |---|---|---|
 | A `block` chip's `ref` | `{ date: 'YYYY-MM-DD', key: '<8 hex>-<n>' }` | The view's Add to chat on a block |
 | A `days` chip's `ref` | `{ from: 'YYYY-MM-DD', to: 'YYYY-MM-DD' }` | `pageChip()`: the days on show |
-| An event's `ref` | `{ date }`, or `{}` from the host | `watch` |
+| An event's `ref` | `{ date }`, or `{}`: a pass with many changes, or the host's own catch-up | `watch` |
 | A change line's `reveal` | `{ date, key }`, `key` the changed block's new key, absent for a removal | The tools |
 
 ### Resolve
@@ -308,7 +323,7 @@ Shared schema parts (`$defs` written out in each tool's schema; each `descriptio
 
 | Tool | Input (`type: object`, `additionalProperties: false`) | Does |
 |---|---|---|
-| `read_days` | `from` (date, required), `to` (date) | Reads `from` to `to` (`to` defaults to `from`), at most `READ_MAX_DAYS` (31) days and `READ_MAX_CHARS` (60,000) characters: whole days from `from` until the next would not fit, and then says where to read on |
+| `read_days` | `from` (date, required), `to` (date) | Reads `from` to `to` (`to` defaults to `from`), at most `READ_MAX_DAYS` (31) days and `READ_MAX_CHARS` (60,000) characters, and `REPLY_BUDGET` bytes as JSON (each day counted twice: its sentences and its `structuredContent`): whole days from `from` until the next would not fit, and then says where to read on |
 | `add_entry` | `date`, `time`, `text` (required); `version` (null for a day with no page; checked when given); `title` (string, at most 80 characters, one line) | A new entry `## time` or `## time · title` with `text` as its body, placed before the first later entry; makes the day's page when it has none |
 | `replace_block` | `date`, `version`, `entry` (a time), `block` (text), `text` (required); `nth` (integer from 1) | The block under the entry at `entry` whose whole text is `block` becomes `text`. The entry's heading is a block too: replacing it gives the entry a new time or title |
 | `delete_block` | `date`, `version`, `entry`, `block` (required); `nth` | Removes that block and the blank line after it |
@@ -345,7 +360,7 @@ the day and the block's new key (no `key` for a removal). A refusal carries no c
 | Code | When | The bot is told to |
 |---|---|---|
 | `input` | The input does not fit the schema | Fix the field named |
-| `dates` | A range backwards or too long | Read a shorter range |
+| `dates` | A range backwards or too long | Fix the dates (forwards, at most the days named) and call again |
 | `stale` | The day's version is not the one passed | Read the day again, then change what is there now |
 | `no-page` | A change to a day with no page | Start it with `add_entry` |
 | `no-entry` / `ambiguous-entry` | No entry at that time / more than one | Read the day; fix the file itself if a time is used twice |
@@ -355,8 +370,11 @@ the day and the block's new key (no `key` for a removal). A refusal carries no c
 | `heading` / `date-heading` | Writing that holds a heading / a change to the date line | Use `add_entry` for a new entry; leave the date line |
 | `rules` | The day would break its rules | The rules broken are named |
 | `malformed` | The day already breaks its rules | Fix only what breaks the rules, with its own file tools, naming the file `.journal/YYYY/MM/YYYY-MM-DD.md`, and tell the person what was fixed |
-| `too-big` | The day is over `MAX_DAY_BYTES`, or the write would make it so | Ask the person: shrinking it would lose their writing |
+| `too-big` | The day is too big (§ The data: `MAX_DAY_BYTES`, `MAX_DAY_BLOCKS`, `MAX_DAY_JSON_BYTES`), or the write would make it so | Ask the person: shrinking it would lose their writing |
 | `tool` / `failed` | A tool the Journal has not / an unexpected I/O failure (`warn`ed, never thrown) | Not call it / try again |
+
+Through nclite, an unknown Journal tool never reaches the engine: the host checks the name against the manifest's tools and
+answers it first, so `tool` is for a caller that calls the engine directly.
 
 Choices the first draft of this page did not make, each tested: a `text` of only whitespace is refused `input` (the planner
 would have turned a replace into a delete); an `nth` past the matches is refused `ambiguous`, saying how many match; a
@@ -389,11 +407,16 @@ every turn while the Journal is on. No front matter. In this order:
 4. A page's rules, in four lines (the date line, entries by time, body kinds, no HTML).
 5. The person's words are theirs: change them only when asked, and add an entry in their voice only when asked to log
    something for them.
-6. What to do on `stale`, `ambiguous` and `malformed`: on `malformed` it fixes only what breaks the rules and tells the person
-   what it fixed.
+6. What to do on `stale`, `ambiguous`, and on every refusal that sends the bot to the file: `malformed` (fix only what breaks
+   the rules), `ambiguous-entry` (give each entry its own time, nothing else) and `too-big` (ask the person before touching
+   it); after a fix it tells the person what it changed. These are the only times the skill lets the bot write a file.
 
-It is a prompt: a change to it runs its scenarios (nclite TRACKER `N220`). Proven by JR_05 `tests/skill.test.ts`: "the
-skill is within SKILL_BYTES", "every tool the skill names is a tool of the manifest".
+Under `add_entry` it says that a day with no page takes `null` as its version, or none (WORDS_01 W3).
+
+It is a prompt: a change to it runs its scenarios (nclite TRACKER `N220`); FIX_01b's change (W3, W4) has not run them yet,
+so they are owed. Proven by JR_05 `tests/skill.test.ts`: "the skill is within SKILL_BYTES", "every tool the skill names is a
+tool of the manifest"; FIX_01b: "every refusal that sends the bot to the file is named where the skill says what to do when
+refused", "the skill says what add_entry takes as the version of a day with no page".
 
 ## The view
 
@@ -483,6 +506,15 @@ enough that the host's own pairs carry over. Proven by JR_04 `tests/view/colours
 helper): "every pair meets its tier with the host's values and without them, light and dark", "the stylesheet reads only host
 properties of the contract's list", "every rule is under .journal".
 
+- **The phone layout** (the container query `journal (max-width: 899px)`): one page, one day under another, and a finger's
+  reach: every control of the range bar and the writing bar, and Add an entry / Start this page, is at least `--journal-tap`
+  (44px, the Journal's own: it cannot read nclite's `--tap-min`) high, the writing bar's one-letter buttons as wide. The desktop
+  layout is unchanged by it.
+- **The entry column**: `--journal-time-w` (the times' margin) and `--journal-gutter` place both the entries' grid and Add an
+  entry, whose words start where an entry's writing starts (its padding in the gutter, as a block's); the phone layout changes
+  only the two measures. Proven by FIX_01b `tests/view/touch.test.ts`: "every control of the range bar and the writing bar, and
+  Add an entry, is at least --journal-tap high", "Add an entry starts its words where an entry’s text starts, on both layouts".
+
 ## Words
 
 `words/words.json`: one flat object, every key `journal.<area>.<name>`, every value one sentence or label, `{name}` marking
@@ -503,7 +535,9 @@ a value filled in. Nothing the person or the bot reads is written in the code. T
 bundles `words.json` at build, the view bundle carries the whole file, and the folder ships the same file, so they cannot
 differ. Proven by JR_05
 `tests/words.test.ts`: "every key the code names is in words.json, and every key in it is named", "no string literal in
-src/ is a sentence" (src/vendor/ excepted), "every placeholder a sentence holds is filled where it is used".
+src/ is a sentence" (src/vendor/ excepted), "every placeholder a sentence holds is filled where it is used"; FIX_01b "a
+refusal says what the code does, and the fix that works" (an entry's title is optional; a backwards range is fixed by its
+dates, not by a shorter one).
 
 ## The types
 

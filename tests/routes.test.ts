@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { createEngine } from '../src/engine/engine.ts';
-import { DAYS_MAX_CHARS, MAX_RANGE_DAYS, readDays } from '../src/engine/days.ts';
+import { DAYS_MAX_CHARS, MAX_RANGE_DAYS, dayOf, readDays } from '../src/engine/days.ts';
 import { MAX_DAY_BYTES, addDays, blocksOf, dateHeading, datesBetween, keyedBlocks } from '../src/format/index.ts';
 import type { DaysAnswer, Edit, EditAnswer, RouteProblem } from '../src/seam-types.ts';
 import { dayFile, version, writeDay } from '../src/store/index.ts';
@@ -63,7 +63,8 @@ describe('GET days', () => {
 		const rest = (await call('GET', `days?from=${first.next}&to=2026-11-08`))!.body as DaysAnswer;
 		assert.deepEqual(rest.days.map((d) => d.date), datesBetween('2026-11-03', '2026-11-08'));
 		assert.equal(rest.next, undefined);
-		assert.equal(readDays(dir, '2026-11-02', '2026-11-03', 1).days.length, 1);
+		assert.equal(readDays(dir, '2026-11-02', '2026-11-03', { chars: 1, bytes: Infinity }, dayOf).days.length, 1);
+		assert.equal(readDays(dir, '2026-11-02', '2026-11-03', { chars: Infinity, bytes: 1 }, dayOf).days.length, 1, 'a byte budget stops it too');
 	});
 
 	it('a day that breaks the rules, or is too big, is answered as it is, with its problems', async (t) => {

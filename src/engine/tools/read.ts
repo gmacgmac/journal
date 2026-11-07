@@ -3,6 +3,7 @@
 import type { ToolResult } from '../../vendor/plugin-host/plugin-host.ts';
 import { isDate } from '../../format/index.ts';
 import type { ReadDay, ReadResult } from '../../seam-types.ts';
+import { REPLY_BUDGET, jsonBytes, type DayFile } from '../../store/index.ts';
 import { dayOf, rangeProblem, readDays } from '../days.ts';
 import { word } from '../words.ts';
 import { done, refused } from './result.ts';
@@ -18,6 +19,15 @@ function said(day: ReadDay): string {
 	return `${lines.join('\n')}\n\n${day.text.trimEnd()}`;
 }
 
+/** A day as the bot reads it. */
+function readDay(date: string, file: DayFile): ReadDay {
+	const { title, exists, version, problems } = dayOf(date, file);
+	return { date, title, exists, version, text: file.state === 'text' ? file.text : '', problems };
+}
+
+/** What a day adds to the answer: its sentences for the bot, and the same day again for code. */
+const sizeOf = (day: ReadDay): number => jsonBytes(said(day)) + jsonBytes(day);
+
 /** Reads `input.from` to `input.to` (an input already checked against its schema). */
 export function readDaysTool(dir: string, input: { from: string; to?: string }): ToolResult {
 	const from = input.from;
@@ -25,11 +35,8 @@ export function readDaysTool(dir: string, input: { from: string; to?: string }):
 	if (!isDate(from)) return refused('input', { field: 'from' });
 	if (!isDate(to)) return refused('input', { field: 'to' });
 	if (rangeProblem(from, to, READ_MAX_DAYS) !== null) return refused('dates', { max: READ_MAX_DAYS });
-	const read = readDays(dir, from, to, READ_MAX_CHARS);
-	const days: ReadDay[] = read.days.map(({ date, file }) => {
-		const { title, exists, version, problems } = dayOf(date, file);
-		return { date, title, exists, version, text: file.state === 'text' ? file.text : '', problems };
-	});
+	const read = readDays(dir, from, to, { chars: READ_MAX_CHARS, bytes: REPLY_BUDGET }, readDay, sizeOf);
+	const days = read.days;
 	const result: ReadResult = { days };
 	const parts = days.map(said);
 	if (read.next !== undefined) {

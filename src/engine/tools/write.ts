@@ -4,18 +4,16 @@
 // writes it atomically (`writeDay`). A refusal writes nothing.
 import type { ChangeMeta, ToolResult } from '../../vendor/plugin-host/plugin-host.ts';
 import {
-	MAX_DAY_BYTES, blocksOf, checkDay, dateHeading, dateTitle, dayPath, entryOf, isDate, keyedBlocks, type SpanBlock,
+	blocksOf, checkDay, dateHeading, dateTitle, dayPath, entryOf, isDate, keyedBlocks, type SpanBlock,
 } from '../../format/index.ts';
 import type { Edit, WriteResult } from '../../seam-types.ts';
-import { plan, readDayFile, version as versionOf, writeDay, type Refusal } from '../../store/index.ts';
+import { TOO_BIG_VARS, plan, readDayFile, version as versionOf, writeDay, type Refusal } from '../../store/index.ts';
 import { problemText, word } from '../words.ts';
 import { done, refused } from './result.ts';
 
 export interface EntryInput { date: string; time: string; text: string; title?: string; version?: string | null }
 export interface AnchorInput { date: string; version: string | null; entry: string; block: string; nth?: number }
 export type BlockOp = 'replace' | 'delete' | 'insert';
-
-const KB = MAX_DAY_BYTES / 1024;
 
 /** The words every refusal about a day may fill. */
 const about = (date: string) => ({ title: dateTitle(date), path: dayPath(date) });
@@ -27,7 +25,7 @@ const about = (date: string) => ({ title: dateTitle(date), path: dayPath(date) }
 function opened(dir: string, date: string, given: string | null | undefined, needPage: boolean): { text: string | null } | ToolResult {
 	if (!isDate(date)) return refused('input', { field: 'date' });
 	const file = readDayFile(dir, date);
-	if (file.state === 'too-big') return refused('too-big', { ...about(date), max: KB });
+	if (file.state === 'too-big') return refused('too-big', { ...about(date), ...TOO_BIG_VARS });
 	if (file.state === 'odd') return refused('malformed', { ...about(date), problems: word('journal.problem.not-a-file') });
 	if (file.state === 'none') {
 		if (needPage) return refused('no-page', about(date));

@@ -3,8 +3,8 @@
 import type { EngineContext, EngineReply, EngineRequest } from '../vendor/plugin-host/plugin-host.ts';
 import { isDate } from '../format/index.ts';
 import type { DaysAnswer, EditAnswer, RouteProblem } from '../seam-types.ts';
-import { applyEdit, isEdit } from '../store/index.ts';
-import { DAYS_MAX_CHARS, MAX_RANGE_DAYS, dayOf, rangeProblem, readDays } from './days.ts';
+import { REPLY_BUDGET, isEdit, jsonBytes, planEdit, writeDay } from '../store/index.ts';
+import { DAYS_BUDGET, MAX_RANGE_DAYS, dayOf, rangeProblem, readDays } from './days.ts';
 import { problemText, word } from './words.ts';
 
 export type Route = (req: EngineRequest, ctx: EngineContext) => Promise<EngineReply | null>;
@@ -21,8 +21,8 @@ function days(dir: string, query: URLSearchParams): EngineReply {
 	const to = query.get('to');
 	const bad = rangeProblem(from, to, MAX_RANGE_DAYS);
 	if (bad !== null || from === null || to === null) return problem(400, 'dates', word(bad ?? 'journal.problem.dates-form', { max: MAX_RANGE_DAYS }));
-	const read = readDays(dir, from, to, DAYS_MAX_CHARS);
-	const answer: DaysAnswer = { days: read.days.map((d) => dayOf(d.date, d.file)) };
+	const read = readDays(dir, from, to, DAYS_BUDGET, dayOf);
+	const answer: DaysAnswer = { days: read.days };
 	if (read.next !== undefined) answer.next = read.next;
 	return ok(answer);
 }
@@ -37,14 +37,17 @@ function edit(dir: string, body: unknown, wrote: (date: string) => void): Engine
 		}
 	}
 	if (!isEdit(e) || !isDate(e.date)) return problem(400, 'unreadable', word('journal.problem.unreadable'));
-	const done = applyEdit(dir, e);
+	const done = planEdit(dir, e);
 	if (!done.ok) {
 		const title = done.problems !== undefined ? done.problems.map(problemText).join(' ') : word(done.say, done.vars);
 		return done.status === 400 ? problem(400, done.code, title) : problem(done.status, done.code, title, { day: dayOf(e.date, done.file) });
 	}
+	// The answer is measured before the write, so an edit that lands always answers that it landed.
+	const reply = ok({ day: dayOf(e.date, { state: 'text', text: done.text }), undo: done.undo } satisfies EditAnswer);
+	if (jsonBytes(reply) > REPLY_BUDGET) return problem(422, 'too-big', word('journal.problem.edit-too-big'), { day: dayOf(e.date, done.file) });
+	writeDay(dir, e.date, done.text);
 	wrote(e.date);
-	const answer: EditAnswer = { day: dayOf(e.date, { state: 'text', text: done.text }), undo: done.undo };
-	return ok(answer);
+	return reply;
 }
 
 /** The routes over the data folder `dir`. `wrote` hears each day this engine saved, at once. */

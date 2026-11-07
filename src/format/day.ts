@@ -11,6 +11,13 @@ import { dateTitle } from './dates.ts';
 
 /** The most bytes a day file may hold; a larger one is not read, and no write may make one. */
 export const MAX_DAY_BYTES = 256 * 1024;
+/**
+ * The most top-level blocks a day may hold, and the most bytes its text may take sent as a JSON string. A day over either
+ * is too big, as one over {@link MAX_DAY_BYTES} is: each block costs its answer a key and offsets, and a control character
+ * is sent as six bytes, so a day legal by size could otherwise answer past the contract's reply limit.
+ */
+export const MAX_DAY_BLOCKS = 2000;
+export const MAX_DAY_JSON_BYTES = 384 * 1024;
 
 /** An entry's heading. A time `HH:MM` (00:00 to 23:59), then ` · ` and a title. */
 export const ENTRY_RE = /^## ([01]\d|2[0-3]):([0-5]\d)(?: · (\S.*))?$/;

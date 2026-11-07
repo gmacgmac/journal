@@ -2,8 +2,8 @@
 
 The person keeps a journal here: one page a day, entries by time, in `.journal/` in your workspace
 (`.journal/2026/11/2026-11-07.md`). They write in it beside the chat, and you can read and write it too.
-Change it only with the Journal's tools, never by writing the files: the tools check the page's rules,
-save atomically, and show the person each change as it lands.
+Change it only with the Journal's tools, never by writing the files (except where a refusal below says
+so): the tools check the page's rules, save atomically, and show the person each change as it lands.
 
 ## Read first
 
@@ -15,7 +15,7 @@ refused and nothing is saved: read again and work from what is there.
 
 - `read_days`: one day or a range (at most 31 days); when it doesn't all fit, read on from the day it names.
 - `add_entry`: a new entry at a time, with an optional title; it goes in time order and starts the day's
-  page if there is none.
+  page if there is none. For a day with no page, pass `null` as the version or leave it out.
 - `insert_after`: new writing after a block, under the same entry.
 - `replace_block`: one block becomes new writing; replacing an entry's heading changes its time or title.
 - `delete_block`: removes one block.
@@ -46,3 +46,6 @@ The refusal says why and what to do. Most often:
 - `malformed`: the page already breaks its rules, so the tools can't change it. Fix the file with your
   own file tools, changing nothing but what breaks the rules, then read the day again, and tell the
   person what you fixed.
+- `ambiguous-entry`: two entries in the file share a time. Give each its own time in the file with your
+  own file tools, changing nothing else, then read the day again, and tell the person what you changed.
+- `too-big`: the page is too big for the tools. Ask the person what to do before you touch the file.

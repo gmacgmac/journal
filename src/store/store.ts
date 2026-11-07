@@ -11,12 +11,19 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { MAX_DAY_BYTES, dateHeading, dayPath, isDate } from '../format/index.ts';
 import type { Edit, RangeEdit } from '../seam-types.ts';
-import { plan, undoOf, type Refusal } from './edits.ts';
+import { TOO_BIG_VARS, plan, undoOf, type Refusal } from './edits.ts';
+import { dayFits } from './size.ts';
 
-/** What is at a day's path: nothing, a day's text, a file too big to read, or something that is not a plain file. */
+/**
+ * What is at a day's path: nothing, a day's text, a day too big to read (over `MAX_DAY_BYTES`, or any other limit `dayFits`
+ * holds), or something that is not a plain file.
+ */
 export type DayFile = { state: 'none' } | { state: 'text'; text: string } | { state: 'too-big' } | { state: 'odd' };
 
 export type Applied = { ok: true; text: string; undo: RangeEdit } | (Refusal & { file: DayFile });
+
+/** An edit planned and not yet written: the day's text after it, its undo, and the file it was planned on. */
+export type Planned = { ok: true; text: string; undo: RangeEdit; file: DayFile } | (Refusal & { file: DayFile });
 
 /** A day's version: the first 16 hex digits of the sha256 of the whole file. */
 export function version(text: string): string {
@@ -64,7 +71,8 @@ export function readDayFile(dir: string, date: string): DayFile {
 			if (n === 0) break;
 			at += n;
 		}
-		return { state: 'text', text: bytes.subarray(0, at).toString('utf8') };
+		const text = bytes.subarray(0, at).toString('utf8');
+		return dayFits(text) ? { state: 'text', text } : { state: 'too-big' };
 	} finally {
 		fs.closeSync(fd);
 	}
@@ -107,19 +115,24 @@ export function writeDay(dir: string, date: string, text: string): void {
 }
 
 /**
- * Plans `e` against the day as it is, and writes it when it is allowed. `e.date` must be a date. A day too big to read, or
- * not a plain file, takes no edit.
+ * Plans `e` against the day as it is, writing nothing. `e.date` must be a date. A day too big to read, or not a plain file,
+ * takes no edit. The caller writes the plan with `writeDay` once its answer is known to fit.
  */
-export function applyEdit(dir: string, e: Edit): Applied {
+export function planEdit(dir: string, e: Edit): Planned {
 	const file = readDayFile(dir, e.date);
-	if (file.state === 'too-big') {
-		return { ok: false, status: 422, code: 'too-big', say: 'journal.problem.too-big', vars: { max: MAX_DAY_BYTES / 1024 }, file };
-	}
+	if (file.state === 'too-big') return { ok: false, status: 422, code: 'too-big', say: 'journal.problem.too-big', vars: TOO_BIG_VARS, file };
 	if (file.state === 'odd') return { ok: false, status: 422, code: 'malformed', say: 'journal.problem.not-a-file', file };
 	const text = file.state === 'text' ? file.text : null;
 	const planned = plan(e.date, text, e);
 	if (!planned.ok) return { ...planned, file };
-	writeDay(dir, e.date, planned.text);
 	// A page this edit made is undone back to a bare page, never deleted.
-	return { ok: true, text: planned.text, undo: undoOf(e.date, text ?? `${dateHeading(e.date)}\n`, planned.text) };
+	return { ok: true, text: planned.text, undo: undoOf(e.date, text ?? `${dateHeading(e.date)}\n`, planned.text), file };
+}
+
+/** Plans `e` and writes it when it is allowed. */
+export function applyEdit(dir: string, e: Edit): Applied {
+	const planned = planEdit(dir, e);
+	if (!planned.ok) return planned;
+	writeDay(dir, e.date, planned.text);
+	return { ok: true, text: planned.text, undo: planned.undo };
 }

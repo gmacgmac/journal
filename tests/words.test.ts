@@ -4,7 +4,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
+import { createEngine } from '../src/engine/engine.ts';
+import { plan } from '../src/store/index.ts';
 import { WORDS } from '../words/words.ts';
+import { scratch } from './fixtures/days.ts';
 
 const ROOT = path.join(import.meta.dirname, '..');
 const words = WORDS as Record<string, string>;
@@ -71,5 +74,22 @@ describe('the words', () => {
 		}
 		assert.ok(calls > 20, `the scan found the calls (${calls})`);
 		assert.deepEqual(unfilled, []);
+	});
+
+	it('a refusal says what the code does, and the fix that works', async (t) => {
+		// An entry's title is optional (the planner takes one with none), so the sentence for a bad time must not ask for one.
+		assert.equal(plan('2026-11-07', null, { op: 'entry', date: '2026-11-07', time: '21:30', title: null, text: '' }).ok, true);
+		assert.match(words['journal.problem.entry-time']!, /optional/);
+		// A backwards range is refused `dates`: reading a shorter range would not fix it.
+		const { dir, done } = scratch(true);
+		t.after(done);
+		const engine = createEngine({ dir, name: () => 'A bot', warn: () => {}, flags: {} });
+		const ctx = { caller: { by: 'agent' as const, agent: 'bot-0123456789abcdef' }, signal: new AbortController().signal };
+		const r = await engine.tools.call('read_days', { from: '2026-11-07', to: '2026-11-01' }, ctx);
+		assert.deepEqual(r.structuredContent, { refused: 'dates' });
+		for (const text of [r.content[0]!.text, words['journal.problem.dates-range']!]) {
+			assert.doesNotMatch(text, /shorter/, text);
+			assert.match(text, /forwards/, text);
+		}
 	});
 });

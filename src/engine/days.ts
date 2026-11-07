@@ -1,19 +1,20 @@
 // Days as the person's routes and the chips see them: a day file read and worded (`Day`, the spec's § Routes), and a range
-// read in whole days up to a character budget.
-import { MAX_DAY_BYTES, checkDay, dateTitle, daysBetween, isDate, keyedBlocks, addDays } from '../format/index.ts';
+// read in whole days up to a budget of characters and of answer bytes.
+import { checkDay, dateTitle, daysBetween, isDate, keyedBlocks, addDays } from '../format/index.ts';
 import type { Day } from '../seam-types.ts';
-import { readDayFile, version, type DayFile } from '../store/index.ts';
+import { REPLY_BUDGET, TOO_BIG_VARS, jsonBytes, readDayFile, version, type DayFile } from '../store/index.ts';
 import { problemText, word } from './words.ts';
 
 /** The most days one `GET days` may ask for. */
 export const MAX_RANGE_DAYS = 93;
-/** The most characters of day text one `GET days` answer holds; always at least one day. */
+/** What one `GET days` answer may hold: characters of day text, and bytes as JSON; always at least one day. */
 export const DAYS_MAX_CHARS = 300000;
+export const DAYS_BUDGET: ReadBudget = { chars: DAYS_MAX_CHARS, bytes: REPLY_BUDGET };
 
 /** `date`'s day as the routes answer it, from what is at its path. */
 export function dayOf(date: string, file: DayFile): Day {
 	const day: Day = { date, title: dateTitle(date), exists: file.state !== 'none', version: null, blocks: [], problems: [] };
-	if (file.state === 'too-big') return { ...day, problems: [word('journal.problem.too-big', { max: MAX_DAY_BYTES / 1024 })] };
+	if (file.state === 'too-big') return { ...day, problems: [word('journal.problem.too-big', TOO_BIG_VARS)] };
 	if (file.state === 'odd') return { ...day, problems: [word('journal.problem.not-a-file')] };
 	if (file.state === 'none') return day;
 	return { ...day, version: version(file.text), blocks: keyedBlocks(file.text), problems: checkDay(date, file.text).map(problemText) };
@@ -26,21 +27,32 @@ export function rangeProblem(from: unknown, to: unknown, max: number): 'journal.
 	return n === 0 || n > max ? 'journal.problem.dates-range' : null;
 }
 
-/** The length a day counts against a budget: its file's text, 0 for anything not read. */
-const sizeOf = (file: DayFile): number => (file.state === 'text' ? file.text.length : 0);
+/** What a range read may take: characters of day text, and bytes of the answer as the host measures it (`jsonBytes`). */
+export interface ReadBudget {
+	chars: number;
+	bytes: number;
+}
+
+const charsOf = (file: DayFile): number => (file.state === 'text' ? file.text.length : 0);
 
 /**
- * Whole days from `from` to `to` (a range already checked) until the next would take their text past `maxChars`; always at
- * least one. `next` is then the first day left out.
+ * Whole days from `from` to `to` (a range already checked), each as `shape` makes it, until the next would take their text
+ * past `budget.chars` or their answer, measured by `size`, past `budget.bytes`; always at least one. `next` is then the
+ * first day left out. A day that fits `dayFits` alone answers well inside the reply limit, so the first one always may.
  */
-export function readDays(dir: string, from: string, to: string, maxChars: number): { days: { date: string; file: DayFile }[]; next?: string } {
-	const days: { date: string; file: DayFile }[] = [];
+export function readDays<T>(
+	dir: string, from: string, to: string, budget: ReadBudget, shape: (date: string, file: DayFile) => T, size: (day: T) => number = jsonBytes,
+): { days: T[]; next?: string } {
+	const days: T[] = [];
 	let chars = 0;
+	let bytes = 0;
 	for (let date = from; date <= to; date = addDays(date, 1)) {
 		const file = readDayFile(dir, date);
-		chars += sizeOf(file);
-		if (days.length > 0 && chars > maxChars) return { days, next: date };
-		days.push({ date, file });
+		const day = shape(date, file);
+		chars += charsOf(file);
+		bytes += size(day) + 1;
+		if (days.length > 0 && (chars > budget.chars || bytes > budget.bytes)) return { days, next: date };
+		days.push(day);
 	}
 	return { days };
 }

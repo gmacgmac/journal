@@ -14,6 +14,11 @@
 	/* Type: the host's faces and size; the date headings keep the paper's serif. */
 	--journal-scale: var(--host-text-scale, 1);
 	--journal-rem: calc(1rem * var(--journal-scale));
+	/* The entry column: the times' margin and the gap before the writing. The phone layout narrows both. */
+	--journal-time-w: calc(3.4 * var(--journal-rem));
+	--journal-gutter: 20px;
+	/* The least a control is high on the phone layout, for a finger. */
+	--journal-tap: 44px;
 	--journal-font: var(--host-font, system-ui, -apple-system, 'Segoe UI', sans-serif);
 	--journal-mono: var(--host-font-mono, ui-monospace, Menlo, monospace);
 	--journal-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, ui-serif, serif;
@@ -97,7 +102,7 @@
 
 	/* Times in the margin; writing in the measure beside them. Blocks stay one flat
 	   list so a live update never has to regroup them. */
-	.entries { display: grid; grid-template-columns: calc(3.4 * var(--journal-rem)) minmax(0, 36em); column-gap: 20px; }
+	.entries { display: grid; grid-template-columns: var(--journal-time-w) minmax(0, 36em); column-gap: var(--journal-gutter); }
 	.block { grid-column: 2; margin: 0 -8px 0.7em; padding: 1px 8px; border-radius: 4px; cursor: text; }
 	.block:hover { background: var(--journal-hover); }
 	.block:focus-visible { outline: 2px solid var(--journal-focus); outline-offset: 1px; }
@@ -149,9 +154,10 @@
 	input.todo:focus-visible { outline: 2px solid var(--journal-focus); outline-offset: 2px; }
 	li.task:has(> input.todo:checked) { color: var(--journal-ink-soft); }
 
-	/* Add an entry: quiet until the day is pointed at, always there for a keyboard or a finger. */
+	/* Add an entry: quiet until the day is pointed at, always there for a keyboard or a finger. Its words start where an
+	   entry's writing starts; its padding sits in the gutter, as a block's does. */
 	.add-entry {
-		display: block; margin: 8px 0 0 calc(3.4 * var(--journal-rem) + 12px); padding: 4px 8px;
+		display: block; margin: 8px 0 0 calc(var(--journal-time-w) + var(--journal-gutter) - 8px); padding: 4px 8px;
 		font: calc(0.85 * var(--journal-rem)) var(--journal-font); color: var(--journal-ink-soft); background: none; border: 0; border-radius: 6px; cursor: pointer;
 		opacity: 0; transition: opacity 120ms;
 	}
@@ -203,11 +209,14 @@
 
 	/* ─── Phone: one page, one day under another ────────────────────────────── */
 	@container journal (max-width: 899px) {
-		.paper { padding: 0 0 168px; }
+		.paper { padding: 0 0 168px; --journal-time-w: calc(2.9 * var(--journal-rem)); --journal-gutter: 12px; }
 		.spread { grid-template-columns: minmax(0, 1fr); box-shadow: none; border-radius: 0; }
 		.page.left, .page.right { padding: 28px 16px 8px; border-radius: 0; background-image: none; }
 		.page.right { padding: 36px 16px 48px; }
-		.entries { grid-template-columns: calc(2.9 * var(--journal-rem)) minmax(0, 1fr); column-gap: 12px; }
+		.entries { grid-template-columns: var(--journal-time-w) minmax(0, 1fr); }
+		/* A finger's reach: every control of the two bars, and Add an entry, at least --journal-tap high. */
+		.range button, .range input, .bar button, .bar-link input, .add-entry { min-height: var(--journal-tap); }
+		.bar button { min-width: var(--journal-tap); }
 	}
 }
 @keyframes journal-fresh { from { background: var(--journal-fresh); } to { background: transparent; } }

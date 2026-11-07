@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { MAX_DAY_BYTES, blocksOf, dateHeading, dayPath } from '../src/format/index.ts';
+import { MAX_DAY_BLOCKS, MAX_DAY_BYTES, MAX_DAY_JSON_BYTES, blocksOf, dateHeading, dayPath } from '../src/format/index.ts';
 import type { Edit } from '../src/seam-types.ts';
 import { applyEdit, dayFile, plan, readDayFile, writeDay, type Plan } from '../src/store/index.ts';
 import { DAYS, sampleDays, scratch } from './fixtures/days.ts';
@@ -209,6 +209,30 @@ test('a day over MAX_DAY_BYTES is too-big and not read, and no write makes one',
 	const grow = applyEdit(dir, { op: 'entry', date: '2026-10-03', time: '09:00', title: null, text: 'y'.repeat(MAX_DAY_BYTES) });
 	assert.equal(!grow.ok && grow.code, 'too-big');
 	assert.equal(readDayFile(dir, '2026-10-03').state, 'none');
+});
+
+test('a day over MAX_DAY_BLOCKS blocks, or whose text as JSON is over MAX_DAY_JSON_BYTES, is too-big, and no write makes one', (t) => {
+	const { dir, done } = scratch();
+	t.after(done);
+	const head = `${dateHeading(DATE)}\n\n## 09:00\n\n`;
+	const many = `${head}${Array.from({ length: MAX_DAY_BLOCKS - 1 }, (_, i) => `p${i}`).join('\n\n')}\n`;
+	const escaped = `${head}${'\u0001'.repeat(Math.ceil(MAX_DAY_JSON_BYTES / 6))}\n`;
+	for (const text of [many, escaped]) {
+		assert.ok(Buffer.byteLength(text) <= MAX_DAY_BYTES, 'legal by size');
+		writeFileSync(dayFile(dir, DATE), text);
+		assert.deepEqual(readDayFile(dir, DATE), { state: 'too-big' });
+		const r = applyEdit(dir, { op: 'entry', date: DATE, time: '23:00', title: null, text: 'x' });
+		assert.equal(!r.ok && r.code, 'too-big');
+		assert.equal(read(dir), text);
+	}
+	// One block short of the limit reads; a write that would add the one too many is refused.
+	const full = `${head}${Array.from({ length: MAX_DAY_BLOCKS - 2 }, (_, i) => `p${i}`).join('\n\n')}\n`;
+	writeFileSync(dayFile(dir, DATE), full);
+	assert.equal(readDayFile(dir, DATE).state, 'text');
+	const last = blocksOf(full).at(-1)!;
+	const grow = applyEdit(dir, { op: 'insert', date: DATE, start: last.start, end: last.end, before: last.text, text: 'one more' });
+	assert.equal(!grow.ok && grow.code, 'too-big');
+	assert.equal(read(dir), full);
 });
 
 test('a write is atomic: a reader sees the old file or the new one, and no temp file is left', (t) => {
