@@ -134,10 +134,21 @@ its problems over it, and every write to it is refused (`malformed`), the bot's 
 the file itself. A file larger than `MAX_DAY_BYTES` (256 KiB) is not read: its day says `too-big` and shows nothing else.
 Anything in `.journal/` that is not a day file at its own path (`YYYY/MM/YYYY-MM-DD.md`, the date real) is not read.
 
+**The bot can change `.journal/`, so the engine reads and writes it as an equal's ground** (the store's `DayFile` state
+`odd`): a day path that is a link or a folder, or that sits under a month or year folder resolving outside the data
+folder, is never read through or written through. Its day is shown with the problem `journal.problem.not-a-file` and
+every write to it is refused. The file is opened with `O_NOFOLLOW`, and each folder above it is checked by its real path
+against the data folder. A write that would make a day over `MAX_DAY_BYTES` is refused `too-big` and writes nothing. An
+edit's offsets must be whole numbers from 0 with `end` not before `start`, or the edit is refused `unreadable` (a negative
+`start` once counted from the end). A day lists at most 20 problems (`MAX_PROBLEMS`), each said once, so a broken page
+still answers small.
+
 Proven by JR_02 `tests/format.test.ts` and `tests/store.test.ts` (carried from the proof, with the sample days of
 2026-09-28 to 2026-10-09 as fixtures under `tests/fixtures/days/`, never shipped) and: "a day that breaks the rules is read
-with its problems and refused for every write", "a day over MAX_DAY_BYTES is too-big and not read", "a write leaves every
-untouched block's bytes as they were", "a write is atomic: a reader sees the old file or the new one".
+with its problems and refused for every write", "a day over MAX_DAY_BYTES is too-big and not read, and no write makes
+one", "a write leaves every untouched block’s bytes as they were, over every sample day", "a write is atomic: a reader sees
+the old file or the new one, and no temp file is left", "an edit writes only under the data folder: a bad date, a link, or
+a folder leading out is refused", "a day that breaks the rules says each problem once" (`tests/format.test.ts`).
 
 ## The engine
 
@@ -189,10 +200,15 @@ type Edit =
 	| { op: 'range'; date: string; start: number; end: number; before: string; after: string };    // exact bytes: an undo
 // 200: { "day": Day, "undo": RangeEdit }
 // 400 "unreadable": not an Edit · 409 "changed": the bytes moved (with day) · 422 "rules", "heading", "date-heading",
-//     "entry-exists", "malformed" (with day)
+//     "entry-exists", "malformed", "too-big" (with day)
 ```
 
-Every saved edit answers the edit that undoes it. An `entry` at a time the day already has is refused `entry-exists`.
+Every saved edit answers the edit that undoes it. An `entry` at a time the day already has, or a heading replaced to such
+a time, is refused `entry-exists`.
+
+**The wire, beyond the routes above.** A served path with the wrong method is `405` (`method`) naming the method it takes
+in `Allow`, which nclite's pass-through drops with every header of the plugin's. A query left on `path` (`days?from=…`) is
+read. An unexpected I/O failure is `warn`ed and answered `500` (`failed`), never thrown.
 
 **A block open for writing survives a write earlier in the same day.** The person opens a block; the bot adds an entry above
 it; the person's offsets are now stale. For `replace` and `insert`, when the block at `start`..`end` is not `before` but
@@ -200,10 +216,14 @@ exactly one top-level block of the day's text now equals `before`, the engine an
 more than one, does, the edit is refused `changed` with the day as it is. `range` (an undo) is never moved: it is exact
 bytes. The answer's `day` gives the view the block's new offsets.
 Proven by JR_02 `tests/routes.test.ts`: "days answers every day in the range, gaps included, and refuses a bad range",
-"days stops before DAYS_MAX_CHARS, always gives one day, and says next", "an open block's save lands after a write earlier in
-the same day: its text found once, it is moved", "a before found twice, or not at all, is refused changed",
-"an edit anchored to bytes that moved is refused with the day as it is now", "every saved edit answers its undo, and the
-undo puts the bytes back", "a caller that is not the person is refused", "a path the Journal does not serve is null".
+"days stops before DAYS_MAX_CHARS, always gives one day, and says next", "a day that breaks the rules, or is too big, is
+answered as it is, with its problems", "an open block’s save lands after a write earlier in the same day: its text found once,
+it is moved", "a before found twice, or not at all, is refused changed", "an edit anchored to bytes that moved is refused with
+the day as it is now", "every saved edit answers its undo, and the undo puts the bytes back", "refuses what is not an edit, a
+heading, an entry at a taken time, and any write to a day that breaks the rules", "a caller that is not the person is
+refused", "a path the Journal does not serve is null, and a wrong method names the one it takes"; and `tests/store.test.ts`:
+"an open block survives a write earlier in the day: its text found once, the edit moves to it", "an undo is refused once the
+bytes it would put back over have changed, and never moves".
 
 ### Watching
 
@@ -215,13 +235,20 @@ watcher (the board's ledger polls the same way):
   of any month whose folder changed and of the current and previous month; every `WATCH_SWEEP_MS` (30,000 ms) it stats every
   day file; at most `WATCH_MAX_FILES` (20,000) day files;
 - a file's identity is its modification time, size and inode; the first pass only records;
-- a write of this engine's own says its day at once, without waiting for the next poll;
-- a failure to read the folder is `warn`ed once and the next poll tries again; it never throws out of the timer.
+- a write of this engine's own says its day at once, without waiting for the next poll, and is recorded so the next poll is
+  silent;
+- the first pass, made when the first listener subscribes, only records; the "current and previous month" are the person's
+  local today's; the timer does not hold the process open (`unref`) and stops with the last listener; a listener that throws
+  does not stop the others;
+- a failure to read the folder is `warn`ed once, until a pass succeeds, and the next poll tries again; it never throws out of
+  the timer; more than `WATCH_MAX_FILES` day files is `warn`ed once and the rest are not watched.
 
 The host turns each into an event `{ plugin: 'journal', ref: { date } }`; `{}` is nclite's catch-up, on which the view reads
 again every day it shows. Proven by JR_02 `tests/watch.test.ts`: "a day written by another writer is said within two polls",
-"an in-place edit of an old month is said by the next sweep", "the engine's own write is said at once", "a folder it cannot
-read is warned once and never throws"; in nclite's real jail, by nclite's INT_01 test "a day file written straight into the
+"an in-place edit of an old month is said by the next sweep", "a burst of writes to one day between two polls is said once",
+"the engine’s own write is said at once, and not again by the next poll", "a folder it cannot read is warned once and never
+throws", "a listener that throws does not stop the others, and the last stop ends the polls", "at most maxFiles day files are
+watched, and the cap is warned once"; in nclite's real jail, by nclite's INT_01 test "a day file written straight into the
 folder is heard by a watcher, in the jail".
 
 ### References
@@ -246,9 +273,11 @@ ever made, or refuses it, never throws:
 | `days` | `{ where: "Journal, 2 to 8 November 2026", text: <each day's file that exists, in order, a blank line between> }`; `text` `''` when no day has a page | `too-long`: more than `CHIP_DAYS` (14) days, or more than `CHIP_TEXT_CHARS` (24,000) characters of text; `gone`: not this shape |
 | any other | — | `gone` |
 
-`where` and every `reason` are the Journal's words (§ Words), and no answer carries an `ack`. Proven by JR_02
-`tests/resolve.test.ts`: "a block chip says the block's text now, and is gone once its text changed", "a days chip says each
-day with a page, and refuses a range too long", "an unknown kind or a ref of another shape is refused, never thrown at".
+`where` and every `reason` are the Journal's words (§ Words), and no answer carries an `ack`. A day it cannot read is refused
+`gone` and `warn`ed, never thrown. Proven by JR_02 `tests/resolve.test.ts`: "a block chip says the block’s text now, and is
+gone once its text changed", "every block of every sample day resolves to its own text", "a days chip says each day with a
+page, and refuses a range too long", "a days chip over CHIP_TEXT_CHARS is refused too-long", "an unknown kind or a ref of
+another shape is refused, never thrown at", "a day it cannot read is refused gone and warned, never thrown".
 
 ## Tools
 
@@ -262,7 +291,10 @@ and the atomic write the person's edits use; a refusal is a result with `isError
 bot names the day, the entry (its time) and the block's whole text as `read_days` showed it, and passes the day's `version`
 from that read (required): a day that changed since is refused `stale`, an anchor that matches more than one block is refused
 `ambiguous` unless `nth` says which, and the offsets the anchor found are then checked against the bytes, as the person's
-edits are. `add_entry` changes no existing writing (it places a new entry by its time), so its `version` is optional: given,
+edits are. The tools do not call the person's `applyEdit`: a write composes the store's pieces (`readDayFile`, the rules, the
+version, the anchor, `plan`, `writeDay`) so the `version` the bot passed is checked against the very text that is planned on,
+and a write landing between the tool's read and its own is refused `stale` rather than moved (the move of the person's open
+block, above, is for the person's edits only). `add_entry` changes no existing writing (it places a new entry by its time), so its `version` is optional: given,
 it is checked the same way; left out, the entry is placed in the day as it is now.
 
 Shared schema parts (`$defs` written out in each tool's schema; each `description` is a words key's text, § Words):
@@ -322,15 +354,27 @@ the day and the block's new key (no `key` for a removal). A refusal carries no c
 | `entry-exists` | `add_entry` at a time the day has | Add to that entry with `insert_after`, or pick another time |
 | `heading` / `date-heading` | Writing that holds a heading / a change to the date line | Use `add_entry` for a new entry; leave the date line |
 | `rules` | The day would break its rules | The rules broken are named |
-| `malformed` / `too-big` | The day already breaks its rules / is over `MAX_DAY_BYTES` | Fix the file itself with its own file tools |
+| `malformed` | The day already breaks its rules | Fix only what breaks the rules, with its own file tools, naming the file `.journal/YYYY/MM/YYYY-MM-DD.md`, and tell the person what was fixed |
+| `too-big` | The day is over `MAX_DAY_BYTES`, or the write would make it so | Ask the person: shrinking it would lose their writing |
+| `tool` / `failed` | A tool the Journal has not / an unexpected I/O failure (`warn`ed, never thrown) | Not call it / try again |
+
+Choices the first draft of this page did not make, each tested: a `text` of only whitespace is refused `input` (the planner
+would have turned a replace into a delete); an `nth` past the matches is refused `ambiguous`, saying how many match; a
+write that would make a day too big says so (`journal.problem.would-be-too-big`); a description shared by several tools'
+fields is one words key each (`journal.tool.field.*`), not a copy per tool; every tool carries MCP annotations
+(`readOnlyHint` for `read_days`, `destructiveHint` for `replace_block` and `delete_block`), and an input is checked by `badField`
+(`src/engine/tools/check.ts`), a JSON Schema subset the tools use, with lengths in code points.
 
 `tools.instructions` is one sentence (`journal.tool.instructions`): read the days first, and pass back the version read.
 
 Proven by JR_05 `tests/tools.test.ts`: "read_days gives each day with its version and says where to read on",
-"add_entry places an entry by time and makes a missing page", "replace, delete and insert change only the anchored block",
-"a stale version is refused and nothing is written", "an ambiguous anchor is refused unless nth says which", "a write's
-_meta is the contract's change line, inside its bounds", "every refusal is a result with its code, never a throw", "an input
-outside its schema is refused input"; nclite's INT_01 "the Journal's tools add, change and read entries through the run
+"a day that breaks the rules is read with its problems, and one too big is named and not read", "add_entry places an entry by
+time and makes a missing page", "replace, delete and insert change only the anchored block", "a stale version is refused and
+nothing is written", "an ambiguous anchor is refused unless nth says which", "a write's _meta is the contract's change
+line, inside its bounds", "every refusal is a result with its code, never a throw", "an input outside its schema is refused
+input", "lists the five tools, each with a closed object schema, and says the instructions"; `tests/manifest.test.ts`: "the
+manifest's tools are exactly tools.list(): names, schemas and words", "every changeWords key starts journal. and is used by a
+tool"; nclite's INT_01 "the Journal's tools add, change and read entries through the run
 door".
 
 ## The skill
@@ -345,7 +389,8 @@ every turn while the Journal is on. No front matter. In this order:
 4. A page's rules, in four lines (the date line, entries by time, body kinds, no HTML).
 5. The person's words are theirs: change them only when asked, and add an entry in their voice only when asked to log
    something for them.
-6. What to do on `stale`, `ambiguous` and `malformed`.
+6. What to do on `stale`, `ambiguous` and `malformed`: on `malformed` it fixes only what breaks the rules and tells the person
+   what it fixed.
 
 It is a prompt: a change to it runs its scenarios (nclite TRACKER `N220`). Proven by JR_05 `tests/skill.test.ts`: "the
 skill is within SKILL_BYTES", "every tool the skill names is a tool of the manifest".
@@ -446,7 +491,7 @@ a value filled in. Nothing the person or the bot reads is written in the code. T
 | Keys | What | Read by |
 |---|---|---|
 | `journal.plugin.name`, `journal.plugin.chips.block`, `journal.plugin.chips.days` | "Journal", and what each chip kind is | nclite (the manifest) |
-| `journal.tool.<tool>`, `journal.tool.<tool>.<field>`, `journal.tool.instructions` | Each tool's description, each input field's, and the instructions | The bot |
+| `journal.tool.<tool>`, `journal.tool.<tool>.<field>`, `journal.tool.field.<name>`, `journal.tool.instructions` | Each tool's description, each input field's (one key for a field several tools share), and the instructions | The bot |
 | `journal.read.*`, `journal.saved` | The lines of a read (a day and its version, no page yet, where to read on) and of a saved write | The bot |
 | `journal.refusal.<code>` | Each refusal (§ Tools), e.g. `journal.refusal.stale` "This day changed since you read it. Read it again with read_days, then make your change against what is there now." | The bot |
 | `journal.change.entry`, `.replace`, `.delete`, `.insert` | "Added an entry to {subject}", "Changed writing on {subject}", "Removed writing from {subject}", "Added writing to {subject}" | nclite's change line |
@@ -454,7 +499,9 @@ a value filled in. Nothing the person or the bot reads is written in the code. T
 | `journal.problem.*` | Each rule a day breaks (`checkDay`), each route problem | The person, the bot |
 | `journal.view.*` | The range bar, the writing bar, Undo and its toast, a block's and the range's chip labels, the leave question, a reveal it cannot show, a page that breaks the rules | The person |
 
-The engine bundles `words.json` at build, and the folder ships the same file, so the two cannot differ. Proven by JR_05
+`words/words.ts` is the one home of `WORDS` and `fill`; the engine's `word()` and the view's `say()` both read it. The engine
+bundles `words.json` at build, the view bundle carries the whole file, and the folder ships the same file, so they cannot
+differ. Proven by JR_05
 `tests/words.test.ts`: "every key the code names is in words.json, and every key in it is named", "no string literal in
 src/ is a sentence" (src/vendor/ excepted), "every placeholder a sentence holds is filled where it is used".
 
@@ -485,6 +532,8 @@ compiles alone with the DOM types", "a host that gives the contract's PluginHost
 ## Not covered
 
 - The skill and the tool descriptions as prompts: no scenario has been run on a real turn (nclite TRACKER `N220`).
+- A tool's `read_days` budget and refusal sentences are held by tests for their codes and fields, not for how a model acts on
+  them.
 - The caret, focus, layout and typing need a real browser, which this repo's fake DOM is not; nclite's smoke rows walk them.
 - A day the person and the bot change in the same second: each change is anchored, so the second is refused, never merged;
   the person sees the refusal, and the bot reads again.
