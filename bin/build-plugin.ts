@@ -1,5 +1,5 @@
 // `npm run build:plugin [-- --out <folder>]`: the journal as one plugin folder, `dist/plugin/journal/` by default:
-// manifest.json, view/journal.js and view/journal.css, engine/engine.js, words.json, skill.md and plugin.d.ts.
+// manifest.json, view/journal.js and view/journal.css, engine/engine.js, words.json, skill.md, plugin.d.ts and vendored.json.
 // A host copies the folder; nothing in it depends on how it was made. The same input gives the same bytes.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -7,6 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { build } from 'vite';
 import { manifestOf } from '../src/manifest.ts';
 import { engineBuild, viewBuild } from '../vite.config.ts';
+import { vendoredOf } from './sync-nclite.ts';
 import { pluginTypes } from './types.ts';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
@@ -15,7 +16,7 @@ export const DEFAULT_OUT = path.join(ROOT, 'dist/plugin/journal');
 const json = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
 const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 
-/** The manifest, words, skill and types as text, by the file's name in the folder. */
+/** The manifest, words, skill, types and vendored.json as text, by the file's name in the folder. */
 export function textFiles(): Record<string, string> {
 	const { version } = JSON.parse(read('package.json')) as { version: string };
 	return {
@@ -23,6 +24,7 @@ export function textFiles(): Record<string, string> {
 		'words.json': json(JSON.parse(read('words/words.json'))),
 		'skill.md': read('skill/SKILL.md'),
 		'plugin.d.ts': pluginTypes(),
+		'vendored.json': json(vendoredOf()),
 	};
 }
 

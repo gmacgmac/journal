@@ -9,7 +9,7 @@
 		"build:plugin": "node bin/build-plugin.ts",
 		"test": "node --test 'tests/**/*.test.ts'",
 		"check": "tsc --noEmit",
-		"sync:markdown": "node bin/sync-markdown.ts"
+		"sync:nclite": "node bin/sync-nclite.ts"
 	},
 	"devDependencies": {
 		"@types/node": "26.1.1",
