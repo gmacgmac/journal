@@ -402,7 +402,9 @@ door".
 ## The skill
 
 `skill/SKILL.md`, written to `skill.md`, at most `SKILL_BYTES` (contract: 8,192 bytes), aiming at half that, since it rides
-every turn while the Journal is on. No front matter. In this order:
+every turn on a host that sends it whole. It opens with front matter, which a host that discloses skills progressively
+(nclite, GM 2026-11-07) lists while the rest is read when needed: `name`, the plugin's id, and `description`, one line that
+says what the Journal is and when to read the skill. Then, in this order:
 
 1. What the Journal is: the person's journal, one page a day, entries by time, kept in `.journal/` in the workspace. Change
    it with the tools, never by writing the files, so the person sees each change and nothing is half-written.
@@ -418,7 +420,7 @@ every turn while the Journal is on. No front matter. In this order:
 Under `add_entry` it says that a day with no page takes `null` as its version, or none (WORDS_01 W3).
 
 It is a prompt: a change to it runs its scenarios (nclite TRACKER `N220`); FIX_01b's change (W3, W4) has not run them yet,
-so they are owed. Proven by JR_05 `tests/skill.test.ts`: "the skill is within SKILL_BYTES", "every tool the skill names is a
+so they are owed. Proven by JR_05 `tests/skill.test.ts`: "the skill is within SKILL_BYTES", "the skill opens with front matter naming the plugin and saying when to read it", "every tool the skill names is a
 tool of the manifest"; FIX_01b: "every refusal that sends the bot to the file is named where the skill says what to do when
 refused", "the skill says what add_entry takes as the version of a day with no page".
 

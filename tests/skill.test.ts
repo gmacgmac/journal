@@ -17,7 +17,16 @@ describe('the skill', () => {
 	it('the skill is within SKILL_BYTES', () => {
 		const bytes = Buffer.byteLength(skill, 'utf8');
 		assert.ok(bytes <= SKILL_BYTES, `${bytes} bytes, budget ${SKILL_BYTES}`);
-		assert.ok(skill.startsWith('# '), 'no front matter');
+	});
+
+	// nclite lists a plugin's skill by its front matter and opens the rest when the bot needs it (progressive disclosure,
+	// GM 2026-11-07): `name` is the plugin's id, `description` one line that says when to read it.
+	it('the skill opens with front matter naming the plugin and saying when to read it', () => {
+		const m = /^---\nname: (.+)\ndescription: (.+)\n---\n\n# /.exec(skill);
+		assert.ok(m, 'front matter with name and description, then the title');
+		assert.equal(m[1], manifestOf('0.0.0').id);
+		assert.ok(m[2]!.length <= 1000, `${m[2]!.length} characters`);
+		assert.match(m[2]!, /^The person's journal.*Read this before/);
 	});
 
 	it('every tool the skill names is a tool of the manifest', () => {

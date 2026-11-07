@@ -1,3 +1,8 @@
+---
+name: journal
+description: The person's journal, one page a day with entries by time, in .journal/ in your workspace. Read this before you read or change it, and whenever the person asks you to log, note, tick off, change or look back at something in their journal - it says which Journal tool to use, the page's rules, and what to do when a change is refused.
+---
+
 # Journal
 
 The person keeps a journal here: one page a day, entries by time, in `.journal/` in your workspace
