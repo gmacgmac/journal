@@ -70,7 +70,21 @@ export function readDayFile(dir: string, date: string): DayFile {
 	}
 }
 
-/** Writes `text` as `date`'s file: a temporary file `.<random>.tmp` in the day's own folder, synced, then renamed over it. */
+/**
+ * Writes `text` as `date`'s file: a temporary file `.<random>.tmp` in the day's own folder, synced where the runtime allows,
+ * then renamed over it, so a reader sees the old day or the new one and never half of one. Under Node's permission model,
+ * which nclite's jail runs the engine in, Node refuses fsync outright (`ERR_ACCESS_DENIED`); the rename still makes the
+ * write atomic, so the save goes on without the sync (`syncIfAllowed`).
+ */
+/** Flushes `fd` to disk, unless the permission model refuses fsync, which it does for every file. */
+function syncIfAllowed(fd: number): void {
+	try {
+		fs.fsyncSync(fd);
+	} catch (e) {
+		if ((e as NodeJS.ErrnoException).code !== 'ERR_ACCESS_DENIED') throw e;
+	}
+}
+
 export function writeDay(dir: string, date: string, text: string): void {
 	const file = dayFile(dir, date);
 	const folder = path.dirname(file);
@@ -81,7 +95,7 @@ export function writeDay(dir: string, date: string, text: string): void {
 		const fd = fs.openSync(tmp, 'wx', 0o644);
 		try {
 			fs.writeFileSync(fd, text);
-			fs.fsyncSync(fd);
+			syncIfAllowed(fd);
 		} finally {
 			fs.closeSync(fd);
 		}

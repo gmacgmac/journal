@@ -468,7 +468,7 @@ paper as its own look when the host sets none.
 | `--journal-page` | `color-mix(in oklab, var(--host-surface) 95%, var(--host-accent) 5%)` | `light-dark(#fbf6ec, #1c1916)` |
 | `--journal-field` | `var(--host-surface)`: the ground of a block open for writing | `light-dark(#fffdf8, #25211e)` |
 | `--journal-hover` | `var(--host-surface-sunken)` | `light-dark(#f4ecdf, #25211e)` |
-| `--journal-fresh` | `color-mix(in oklab, var(--journal-page) 78%, var(--host-accent) 10%)`: a block just changed or revealed (22% failed the contrast rule with the host's values: muted text Lc 53.6 in light, links Lc 43.8 in dark) | `light-dark(#f3dfc1, #3b2d22)` |
+| `--journal-fresh` | `color-mix(in oklab, var(--journal-page) 90%, var(--host-accent) 10%)`: a block just changed or revealed (22% failed the contrast rule with the host's values: muted text Lc 53.6 in light, links Lc 43.8 in dark) | `light-dark(#f3dfc1, #3b2d22)` |
 | `--journal-rule`, `--journal-field-line` | `var(--host-line)`, `var(--host-line-strong)` | `light-dark(#e4d8c4, #332d29)`, `light-dark(#d8c8b0, #463f3a)` |
 | `--journal-ink`, `--journal-ink-soft` | `var(--host-ink)`, `var(--host-ink-muted)` | `light-dark(#2a241e, #ece5da)`, `light-dark(#6f5f4a, #c6baac)` |
 | `--journal-date-ink`, `--journal-link` | `var(--host-accent-strong)` | `light-dark(#8a4320, #f2a77c)`, `light-dark(#9b4519, #ff9a66)` |
