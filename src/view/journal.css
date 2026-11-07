@@ -1,3 +1,191 @@
+/* THE JOURNAL'S PAPER. Every colour is a token here, both modes in one `light-dark()`. A custom property keeps
+   `light-dark()` unresolved until it is used, so the same tokens resolve against whichever `color-scheme` the element
+   using them has. Dark grounds sit on Warm's dark lightness steps (desk 4.9, page 9.0, field 13.1 L*).
+   Everything is under `.journal`: every selector, every custom property it sets (`--journal-*`) and its keyframes. */
+
+/* ─── The view (journal.ts): everything under its root, nothing outside it.
+   A host may have its own `.page`, `.title` or `.bar`; these rules reach only
+   the Journal's. The chrome follows the host's own tokens when it has them. */
 .journal {
-	color: light-dark(#222, #eee);
+	--journal-app-bg: var(--bg, light-dark(#faf6ef, #13100f));
+	--journal-app-ink: var(--text, light-dark(#141414, #fafafa));
+	--journal-app-line: var(--line, light-dark(#e9ddcc, #332d29));
+	--journal-app-field: var(--surface, light-dark(#fffdfa, #1c1916));
+	/* The paper. */
+	--journal-desk: light-dark(#e6dccb, #13100f);
+	--journal-page: light-dark(#fbf6ec, #1c1916);
+	--journal-field: light-dark(#fffdf8, #25211e);
+	--journal-hover: light-dark(#f4ecdf, #25211e);
+	--journal-fresh: light-dark(#f3dfc1, #3b2d22);
+	--journal-rule: light-dark(#e4d8c4, #332d29);
+	--journal-field-line: light-dark(#d8c8b0, #463f3a);
+	--journal-ink: light-dark(#2a241e, #ece5da);
+	--journal-ink-soft: light-dark(#6f5f4a, #c6baac);
+	--journal-date-ink: light-dark(#8a4320, #f2a77c);
+	--journal-link: light-dark(#9b4519, #ff9a66);
+	--journal-warn: light-dark(#8a5508, #ffb54d);
+	--journal-focus: light-dark(#c4501f, #ff8a4f);
+	--journal-shadow: light-dark(rgb(70 45 20 / 0.16), rgb(0 0 0 / 0.55));
+	--journal-fold: light-dark(rgb(110 80 40 / 0.11), rgb(0 0 0 / 0.4));
+	--journal-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, ui-serif, serif;
+	--journal-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+	position: relative; display: flex; flex-direction: column; height: 100%; min-height: 0;
+	container: journal / inline-size;
+
+	* { box-sizing: border-box; }
+	/* A host's own element rules reach in (the app sets every h2 small and in capitals); say ours. */
+	h2 { text-transform: none; }
+	.paper[data-paper='light'] { color-scheme: light; }
+	.paper[data-paper='dark'] { color-scheme: dark; }
+	.journal-tools {
+		display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 8px 16px;
+		font: 14px/1.3 var(--journal-sans); background: var(--journal-app-bg); color: var(--journal-app-ink); border-bottom: 1px solid var(--journal-app-line);
+	}
+	.range { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+	.range button, .range input {
+		min-height: 32px; padding: 4px 10px;
+		font: inherit; color: var(--journal-app-ink); background: var(--journal-app-field);
+		border: 1px solid var(--journal-app-line); border-radius: 8px;
+	}
+	.range button:hover { border-color: var(--journal-app-ink); }
+	.range label { display: inline-flex; align-items: center; gap: 6px; }
+	.range :focus-visible { outline: 2px solid var(--journal-focus); outline-offset: 2px; }
+
+	/* ─── The open journal (follows its own switch) ───────────────────────────── */
+	.paper { flex: 1; min-height: 0; overflow: auto; scroll-padding-bottom: calc(var(--journal-bar-h, 0px) + 32px); padding: 36px 24px 168px; background: var(--journal-desk); color: var(--journal-ink); font: 17px/1.62 var(--journal-serif); }
+	.spread {
+		display: grid; grid-template-columns: 1fr 1fr;
+		max-width: 1240px; margin: 0 auto;
+		border-radius: 4px;
+		box-shadow: 0 1px 2px var(--journal-shadow), 0 14px 36px var(--journal-shadow);
+	}
+	.page { min-width: 0; padding: 56px 56px 72px; background-color: var(--journal-page); }
+	.page.left { border-radius: 4px 0 0 4px; background-image: linear-gradient(to left, var(--journal-fold), transparent 56px); }
+	.page.right { border-radius: 0 4px 4px 0; background-image: linear-gradient(to right, var(--journal-fold), transparent 56px); }
+
+	.day { margin: 0 0 44px; }
+	.day:last-child { margin-bottom: 0; }
+	.day h2 {
+		margin: 0 0 16px; padding-bottom: 8px;
+		font: 600 1.3rem/1.25 var(--journal-serif); letter-spacing: 0.005em;
+		color: var(--journal-date-ink); border-bottom: 1px solid var(--journal-rule);
+	}
+	.day.gap h2 { color: var(--journal-ink-soft); font-weight: 400; border-bottom-style: dashed; }
+	.quiet { margin: 0; font-style: italic; color: var(--journal-ink-soft); }
+	.day:not(.blank) .empty { display: none; }
+
+	/* Times in the margin; writing in the measure beside them. Blocks stay one flat
+	   list so a live update never has to regroup them. */
+	.entries { display: grid; grid-template-columns: 3.4rem minmax(0, 36em); column-gap: 20px; }
+	.block { grid-column: 2; margin: 0 -8px 0.7em; padding: 1px 8px; border-radius: 4px; cursor: text; }
+	.block:hover { background: var(--journal-hover); }
+	.block:focus-visible { outline: 2px solid var(--journal-focus); outline-offset: 1px; }
+	.block.entry-head { grid-column: 1; margin: 0; padding: 1px 0; text-align: right; }
+	.block.entry-head.has-title {
+		grid-column: 1 / -1; display: grid; grid-template-columns: subgrid;
+		margin-bottom: 0.25em; text-align: left;
+	}
+	.entry-head:not(:first-child), .entry-head:not(.has-title):not(:first-child) + .block { margin-top: 1.1em; }
+	.time { color: var(--journal-ink-soft); font-size: 0.84rem; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+	.has-title .time { justify-self: end; text-align: right; }
+	.title { font-style: italic; font-weight: 600; }
+	.block > :is(p, ul, ol, blockquote, pre, table) { margin: 0; }
+	.block ul, .block ol { padding-left: 1.3em; }
+	.block li::marker { color: var(--journal-ink-soft); }
+	.block blockquote { margin: 0; padding-left: 14px; border-left: 2px solid var(--journal-field-line); font-style: italic; }
+	.block a { color: var(--journal-link); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+	.block code, .block pre { font: 0.88em/1.5 ui-monospace, Menlo, monospace; }
+	.block.fresh { animation: journal-fresh 2.4s ease-out; }
+	@media (prefers-reduced-motion: reduce) { .block.fresh { animation: none; } }
+
+	/* ─── Writing in place ─────────────────────────────────────────────────────
+	   Opening an editor changes colour and ring only, never size or position: the
+	   ring is an outline and the field is a background, so not a line moves. */
+	.block.editing, .block.editing:hover { cursor: text; background: var(--journal-field); outline: 2px solid var(--journal-focus); outline-offset: 1px; }
+	[contenteditable='true'] { outline: none; caret-color: var(--journal-focus); }
+	.block > p + p, .block > p + :is(ul, ol, blockquote), .block > :is(ul, ol, blockquote) + * { margin-top: 0.7em; }
+	.block.stale { outline-color: var(--journal-warn); }
+	.busy { opacity: 0.6; pointer-events: none; }
+	[data-placeholder]:empty::before, [data-placeholder]:has(> br:only-child)::before {
+		content: attr(data-placeholder); color: var(--journal-ink-soft); font-style: italic; pointer-events: none;
+	}
+
+	/* An entry heading edits its time and title where they stand: the time keeps the margin. */
+	.block.entry-head.editing { background: none; outline: none; }
+	.entry-head.editing :is(.time, .title), .entry-draft .time { border-radius: 3px; background: var(--journal-field); box-shadow: 0 0 0 1px var(--journal-field-line); }
+	.entry-head.editing [contenteditable]:focus, .entry-draft [contenteditable]:focus { box-shadow: 0 0 0 2px var(--journal-focus); }
+	.entry-draft { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; margin: 1.1em 0 0.7em; padding: 0; }
+	.block.entry-draft.editing { background: none; outline: none; }
+	.entry-draft .time { grid-column: 1; align-self: start; justify-self: end; padding: 0 2px; }
+	.entry-column { grid-column: 2; margin: 0 -8px; padding: 1px 8px; border-radius: 4px; background: var(--journal-field); outline: 2px solid var(--journal-focus); outline-offset: 1px; }
+	.entry-column .title { display: block; margin-bottom: 0.25em; font-style: italic; font-weight: 600; }
+	.entry-body > * { margin: 0; }
+	.entry-body > * + * { margin-top: 0.7em; }
+
+	/* To-dos: the box hangs where a bullet would; a done item goes quiet. */
+	.block li.task { list-style: none; }
+	input.todo { width: 1em; height: 1em; margin: 0 0.45em 0 -1.35em; vertical-align: -0.12em; accent-color: var(--journal-focus); cursor: pointer; }
+	input.todo:focus-visible { outline: 2px solid var(--journal-focus); outline-offset: 2px; }
+	li.task:has(> input.todo:checked) { color: var(--journal-ink-soft); }
+
+	/* Add an entry: quiet until the day is pointed at, always there for a keyboard or a finger. */
+	.add-entry {
+		display: block; margin: 8px 0 0 calc(3.4rem + 12px); padding: 4px 8px;
+		font: 0.85rem var(--journal-sans); color: var(--journal-ink-soft); background: none; border: 0; border-radius: 6px; cursor: pointer;
+		opacity: 0; transition: opacity 120ms;
+	}
+	.day:hover .add-entry, .add-entry:focus-visible, .day.gap .add-entry { opacity: 1; }
+	.add-entry:hover { color: var(--journal-ink); background: var(--journal-hover); }
+	.add-entry:focus-visible { outline: 2px solid var(--journal-focus); outline-offset: 1px; }
+	.day.drafting .add-entry { visibility: hidden; }
+	@media (hover: none) { .add-entry { opacity: 1; } }
+
+	/* ─── The writing bar and the toast: over the paper, so they never push it ─── */
+	.bar {
+		position: absolute; left: 50%; bottom: 16px; z-index: 3; transform: translateX(-50%);
+		width: min(760px, calc(100% - 32px)); padding: 8px;
+		font: 14px/1.3 var(--journal-sans); color: var(--journal-ink); background: var(--journal-page);
+		border: 1px solid var(--journal-rule); border-radius: 12px; box-shadow: 0 10px 30px var(--journal-shadow);
+	}
+	.bar[hidden], .bar-link[hidden], .toast[hidden] { display: none; }
+	.bar-tools, .bar-link { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+	.bar-tools .gap { flex: 1; }
+	.bar-link { margin-top: 8px; }
+	.bar-link label { display: flex; flex: 1; align-items: center; gap: 8px; }
+	.bar-link input { flex: 1; min-height: 34px; padding: 4px 8px; font: inherit; color: var(--journal-ink); background: var(--journal-field); border: 1px solid var(--journal-field-line); border-radius: 7px; }
+	.bar-notice { max-height: 40vh; overflow: auto; margin-top: 8px; padding: 0 4px; font: 0.9rem/1.5 var(--journal-sans); }
+	.bar-notice:empty { display: none; }
+	.bar-notice p { margin: 0 0 6px; }
+	.bar-notice .warn, .warn { color: var(--journal-warn); font-weight: 600; }
+	.bar button, .actions button {
+		min-height: 34px; min-width: 34px; padding: 5px 12px;
+		font: 600 0.82rem/1 var(--journal-sans); color: var(--journal-ink); background: var(--journal-page);
+		border: 1px solid var(--journal-field-line); border-radius: 7px; cursor: pointer;
+	}
+	.bar button:hover, .actions button:hover { background: var(--journal-hover); }
+	:is(.bar, .actions) button.primary { color: var(--journal-page); background: var(--journal-ink); border-color: var(--journal-ink); }
+	:is(.bar, .actions) button:focus-visible, .bar-link input:focus-visible { outline: 2px solid var(--journal-focus); outline-offset: 2px; }
+	.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+	blockquote.current { margin: 0; padding-left: 14px; border-left: 2px solid var(--journal-field-line); font: italic 1rem/1.55 var(--journal-serif); color: var(--journal-ink); }
+	blockquote.current > * { margin: 0; }
+
+	.toast {
+		position: absolute; left: 50%; bottom: calc(var(--journal-bar-h, 0px) + 28px); z-index: 4; transform: translateX(-50%);
+		display: flex; align-items: center; gap: 12px; padding: 6px 6px 6px 16px;
+		font: 600 0.85rem/1.2 var(--journal-sans); color: var(--journal-page); background: var(--journal-ink); border-radius: 999px;
+		box-shadow: 0 8px 24px var(--journal-shadow);
+	}
+	.toast button { min-height: 30px; padding: 4px 12px; font: inherit; color: var(--journal-page); background: none; border: 1px solid currentColor; border-radius: 999px; cursor: pointer; }
+	.toast button[hidden] { display: none; }
+	.toast button:focus-visible { outline: 2px solid var(--journal-focus); outline-offset: 2px; }
+
+	/* ─── Phone: one page, one day under another ────────────────────────────── */
+	@container journal (max-width: 899px) {
+		.paper { padding: 0 0 168px; }
+		.spread { grid-template-columns: minmax(0, 1fr); box-shadow: none; border-radius: 0; }
+		.page.left, .page.right { padding: 28px 16px 8px; border-radius: 0; background-image: none; }
+		.page.right { padding: 36px 16px 48px; }
+		.entries { grid-template-columns: 2.9rem minmax(0, 1fr); column-gap: 12px; }
+	}
 }
+@keyframes journal-fresh { from { background: var(--journal-fresh); } to { background: transparent; } }

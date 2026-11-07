@@ -7,7 +7,7 @@
 	"engines": { "node": ">=24" },
 	"scripts": {
 		"build:plugin": "node bin/build-plugin.ts",
-		"test": "node --test tests/*.test.ts",
+		"test": "node --test 'tests/**/*.test.ts'",
 		"check": "tsc --noEmit",
 		"sync:markdown": "node bin/sync-markdown.ts"
 	},
