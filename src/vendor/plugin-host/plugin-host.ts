@@ -336,6 +336,9 @@ export interface PluginManifest {
 	seam: number;
 	/** A name from the app's own icon list; one the app lacks draws its plugin glyph. */
 	icon?: string;
+	/** The prefix every selector of its stylesheets starts with (`.<scope>`), and of every custom property they read
+	 *  (`--<scope>-`); absent, its id. Lowercase letters and digits, 2 to 16, never `host` or `ui`, never another plugin's. */
+	scope?: string;
 	view: { module: string; styles: string[]; export: string };
 	engine: { module: string; export: string };
 	chips: ChipDecl[];
@@ -361,7 +364,7 @@ export type Vendored = Readonly<Record<string, string>>;
 /* ── The change line ──────────────────────────────────────────────────────────────────────────────────────────────── */
 
 /** The `_meta` key of a tool result that names what the call changed. */
-export const CHANGE_META = 'nclite/change';
+export const CHANGE_META = 'plugin/change';
 
 /**
  * What a write says it changed, under {@link CHANGE_META}: a words key of the plugin's (one its manifest's `changeWords`

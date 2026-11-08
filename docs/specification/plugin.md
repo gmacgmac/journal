@@ -347,10 +347,10 @@ with no page says so; problems are listed under their day. `structuredContent`:
 
 **What a write gives.** `content[0].text` says the day was saved and its new version. `structuredContent`:
 `{ date, version, entry, key }` (`key` the changed or new block's, absent for a removal). `_meta` carries the contract's
-change line, `nclite/change`:
+change line, `plugin/change`:
 
 ```json
-{ "nclite/change": { "words": "journal.change.replace", "count": 1, "subject": "Saturday 7 November 2026",
+{ "plugin/change": { "words": "journal.change.replace", "count": 1, "subject": "Saturday 7 November 2026",
                      "reveal": { "date": "2026-11-07", "key": "9c1f02ab-0" } } }
 ```
 
