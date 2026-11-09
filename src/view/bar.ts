@@ -32,8 +32,15 @@ export function createBar(bar: HTMLElement): Bar {
 	let session: Session | null = null;
 	let restore = () => {};
 
+	const strip = bar.querySelector<HTMLElement>('.bar-scroll')!;
+	/** Marks the tools' strip while more of it lies past its right edge, so the edge fades and says there is more. */
+	const more = () => strip.classList.toggle('more', strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 1);
+	strip.addEventListener('scroll', more, { passive: true });
 	/** The bar's height, kept on the view so the paper and the toast make room for it. */
-	const room = () => bar.closest<HTMLElement>('.journal')?.style.setProperty('--journal-bar-h', `${bar.hidden ? 0 : bar.offsetHeight}px`);
+	const room = () => {
+		bar.closest<HTMLElement>('.journal')?.style.setProperty('--journal-bar-h', `${bar.hidden ? 0 : bar.offsetHeight}px`);
+		more();
+	};
 
 	const api: Bar = {
 		inBar: (node) => node instanceof Node && bar.contains(node),
@@ -46,6 +53,7 @@ export function createBar(bar: HTMLElement): Bar {
 			bar.querySelector<HTMLElement>('[data-act=notime]')!.hidden = timed !== true;
 			bar.querySelector<HTMLElement>('[data-act=addtime]')!.hidden = timed !== false;
 			linkForm.hidden = true;
+			strip.scrollLeft = 0;
 			api.say();
 		},
 		hideBar(s) {

@@ -19,12 +19,12 @@ const pagesQuery = (before: string) => `pages?before=${before}&limit=${PAGE_BATC
 describe('mount', () => {
 	before(() => installDom());
 
-	it('opens on the running journal: today and the six days before it, newest first', async () => {
-		const m = await mounted();
+	it('opens on the running journal: today, then only the days that have a page, newest first', async () => {
 		const { from, to } = recent();
+		const m = await mounted((h) => h.files.set(addDays(to, -2), fileOf(addDays(to, -2), '## 08:00', 'Then.')));
 		assert.equal(to, localToday());
 		assert.deepEqual(m.calls.gets, [daysQuery(from, to), pagesQuery(from)]);
-		assert.deepEqual(dates(m.root), [0, 1, 2, 3, 4, 5, 6].map((n) => addDays(to, -n)));
+		assert.deepEqual(dates(m.root), [to, addDays(to, -2)]);
 		assert.deepEqual(m.view.pageChip()?.ref, { from, to });
 		assert.ok(q(m.root, '.view-opt[data-view="journal"]').classList.contains('on'), 'the view shown is the filled one');
 		assert.equal(q(m.root, '.views').getAttribute('aria-label'), say('journal.view.views.switch', { now: 'Journal', other: 'Day' }));
@@ -32,16 +32,16 @@ describe('mount', () => {
 		m.view.unmount();
 	});
 
-	it('a recent day with no page is one line, and today says so', async () => {
+	it('a recent day with no page is not drawn: today is one line that says so, and one gap marker stands for the rest', async () => {
 		const { from, to } = recent();
 		const m = await mounted((h) => h.files.set(from, fileOf(from, '## 08:00', 'Morning.')));
+		assert.deepEqual(dates(m.root), [to, from]);
 		const empty = [...m.root.querySelectorAll('.day.gap')];
-		assert.equal(empty.length, 6);
-		for (const day of empty) {
-			const head = day.querySelector('header')!;
-			assert.ok(head.querySelector('.add-entry'), 'the way to start it sits on the date’s line');
-			assert.equal(day.querySelector('.entries'), null);
-		}
+		assert.equal(empty.length, 1, 'today alone');
+		assert.ok(empty[0]!.querySelector('header')!.querySelector('.add-entry'), 'the way to start it sits on the date’s line');
+		assert.equal(empty[0]!.querySelector('.entries'), null);
+		const markers = [...m.root.querySelectorAll('.gap-marker')];
+		assert.deepEqual(markers.map((g) => [g.getAttribute('data-from'), g.getAttribute('data-to')]), [[addDays(from, 1), addDays(to, -1)]]);
 		const today = q(m.root, `.day[data-date="${to}"]`);
 		assert.ok(today.classList.contains('today'));
 		assert.ok(today.querySelector('.today-mark'));
@@ -50,17 +50,17 @@ describe('mount', () => {
 	});
 
 	it('before the recent days, only days with a page, a gap marker between two apart, and Earlier pages while more are left', async () => {
-		const { from } = recent();
+		const { from, to } = recent();
 		const older = Array.from({ length: PAGE_BATCH + 2 }, (_, i) => addDays(from, -1 - 3 * i));
 		const m = await mounted((h) => { for (const d of older) h.files.set(d, fileOf(d, '## 08:00', 'Then.')); });
-		assert.deepEqual(dates(m.root).slice(7), older.slice(0, PAGE_BATCH));
+		assert.deepEqual(dates(m.root), [to, ...older.slice(0, PAGE_BATCH)]);
 		const markers = [...m.root.querySelectorAll('.gap-marker')];
-		assert.equal(markers.length, PAGE_BATCH - 1, 'one between every two older pages, none against the recent days');
-		assert.deepEqual([markers[0]!.getAttribute('data-from'), markers[0]!.getAttribute('data-to')], [addDays(older[1]!, 1), addDays(older[0]!, -1)]);
+		assert.equal(markers.length, PAGE_BATCH, 'one between today and the first page, and one between every two older pages');
+		assert.deepEqual([markers[1]!.getAttribute('data-from'), markers[1]!.getAttribute('data-to')], [addDays(older[1]!, 1), addDays(older[0]!, -1)]);
 		fire(q(m.root, '.feed-more'), 'click');
 		await settle();
 		assert.equal(m.calls.gets.at(-1), pagesQuery(older[PAGE_BATCH - 1]!));
-		assert.deepEqual(dates(m.root).slice(7), older);
+		assert.deepEqual(dates(m.root).slice(1), older);
 		assert.equal(m.root.querySelector('.feed-end'), null, 'no more to read');
 		m.view.unmount();
 	});
@@ -102,7 +102,7 @@ describe('mount', () => {
 		assert.deepEqual(dates(m.root), [today]);
 		fire(q(m.root, '[data-view="journal"]'), 'click');
 		await settle();
-		assert.equal(dates(m.root).length, 7);
+		assert.deepEqual(dates(m.root), [today], 'the journal again: today, and no day without a page');
 		m.view.unmount();
 	});
 
@@ -156,7 +156,7 @@ describe('mount', () => {
 		field.value = far;
 		fire(field, 'change');
 		await settle();
-		assert.deepEqual(dates(m.root).slice(7), [far, addDays(from, -40)], 'in date order');
+		assert.deepEqual(dates(m.root).slice(1), [far, addDays(from, -40)], 'in date order');
 		const day = q(m.root, `.day[data-date="${far}"]`);
 		assert.ok(day.classList.contains('placed'));
 		assert.ok(day.querySelector('.entry-draft'), 'a new entry, open for writing');
@@ -203,7 +203,7 @@ describe('mount', () => {
 		h.emit({});
 		await settle();
 		assert.deepEqual(h.calls.notes, []);
-		assert.equal(dates(root).length, 7);
+		assert.deepEqual(dates(root), [localToday()]);
 		view.unmount();
 	});
 
@@ -217,6 +217,44 @@ describe('mount', () => {
 		assert.deepEqual(m.calls.gets.slice(2), [daysQuery(from, to)]);
 		assert.equal(m.root.querySelector(`.day[data-date="${from}"]`), kept, 'patched, not drawn anew');
 		assert.equal(kept!.querySelectorAll('.block').length, 3);
+		m.view.unmount();
+	});
+
+	it('a recent day that gains a page is drawn in, from its event or from a catch-up, and the gap round it splits', async () => {
+		const { to } = recent();
+		const m = await mounted();
+		const yesterday = addDays(to, -1);
+		m.files.set(yesterday, fileOf(yesterday, '## 21:00', 'The bot wrote this.'));
+		m.emit({ date: yesterday });
+		await settle();
+		assert.deepEqual(dates(m.root), [to, yesterday]);
+		const twoBack = addDays(to, -3);
+		m.files.set(twoBack, fileOf(twoBack, '## 07:00', 'Early.'));
+		m.emit({});
+		await settle();
+		assert.deepEqual(dates(m.root), [to, yesterday, twoBack]);
+		assert.deepEqual([...m.root.querySelectorAll('.gap-marker')].map((g) => [g.getAttribute('data-from'), g.getAttribute('data-to')]), [[addDays(to, -2), addDays(to, -2)]], 'the one day between them');
+		m.view.unmount();
+	});
+
+	it('the writing bar is one row: its tools in a strip that scrolls, Done outside it, every icon named', async () => {
+		const { from } = recent();
+		const m = await mounted((h) => h.files.set(from, fileOf(from, '## 08:00', 'Morning.')));
+		fire(q(m.root, '.block[data-kind="paragraph"]'), 'click');
+		const tools = q(m.root, '.bar-tools');
+		const done = q(m.root, '[data-act="done"]');
+		assert.equal(done.parentElement, tools as unknown as HTMLElement, 'Done is never in the strip that scrolls');
+		for (const [act, word] of [['link', 'journal.view.bar.link'], ['todo', 'journal.view.bar.todo'], ['ask', 'journal.view.bar.ask'], ['remove', 'journal.view.bar.remove']] as const) {
+			const button = q(m.root, `[data-act="${act}"]`);
+			assert.equal(button.parentElement, q(m.root, '.bar-scroll') as unknown as HTMLElement);
+			assert.equal(button.getAttribute('aria-label'), say(word));
+			assert.ok(button.querySelector('svg.icon'), `${act} has its icon`);
+		}
+		assert.equal(q(m.root, '[data-act="ask"]').textContent, say('journal.view.bar.askShort'));
+		const add = q(m.root, '[data-add]');
+		assert.equal(add.getAttribute('aria-label'), say('journal.view.add.page'));
+		assert.equal(add.textContent, say('journal.view.add.short'));
+		assert.ok(add.querySelector('svg.icon'));
 		m.view.unmount();
 	});
 

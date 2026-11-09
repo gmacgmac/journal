@@ -1,9 +1,10 @@
 // The bar over the paper, one row at every width: which view (one toggle, the view shown filled in the accent; a press
 // switches to the other, and on a wide bar a press on the other's name goes there); in Day, the day shown, the days either
-// side and the way back to today; and Add a page (+), which asks which day. Drawn once per mount; `show` brings it in line with the
+// side and the way back to today; and Add a page (a plus and "Page"), which asks which day. Drawn once per mount; `show` brings it in line with the
 // place. It says what the person asked for through `actions` and decides nothing itself.
 import { isDate } from '../format/index.ts';
 import { shortDate } from './dates.ts';
+import { icon } from './icons.ts';
 import { dateField, openPicker } from './picker.ts';
 import type { Place, View } from './place.ts';
 import { el } from './render.ts';
@@ -38,8 +39,8 @@ export function createToolbar(actions: ToolbarActions): Toolbar {
 		button('›', { 'data-nav': 'next', 'aria-label': say('journal.view.nav.after') }),
 		toToday,
 	], { class: 'day-nav' });
-	const add = el('button', [el('span', ['+'], { class: 'plus', 'aria-hidden': 'true' }), el('span', [say('journal.view.add.page')], { class: 'add-words' })], {
-		type: 'button', 'data-add': '', class: 'add-page', title: say('journal.view.add.page'), 'aria-haspopup': 'dialog',
+	const add = el('button', [icon('plus'), el('span', [say('journal.view.add.short')], { class: 'add-words' })], {
+		type: 'button', 'data-add': '', class: 'add-page', 'aria-label': say('journal.view.add.page'), title: say('journal.view.add.page'), 'aria-haspopup': 'dialog',
 	});
 	const addField = dateField(say('journal.view.add.pick'));
 	const bar = el('nav', [views, dayNav, el('span', [add, addField], { class: 'picker-anchor add-anchor' })], {

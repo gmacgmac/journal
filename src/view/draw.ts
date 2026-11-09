@@ -1,25 +1,33 @@
 // The Journal's own markup, drawn inside the root its host gives it: the toolbar (`toolbar.ts`), the paper and its one
 // sheet, the writing bar and the toast. Nothing outside the root is touched, and nothing here is shared between mounts: even the writing
 // hint's id is this mount's own, so two journals in one page never point at each other's.
+import { icon } from './icons.ts';
 import { el } from './render.ts';
 import { say } from './words.ts';
 
+/**
+ * The writing bar, one row at every width: the tools scroll sideways in their own strip when the pane is too narrow for
+ * them, and Done stays at the end, never wrapped onto a line of its own (GM, 2026-11-09). What an icon says is its button's
+ * `aria-label`, and its hint is the `title`.
+ */
 function bar(): HTMLElement {
-	const act = (name: string, label: Node | string, attrs: Record<string, string> = {}) =>
-		el('button', [label], { type: 'button', 'data-act': name, ...attrs });
+	const act = (name: string, label: (Node | string)[], attrs: Record<string, string> = {}) =>
+		el('button', label, { type: 'button', 'data-act': name, ...attrs });
 	return el('div', [
 		el('div', [
-			act('bold', el('b', ['B']), { 'aria-label': say('journal.view.bar.bold'), title: say('journal.view.bar.boldHint') }),
-			act('italic', el('i', ['I']), { 'aria-label': say('journal.view.bar.italic'), title: say('journal.view.bar.italicHint') }),
-			act('link', say('journal.view.bar.link'), { title: say('journal.view.bar.linkHint') }),
-			act('todo', say('journal.view.bar.todo'), { title: say('journal.view.bar.todoHint') }),
-			act('title', say('journal.view.bar.title'), { hidden: '' }),
-			act('notime', say('journal.view.bar.noTime'), { hidden: '', title: say('journal.view.bar.noTimeHint') }),
-			act('addtime', say('journal.view.bar.addTime'), { hidden: '' }),
-			el('span', [], { class: 'gap' }),
-			act('ask', say('journal.view.bar.ask')),
-			act('remove', say('journal.view.bar.remove')),
-			act('done', say('journal.view.bar.done'), { class: 'primary', title: say('journal.view.bar.doneHint') }),
+			el('div', [
+				act('bold', [el('b', ['B'])], { 'aria-label': say('journal.view.bar.bold'), title: say('journal.view.bar.boldHint') }),
+				act('italic', [el('i', ['I'])], { 'aria-label': say('journal.view.bar.italic'), title: say('journal.view.bar.italicHint') }),
+				act('link', [icon('link')], { 'aria-label': say('journal.view.bar.link'), title: say('journal.view.bar.linkHint') }),
+				act('todo', [icon('todo')], { 'aria-label': say('journal.view.bar.todo'), title: say('journal.view.bar.todoHint') }),
+				act('title', [say('journal.view.bar.title')], { hidden: '' }),
+				act('notime', [say('journal.view.bar.noTime')], { hidden: '', title: say('journal.view.bar.noTimeHint') }),
+				act('addtime', [say('journal.view.bar.addTime')], { hidden: '' }),
+				el('span', [], { class: 'gap' }),
+				act('ask', [icon('send'), el('span', [say('journal.view.bar.askShort')], { class: 'word' })], { 'aria-label': say('journal.view.bar.ask'), title: say('journal.view.bar.ask') }),
+				act('remove', [icon('trash')], { 'aria-label': say('journal.view.bar.remove'), title: say('journal.view.bar.remove') }),
+			], { class: 'bar-scroll' }),
+			act('done', [say('journal.view.bar.done')], { class: 'primary', title: say('journal.view.bar.doneHint') }),
 		], { class: 'bar-tools' }),
 		el('form', [
 			el('label', [say('journal.view.bar.linkTo'), ' ', el('input', [], { type: 'url', required: '' })]),

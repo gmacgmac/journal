@@ -1,10 +1,12 @@
-// The running journal's sheet: days newest first. The recent days (today and the six before it) are always on it, a day
-// with no page as one line; before them, only days that have a page, read a batch at a time. Between two days that are not
+// The running journal's sheet: days newest first. Today is always on it, as one line with the way to start it when it has
+// no page; every other day is on it only when it has a page (GM, 2026-11-09: no row per empty day), the recent days read
+// at once and the older a batch at a time. Between two days that are not
 // next to each other, a gap marker says how many days lie between and offers to add a page in them; at the foot, Earlier
 // pages while there are more. All of it is laid out from the sections on the sheet, so a day put in or taken out anywhere
 // only needs `layout` again.
 import { addDays, daysBetween } from '../format/index.ts';
 import { dayMonth } from './dates.ts';
+import { icon } from './icons.ts';
 import { dateField } from './picker.ts';
 import { el } from './render.ts';
 import { say } from './words.ts';
@@ -27,7 +29,7 @@ export function gapMarker(newer: string, older: string): HTMLElement | null {
 	const to = addDays(newer, -1);
 	const count = from <= to ? daysBetween(from, to) : 0;
 	if (count < 1) return null;
-	const add = el('button', [say('journal.view.add.page')], {
+	const add = el('button', [icon('plus'), say('journal.view.add.page')], {
 		type: 'button', class: 'gap-add', 'aria-label': say('journal.view.gap.add', { from: dayMonth(from), to: dayMonth(to) }),
 	});
 	return el('div', [
@@ -37,14 +39,14 @@ export function gapMarker(newer: string, older: string): HTMLElement | null {
 }
 
 /**
- * Lays the sheet out again. An older day with no page goes, unless it is being written in or the person just put it
+ * Lays the sheet out again. A day with no page goes, unless it is today, is being written in, or the person just put it
  * there to write in (`placed`); a gap marker goes between every two days that are not next to each other; and the foot
  * offers Earlier pages while `more`. Answers the dates taken off.
  */
-export function layout(sheet: HTMLElement, opts: { recentFrom: string; more: boolean }): string[] {
+export function layout(sheet: HTMLElement, opts: { today: string; more: boolean }): string[] {
 	const gone: string[] = [];
 	for (const s of sectionsOf(sheet)) {
-		const keep = !s.classList.contains('gap') || s.dataset.date! >= opts.recentFrom || s.classList.contains('drafting') || s.classList.contains('placed');
+		const keep = !s.classList.contains('gap') || s.dataset.date === opts.today || s.classList.contains('drafting') || s.classList.contains('placed');
 		if (!keep) {
 			gone.push(s.dataset.date!);
 			s.remove();

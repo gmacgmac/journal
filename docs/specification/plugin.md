@@ -454,17 +454,24 @@ module-level variable holds a day, a session, a listener or a timer, so two moun
 
 **Two views of one journal**, on one sheet of paper (`src/view/views.ts`):
 
-- **Journal**, the running journal, newest first: the recent days, today and the six before it (`RECENT_DAYS`,
-  `recentDays`), every one of them; then only the days that have a page, `PAGE_BATCH` (10) at a time from `GET pages`, read on
-  as the person nears the foot, or with Earlier pages (`src/view/feed.ts`). A recent day with no page is one line: its date
-  and Start this page (today: Start today's page, and named Today). Between two days that are not next to each other, a gap
-  marker says how many days lie between and offers Add a page, held to those days (one day: that day at once).
+- **Journal**, the running journal, newest first: today, always, then only the days that have a page (GM, 2026-11-09: no
+  row per empty day). The recent days, today and the six before it (`RECENT_DAYS`, `recentDays`), are read at once; older
+  pages `PAGE_BATCH` (10) at a time from `GET pages`, read on as the person nears the foot, or with Earlier pages
+  (`src/view/feed.ts`). Today with no page is one line: its date, named Today, and Start today's page. Between two days
+  that are not next to each other, a gap marker says how many days lie between and offers Add a page (a plus and its
+  words), held to those days (one day: that day at once). A day not shown that gains a page, from anyone, is drawn in.
 - **Day**, one day alone, for a long day: `‹` and `›` step a day, the date opens the date picker, and Today comes back.
 
 **The toolbar is one row at every width** (`src/view/toolbar.ts`): the view toggle, the view shown filled as Done is
 (`--journal-fill`, white on it; a press switches to the other view, and a press on the other view's name, where both show, goes there;
-a narrow pane shows only the view it is on); in Day, the day's controls; and Add a page, `+` and its words (a narrow pane
-shows only `+`, its name still "Add a page").
+a narrow pane shows only the view it is on); in Day, the day's controls; and Add a page, a flat plus (`src/view/icons.ts`)
+and "Page" (a narrow pane shows only the plus; its name is "Add a page" either way).
+
+**The writing bar is one row at every width** (`src/view/draw.ts`, GM 2026-11-09): B, I, Link, To-do (icons), Add title, No
+time or Add time, then Add to chat (a send icon and "Chat"; on a narrow pane the icon alone) and Delete (a bin), in a strip
+that scrolls sideways when it does not fit, its right edge faded while more lies past it; Done stays at the end, outside the
+strip. Every icon's button is named for readers (`aria-label`) and hinted (`title`). The icons are the Journal's own, flat
+strokes in the text's colour.
 
 **An entry with or without a time.** A new entry's time is filled in with now; the writing bar's No time takes it off (the
 title then opens, and holds the entry) and Add time puts it back; an entry's heading, opened for writing, offers the same.
@@ -517,8 +524,10 @@ where typing goes (`trackFocusSource`, `src/view/focus.ts`: presses on `root`, T
 
 Proven by `tests/view/` (pure parts, and the whole mount on its fake DOM, `tests/view/fake-dom.ts`): JR_03
 `tests/view/mount.test.ts` (two journals in one page share nothing, and unmount leaves nothing behind); the views (GM,
-2026-11-09): "opens on the running journal: today and the six days before it, newest first", "a recent day with no page is
-one line, and today says so", "before the recent days, only days with a page, a gap marker between two apart, and Earlier
+2026-11-09): "opens on the running journal: today, then only the days that have a page, newest first", "a recent day with no page is
+not drawn: today is one line that says so, and one gap marker stands for the rest", "a recent day that gains a page is drawn
+in, from its event or from a catch-up, and the gap round it splits", "the writing bar is one row: its tools in a strip that
+scrolls, Done outside it, every icon named", "before the recent days, only days with a page, a gap marker between two apart, and Earlier
 pages while more are left", "Day shows one day, steps a day at a time and comes back to today", "the place is kept per bot:
 the next mount opens where the last one was, and on today once the date moves on", "Add a page asks which day and opens a new
 entry on it, in its place", "a gap of one day adds a page there at once; a longer gap holds the picker to its days", "an event

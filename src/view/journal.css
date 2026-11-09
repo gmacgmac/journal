@@ -112,8 +112,9 @@
 	.toolbar .day-pick { width: 7.5em; padding: 4px 6px; text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
 	.toolbar .away { visibility: hidden; }
 	.add-anchor { margin-left: auto; }
-	.add-page { display: inline-flex; align-items: center; gap: 6px; }
-	.plus { font-size: 1.25em; line-height: 1; }
+	/* An icon is a flat stroke in its text's colour, as tall as a capital and a little more. */
+	.icon { width: 1.15em; height: 1.15em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+	.add-page { display: inline-flex; align-items: center; gap: 5px; }
 	/* A date field laid over the button that opens its picker: not seen, not tabbed to (picker.ts). */
 	.picker-anchor { position: relative; display: inline-flex; }
 	input.picker { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; opacity: 0; pointer-events: none; }
@@ -164,8 +165,8 @@
 	}
 	.gap-marker::before, .gap-marker::after { content: ''; flex: 1; border-top: 1px dashed var(--journal-rule); }
 	.gap-add {
+		display: inline-flex; align-items: center; gap: 4px;
 		padding: 2px 8px; font: inherit; color: var(--journal-ink-soft); background: none; border: 0; border-radius: 6px; cursor: pointer;
-		text-decoration: underline dotted; text-underline-offset: 3px;
 	}
 	.gap-add:hover { color: var(--journal-ink); background: var(--journal-hover); }
 	.gap-add:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 1px; }
@@ -277,8 +278,17 @@
 		border: 1px solid var(--journal-rule); border-radius: 12px; box-shadow: 0 10px 30px var(--journal-shadow);
 	}
 	.bar[hidden], .bar-link[hidden], .toast[hidden] { display: none; }
-	.bar-tools, .bar-link { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-	.bar-tools .gap { flex: 1; }
+	.bar-link { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+	/* One row: the tools scroll sideways in their own strip when they do not fit, and Done stays at the end. */
+	.bar-tools { display: flex; align-items: center; gap: 6px; }
+	.bar-scroll { display: flex; flex: 1; min-width: 0; align-items: center; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+	.bar-scroll::-webkit-scrollbar { display: none; }
+	.bar-scroll > *, .bar-tools > button { flex: none; }
+	.bar-scroll .gap { flex: 1; }
+	.bar-scroll.more { mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
+	.bar button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap; }
+	.bar button:has(> .icon:only-child) { padding: 5px 8px; }
+	.bar button[hidden] { display: none; }
 	.bar-link { margin-top: 8px; }
 	.bar-link label { display: flex; flex: 1; align-items: center; gap: 8px; }
 	.bar-link input { flex: 1; min-height: 34px; padding: 4px 8px; font: inherit; color: var(--journal-ink); background: var(--journal-field); border: 1px solid var(--journal-field-line); border-radius: 7px; }
@@ -348,6 +358,8 @@
 		.day-nav [data-nav='prev'], .day-nav [data-nav='next'] { min-width: 36px; }
 		.toolbar .day-pick { width: 6.8em; }
 		.bar button { min-width: var(--journal-tap); }
+		/* Narrow: Add to chat is its icon alone, its name on the button for readers. */
+		.bar [data-act='ask'] .word { display: none; }
 	}
 }
 @keyframes journal-fresh { from { background: var(--journal-fresh); } to { background: transparent; } }

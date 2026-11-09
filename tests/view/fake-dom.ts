@@ -281,6 +281,7 @@ class FakeDocument extends FakeNode {
 		this.documentElement.append(this.body);
 	}
 	createElement(tag: string): FakeElement { return new FakeElement(tag); }
+	createElementNS(_ns: string, tag: string): FakeElement { return new FakeElement(tag); }
 	createTextNode(t: string): FakeText { return new FakeText(t); }
 	createRange(): FakeRange { return new FakeRange(); }
 	elementFromPoint(): null { return null; }

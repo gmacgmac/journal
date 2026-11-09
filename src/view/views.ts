@@ -1,6 +1,6 @@
 // WHAT IS ON THE SHEET, AND WHERE THE PERSON IS. Two views of one journal:
-//   journal  the running journal, newest first: the recent days, every one, then the older days that have a page, a
-//            batch at a time as the person scrolls (`feed.ts`); it opens at the top, today
+//   journal  the running journal, newest first: today, then the days that have a page (the recent week read at once,
+//            older pages a batch at a time as the person scrolls, `feed.ts`); it opens at the top, today
 //   day      one day, alone, for reading or writing a long one; the toolbar steps a day at a time
 // The place (the view, and the day in it) is kept through the host's store (`place.ts`), so the pane opens where the
 // person left it, and on today once the date has moved on. Every read is numbered, so only the newest draws; writing that
@@ -46,6 +46,8 @@ export function createViews(d: ViewsDeps) {
 	let topTimer: ReturnType<typeof setTimeout> | undefined;
 
 	const sectionOf = (date: string) => sheet.querySelector<HTMLElement>(`.day[data-date="${date}"]`);
+	/** The running journal's today, as it was drawn: the newest of its recent days. */
+	const drawnToday = () => addDays(feed.recentFrom, RECENT_DAYS - 1);
 
 	function setPlace(p: Place): void {
 		place = p;
@@ -58,7 +60,7 @@ export function createViews(d: ViewsDeps) {
 	/** In the running journal: the layout again, and the days it took off forgotten. Said as a change to what is on show. */
 	function relayout(): void {
 		if (place.view === 'journal') {
-			for (const date of layout(sheet, { recentFrom: feed.recentFrom, more: feed.next !== null })) shown.delete(date);
+			for (const date of layout(sheet, { today: drawnToday(), more: feed.next !== null })) shown.delete(date);
 		}
 		d.onShow();
 	}
@@ -186,7 +188,7 @@ export function createViews(d: ViewsDeps) {
 		const r = await routes.days(from, range.to);
 		if (!d.live.on || n !== seq || place.view !== 'journal') return null;
 		if (!r.ok) return (d.notify(r.reason), null);
-		for (const day of r.days) if (day.exists || day.date >= feed.recentFrom) ensure(day);
+		for (const day of r.days) if (day.exists || day.date === drawnToday()) ensure(day);
 		return sectionsOf(sheet).find((s) => s.dataset.date! <= range.to && s.dataset.date! >= from) ?? null;
 	}
 
@@ -197,9 +199,10 @@ export function createViews(d: ViewsDeps) {
 	async function changed(date: string): Promise<void> {
 		await drawing;
 		if (shown.has(date)) return page.refresh(date);
-		if (place.view !== 'journal') return;
-		if (date > addDays(feed.recentFrom, RECENT_DAYS - 1) && date <= localToday()) return void showJournal(place.date);
-		const reaches = date < feed.recentFrom && (feed.next === null || date > feed.next);
+		if (place.view !== 'journal' || feed.recentFrom === '') return;
+		if (date > drawnToday() && date <= localToday()) return void showJournal(place.date);
+		// A day not shown that the journal reaches (a recent day, or an older one newer than the read edge) gains a page.
+		const reaches = date < drawnToday() && (feed.next === null || date > feed.next);
 		if (!reaches) return;
 		const n = seq;
 		const r = await routes.days(date, date);
@@ -217,8 +220,9 @@ export function createViews(d: ViewsDeps) {
 		if (place.view === 'journal' && feed.recentFrom === '') return;
 		const dates = [...shown.keys()];
 		if (place.view === 'journal') {
-			const r = await routes.days(feed.recentFrom, addDays(feed.recentFrom, RECENT_DAYS - 1));
-			if (r.ok) for (const day of r.days) page.patch(day);
+			const r = await routes.days(feed.recentFrom, drawnToday());
+			// A recent day shown is patched; one not shown that now has a page is drawn in.
+			if (r.ok) for (const day of r.days) if (shown.has(day.date)) page.patch(day); else if (day.exists) ensure(day);
 		}
 		for (const date of dates.filter((date) => place.view === 'day' || date < feed.recentFrom)) await page.refresh(date);
 	}
@@ -250,7 +254,7 @@ export function createViews(d: ViewsDeps) {
 		/** The recent days of the running journal, or the one day; null until a draw has put days on the sheet. */
 		get range(): Range | null {
 			if (shown.size === 0) return null;
-			return place.view === 'day' ? { from: place.date, to: place.date } : { from: feed.recentFrom, to: addDays(feed.recentFrom, RECENT_DAYS - 1) };
+			return place.view === 'day' ? { from: place.date, to: place.date } : { from: feed.recentFrom, to: drawnToday() };
 		},
 		sectionOf,
 		open: () => (place.view === 'day' ? showDay(place.date) : showJournal(place.date)),
