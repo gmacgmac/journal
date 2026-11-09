@@ -24,6 +24,15 @@ describe('pageChanged', () => {
 		m.view.unmount();
 	});
 
+	it('pageChip asked before the first draw settles is null and throws nothing (the host asks as the pane opens)', async () => {
+		const h = fakeHost();
+		const view = mountJournal(newRoot(), h.host);
+		assert.equal(view.pageChip(), null);
+		await settle();
+		assert.deepEqual(view.pageChip()?.ref, recent());
+		view.unmount();
+	});
+
 	it('pageChanged is said when the view, the day, a picked day or Add a page changes what is on show', async () => {
 		const today = localToday();
 		const m = await mounted();

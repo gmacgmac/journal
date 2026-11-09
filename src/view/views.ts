@@ -247,8 +247,9 @@ export function createViews(d: ViewsDeps) {
 	return {
 		get place() { return place; },
 		get shown(): ReadonlyMap<string, Day> { return shown; },
-		/** The recent days of the running journal, or the one day. */
-		get range(): Range {
+		/** The recent days of the running journal, or the one day; null until a draw has put days on the sheet. */
+		get range(): Range | null {
+			if (shown.size === 0) return null;
 			return place.view === 'day' ? { from: place.date, to: place.date } : { from: feed.recentFrom, to: addDays(feed.recentFrom, RECENT_DAYS - 1) };
 		},
 		sectionOf,

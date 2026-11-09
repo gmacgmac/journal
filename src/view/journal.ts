@@ -78,9 +78,10 @@ export function mountJournal(root: HTMLElement, host: PluginHost): PluginView {
 		sessions: { current: null },
 		hintId,
 	};
-	/** The chip for the days on show: the recent days or the one day, never counting an older page below them. */
+	/** The chip for the days on show: the recent days or the one day, never counting an older page below them; null before any. */
 	function pageChip() {
 		const { range } = views;
+		if (range === null) return null;
 		return daysChip(range, [...views.shown.values()].filter((d) => d.date >= range.from && d.date <= range.to));
 	}
 	/**
