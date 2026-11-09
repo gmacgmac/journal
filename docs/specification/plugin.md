@@ -115,8 +115,13 @@ default `.<id>`). Inside, one file per day:
 
 - **A day file** (`src/format/` `checkDay`, carried from the proof's `format.ts`): the first line is
   `# Weekday D Month YYYY`, matching the file's date; each `## HH:MM` or `## HH:MM · Title` starts an entry, times `00:00`
-  to `23:59`; an entry's body is paragraphs, lists (to-dos included) and quotes; no front matter, no HTML, lines end with a
+  to `23:59`, and so does `## Title` alone, an entry with no time (GM, 2026-11-09; its title may not start like a time,
+  `9:30`); an entry's body is paragraphs, lists (to-dos included) and quotes; no front matter, no HTML, lines end with a
   plain `\n`. Dates are `YYYY-MM-DD` throughout, worked out in UTC so a time zone never moves a day.
+- **An entry's id** is its heading block's key (below; `entriesOf`, `src/format/day.ts`): what the bot names an entry by,
+  apart from its time, so an entry with no time, or two at one time, are named all the same. A changed heading is a new id.
+- **Order**: an entry with a time is placed by its time (before the first entry with a later one); one with no time stays
+  where it was put, and a new one goes at the end of the day.
 - **Offsets** are into the file's text as a JavaScript string indexes it (UTF-16 code units), from nclite's parser:
   `parseMarkdownSpans(text)` gives each top-level block `{ block, start, end }`. The Journal never re-scans the grammar.
 - **A block's key** is stable on screen and in a chip: the FNV-1a 32-bit hash of the block's text (offset basis
@@ -209,7 +214,7 @@ saw and refused, never merged, when they changed:
 type Edit =
 	| { op: 'replace'; date: string; start: number; end: number; before: string; after: string }   // '' after deletes
 	| { op: 'insert'; date: string; start: number; end: number; before: string; text: string }     // new writing after a block
-	| { op: 'entry'; date: string; time: string; title: string | null; text: string }              // a new entry, by time
+	| { op: 'entry'; date: string; time: string | null; title: string | null; text: string }       // a new entry: by time, or none and a title
 	| { op: 'range'; date: string; start: number; end: number; before: string; after: string };    // exact bytes: an undo
 // 200: { "day": Day, "undo": RangeEdit }
 // 400 "unreadable": not an Edit · 409 "changed": the bytes moved (with day) · 422 "rules", "heading", "date-heading",
@@ -313,13 +318,13 @@ and the atomic write the person's edits use; a refusal is a result with `isError
 `caller` is `{ by: 'agent', agent }`; the Journal records nothing of it.
 
 **Every change of existing writing is anchored and versioned.** For `replace_block`, `delete_block` and `insert_after` the
-bot names the day, the entry (its time) and the block's whole text as `read_days` showed it, and passes the day's `version`
+bot names the day, the entry (its id, as `read_days` lists it) and the block's whole text as `read_days` showed it, and passes the day's `version`
 from that read (required): a day that changed since is refused `stale`, an anchor that matches more than one block is refused
 `ambiguous` unless `nth` says which, and the offsets the anchor found are then checked against the bytes, as the person's
 edits are. The tools do not call the person's `applyEdit`: a write composes the store's pieces (`readDayFile`, the rules, the
 version, the anchor, `plan`, `writeDay`) so the `version` the bot passed is checked against the very text that is planned on,
 and a write landing between the tool's read and its own is refused `stale` rather than moved (the move of the person's open
-block, above, is for the person's edits only). `add_entry` changes no existing writing (it places a new entry by its time), so its `version` is optional: given,
+block, above, is for the person's edits only). `add_entry` changes no existing writing (it places a new entry), so its `version` is optional: given,
 it is checked the same way; left out, the entry is placed in the day as it is now.
 
 Shared schema parts (`$defs` written out in each tool's schema; each `description` is a words key's text, § Words):
@@ -327,6 +332,7 @@ Shared schema parts (`$defs` written out in each tool's schema; each `descriptio
 ```json
 { "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
   "time": { "type": "string", "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$" },
+  "entry": { "type": "string", "pattern": "^[0-9a-f]{8}-\\d{1,6}$" },
   "version": { "type": ["string", "null"], "pattern": "^[0-9a-f]{16}$" },
   "text": { "type": "string", "minLength": 1, "maxLength": 20000 } }
 ```
@@ -334,8 +340,8 @@ Shared schema parts (`$defs` written out in each tool's schema; each `descriptio
 | Tool | Input (`type: object`, `additionalProperties: false`) | Does |
 |---|---|---|
 | `read_days` | `from` (date, required), `to` (date) | Reads `from` to `to` (`to` defaults to `from`), at most `READ_MAX_DAYS` (31) days and `READ_MAX_CHARS` (60,000) characters, and `REPLY_BUDGET` bytes as JSON (each day counted twice: its sentences and its `structuredContent`): whole days from `from` until the next would not fit, and then says where to read on |
-| `add_entry` | `date`, `time`, `text` (required); `version` (null for a day with no page; checked when given); `title` (string, at most 80 characters, one line); `future` (boolean) | A new entry `## time` or `## time · title` with `text` as its body, placed before the first later entry; makes the day's page when it has none |
-| `replace_block` | `date`, `version`, `entry` (a time), `block` (text), `text` (required); `nth` (integer from 1); `future` (boolean) | The block under the entry at `entry` whose whole text is `block` becomes `text`. The entry's heading is a block too: replacing it gives the entry a new time or title |
+| `add_entry` | `date`, `text` (required); `time`; `title` (string, at most 80 characters, one line; required when there is no `time`, else refused `untimed`); `version` (null for a day with no page; checked when given); `future` (boolean) | A new entry `## time`, `## time · title` or `## title` with `text` as its body: with a time, placed before the first later entry; with none, at the end of the day; makes the day's page when it has none |
+| `replace_block` | `date`, `version`, `entry` (an entry's id, the pattern of a key), `block` (text), `text` (required); `nth` (integer from 1); `future` (boolean) | The block under the entry `entry` whose whole text is `block` becomes `text`. The entry's heading is a block too: replacing it gives the entry a new time or title, or takes its time off (`## Title`) |
 | `delete_block` | `date`, `version`, `entry`, `block` (required); `nth`, `future` | Removes that block and the blank line after it |
 | `insert_after` | `date`, `version`, `entry`, `block`, `text` (required); `nth`, `future` | New writing after that block, under the same entry |
 
@@ -347,16 +353,18 @@ Shared schema parts (`$defs` written out in each tool's schema; each `descriptio
 - **`text` holds body writing only** (paragraphs, lists, quotes) except in `replace_block` of a heading; a heading in it is
   refused `heading`. The date line is never a block a tool can change (`date-heading`).
 
-**What a read gives.** `content[0].text` is, for each day, a line naming it and its version, then the file as it is; a day
-with no page says so; problems are listed under their day. `structuredContent`:
+**What a read gives.** `content[0].text` is, for each day, a line naming it and its version, its entries each with its id,
+then the file as it is; a day with no page says so; problems are listed under their day. `structuredContent`:
 
 ```ts
-{ days: { date: string; title: string; exists: boolean; version: string | null; text: string; problems: string[] }[];
+{ days: { date: string; title: string; exists: boolean; version: string | null; text: string; problems: string[];
+          entries: { id: string; time: string | null; title: string | null }[] }[];
   next?: string }   // the first day not read, when the range did not fit
 ```
 
 **What a write gives.** `content[0].text` says the day was saved and its new version. `structuredContent`:
-`{ date, version, entry, key }` (`key` the changed or new block's, absent for a removal). `_meta` carries the contract's
+`{ date, version, entry, key }` (`entry` the id of the entry written in, as the day now reads; `key` the changed or new
+block's, absent for a removal). `_meta` carries the contract's
 change line, `plugin/change`:
 
 ```json
@@ -376,7 +384,8 @@ the day and the block's new key (no `key` for a removal). A refusal carries no c
 | `dates` | A range backwards or too long | Fix the dates (forwards, at most the days named) and call again |
 | `stale` | The day's version is not the one passed | Read the day again, then change what is there now |
 | `no-page` | A change to a day with no page | Start it with `add_entry` |
-| `no-entry` / `ambiguous-entry` | No entry at that time / more than one | Read the day; fix the file itself if a time is used twice |
+| `no-entry` | No entry has that id (its heading changed, or it went) | Read the day again and use an id it lists |
+| `untimed` | `add_entry` with no time and no title, or a title that starts like a time | Pass a title, or a time |
 | `no-block` | No block under that entry has that whole text | Copy the block from `read_days`, whole |
 | `ambiguous` | More than one does, and no `nth` | Pass `nth` (1 to the number of matches) |
 | `entry-exists` | `add_entry` at a time the day has | Add to that entry with `insert_after`, or pick another time |
@@ -420,12 +429,11 @@ says what the Journal is and when to read the skill. Then, in this order:
    it with the tools, never by writing the files, so the person sees each change and nothing is half-written.
 2. Read first: `read_days`, and pass each day's `version` back with every change.
 3. Which tool for what, one line each.
-4. A page's rules, in four lines (the date line, entries by time, body kinds, no HTML).
+4. A page's rules, in four lines (the date line, entries with a time, a title or both, body kinds, no HTML).
 5. The person's words are theirs: change them only when asked, and add an entry in their voice only when asked to log
    something for them.
 6. What to do on `stale`, `ambiguous`, and on every refusal that sends the bot to the file: `malformed` (fix only what breaks
-   the rules), `ambiguous-entry` (give each entry its own time, nothing else) and `too-big` (ask the person before touching
-   it); after a fix it tells the person what it changed. These are the only times the skill lets the bot write a file.
+   the rules) and `too-big` (ask the person before touching it), and on `no-entry` (read again, use an id it lists); after a fix it tells the person what it changed. These are the only times the skill lets the bot write a file.
 
 Under `add_entry` it says that a day with no page takes `null` as its version, or none (WORDS_01 W3).
 
@@ -457,6 +465,10 @@ module-level variable holds a day, a session, a listener or a timer, so two moun
 (`--journal-fill`, white on it; a press switches to the other view, and a press on the other view's name, where both show, goes there;
 a narrow pane shows only the view it is on); in Day, the day's controls; and Add a page, `+` and its words (a narrow pane
 shows only `+`, its name still "Add a page").
+
+**An entry with or without a time.** A new entry's time is filled in with now; the writing bar's No time takes it off (the
+title then opens, and holds the entry) and Add time puts it back; an entry's heading, opened for writing, offers the same.
+An entry with no time keeps its margin empty and its title where every title sits.
 
 **Add a page** (`+`) asks which day (the browser's date picker, `src/view/picker.ts`) and opens a new entry on it, in its place:
 on the running journal a day not shown is drawn where it falls; in Day, that day is shown. **The place is kept** per bot on

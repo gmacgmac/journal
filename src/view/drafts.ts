@@ -1,13 +1,14 @@
 // Writing that is not in the file yet. A draft is drawn where its writing will land, in the same columns, so saving
 // it moves nothing; it is saved only once it has words, and an empty draft simply goes away.
 //   paragraph  under an entry heading that has no writing yet; saved as an insert
-//   entry      at the end of a day, its time filled in with now; the title is optional (Add title in the bar); saved
-//              as an entry, which also starts the day's page when it has none
+//   entry      at the end of a day, its time filled in with now; the title is optional (Add title in the bar), and the
+//              time can be taken off (No time: the title then holds the entry); saved as an entry, which also starts the
+//              day's page when it has none
 import { entryHeading } from '../format/index.ts';
 import { bodyMarkdown, startSession } from './editor.ts';
 import { el } from './render.ts';
 import type { BlockNode, Page, Session } from './session.ts';
-import { headingMarkdown } from './specs.ts';
+import { headingMarkdown, timeNow, timeSwitch } from './specs.ts';
 import { say } from './words.ts';
 
 const blank = () => el('p', [el('br')], { 'data-placeholder': say('journal.view.write.placeholder') });
@@ -30,9 +31,6 @@ export function draftAfter(anchor: BlockNode, host: Page): Session {
 	}, 0);
 }
 
-/** The time now, `HH:MM`, where the person is. `now` is for tests. */
-export const timeNow = (now = new Date()): string => now.toTimeString().slice(0, 5);
-
 /** A new entry at the end of `section`'s day. */
 export function entryDraft(section: HTMLElement, host: Page): Session {
 	let entries = section.querySelector<HTMLElement>('.entries');
@@ -48,10 +46,17 @@ export function entryDraft(section: HTMLElement, host: Page): Session {
 	entries.append(node);
 	section.classList.add('drafting');
 	let title: HTMLElement | null = null;
+	function addTitle(): void {
+		title = el('span', [el('br')], { class: 'title', 'data-placeholder': say('journal.view.write.title') });
+		column.prepend(title);
+		node._editor?.arm(title);
+		title.focus();
+	}
+	const timing = timeSwitch(node, time, () => title, addTitle);
 	return startSession(node, host, {
 		kind: 'entry',
 		root: body,
-		editables: () => [time, title, body].filter((e): e is HTMLElement => e !== null),
+		editables: () => [time, title, body].filter((e): e is HTMLElement => e !== null && !e.hidden),
 		focusTarget: () => body,
 		read() {
 			const h = headingMarkdown(time, title);
@@ -68,7 +73,9 @@ export function entryDraft(section: HTMLElement, host: Page): Session {
 		landing({ edit, res }) {
 			if (edit.op !== 'entry') return NaN;
 			const blocks = res.day.blocks;
-			const at = blocks.findIndex((b) => b.text === entryHeading(edit.time, edit.title));
+			const heading = entryHeading(edit.time, edit.title);
+			// With no time the new entry went at the end: the last with that heading.
+			const at = edit.time === null ? blocks.findLastIndex((b) => b.text === heading) : blocks.findIndex((b) => b.text === heading);
 			return (edit.text === '' ? blocks[at] : blocks[at + 1])?.start ?? NaN;
 		},
 		enter(target) {
@@ -77,11 +84,8 @@ export function entryDraft(section: HTMLElement, host: Page): Session {
 			return true;
 		},
 		canTitle: () => title === null,
-		addTitle() {
-			title = el('span', [el('br')], { class: 'title', 'data-placeholder': say('journal.view.write.title') });
-			column.prepend(title);
-			node._editor?.arm(title);
-			title.focus();
-		},
+		addTitle,
+		timed: timing.timed,
+		setTimed: timing.setTimed,
 	}, 0);
 }

@@ -4,7 +4,8 @@
 //
 //   replace  one block becomes other writing (empty deletes it)
 //   insert   new writing after a block
-//   entry    a new entry, placed in time order; the day's page is made if missing
+//   entry    a new entry: with a time, placed in time order; with none (a title alone), at the end of the day; the
+//            day's page is made if missing
 //   range    exact bytes swapped for others: how an undo is applied
 //
 // A block open for writing survives a write earlier in the day (D29): when `start..end` no longer holds `before` but exactly
@@ -64,12 +65,12 @@ function deleteRange(text: string, start: number, end: number): [number, number]
 /** Writing from the page, tidied: no blank lines round it, no trailing spaces. */
 const tidy = (text: string): string => text.replace(/^(?:[ \t]*\n)+/, '').trimEnd();
 
-/** The times of the day's entries, other than the block at `skip`. */
+/** The times of the day's entries that have one, other than the block at `skip`. */
 function timesOf(blocks: SpanBlock[], skip = -1): string[] {
 	const times: string[] = [];
 	blocks.forEach((b, i) => {
 		const entry = i === skip || b.kind !== 'heading' ? null : entryOf(b.text);
-		if (entry !== null) times.push(entry.time);
+		if (entry?.time != null) times.push(entry.time);
 	});
 	return times;
 }
@@ -89,7 +90,7 @@ function planReplace(date: string, text: string, e: Extract<Edit, { op: 'replace
 	if (block.kind === 'heading') {
 		const entry = entryOf(after);
 		if (now.length !== 1 || entry === null) return refuse(422, 'heading', 'journal.problem.entry-heading-form');
-		if (timesOf(blocks, index).includes(entry.time)) return refuse(422, 'entry-exists', 'journal.problem.entry-exists', { time: entry.time });
+		if (entry.time !== null && timesOf(blocks, index).includes(entry.time)) return refuse(422, 'entry-exists', 'journal.problem.entry-exists', { time: entry.time });
 	} else if (now.includes('heading')) return refuse(422, 'heading', 'journal.problem.heading');
 	return checked(date, text.slice(0, block.start) + after + text.slice(block.end));
 }
@@ -104,17 +105,27 @@ function planInsert(date: string, text: string, e: Extract<Edit, { op: 'insert' 
 	return checked(date, `${text.slice(0, at)}\n\n${add}${text.slice(at)}`);
 }
 
-/** A new entry goes before the first entry that is later in the day, or at the end. */
+/**
+ * A new entry with a time goes before the first entry with a later time (one with no time stays where it is); a new entry
+ * with no time, a title alone, goes at the end of the day.
+ */
 function planEntry(date: string, text: string | null, e: Extract<Edit, { op: 'entry' }>): Plan {
 	const title = e.title === null || e.title.trim() === '' ? null : e.title.trim();
 	const body = tidy(e.text);
-	if (!TIME_RE.test(e.time) || (title !== null && /[\r\n]/.test(title))) return refuse(400, 'unreadable', 'journal.problem.entry-time');
+	if (title !== null && /[\r\n]/.test(title)) return refuse(400, 'unreadable', 'journal.problem.entry-time');
+	if (e.time !== null && !TIME_RE.test(e.time)) return refuse(400, 'unreadable', 'journal.problem.entry-time');
+	const heading = entryHeading(e.time, title);
+	// No time needs a title, and one that reads back as itself (not one that starts like a time).
+	const read = entryOf(heading);
+	if (read === null || read.time !== e.time || read.title !== title) return refuse(400, 'unreadable', 'journal.problem.entry-untimed');
 	if (body !== '' && kindsOf(body).includes('heading')) return refuse(422, 'heading', 'journal.problem.heading');
-	const entry = body === '' ? entryHeading(e.time, title) : `${entryHeading(e.time, title)}\n\n${body}`;
+	const entry = body === '' ? heading : `${heading}\n\n${body}`;
 	if (text === null) return checked(date, `${dateHeading(date)}\n\n${entry}\n`);
 	const blocks = blocksOf(text);
-	if (timesOf(blocks).includes(e.time)) return refuse(422, 'entry-exists', 'journal.problem.entry-exists', { time: e.time });
-	const later = blocks.find((b) => b.kind === 'heading' && (entryOf(b.text)?.time ?? '') > e.time);
+	if (e.time === null) return checked(date, `${text.trimEnd()}\n\n${entry}\n`);
+	const time = e.time;
+	if (timesOf(blocks).includes(time)) return refuse(422, 'entry-exists', 'journal.problem.entry-exists', { time });
+	const later = blocks.find((b) => b.kind === 'heading' && (entryOf(b.text)?.time ?? '') > time);
 	if (later !== undefined) return checked(date, `${text.slice(0, later.start)}${entry}\n\n${text.slice(later.start)}`);
 	return checked(date, `${text.trimEnd()}\n\n${entry}\n`);
 }
@@ -156,7 +167,7 @@ export function isEdit(e: unknown): e is Edit {
 	switch (v.op) {
 		case 'replace': case 'range': return offsets() && str('before') && str('after');
 		case 'insert': return offsets() && str('before') && str('text');
-		case 'entry': return str('time') && str('text') && (v.title === null || str('title'));
+		case 'entry': return (v.time === null || str('time')) && str('text') && (v.title === null || str('title'));
 		default: return false;
 	}
 }

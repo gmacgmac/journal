@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-	KEY_RE, blocksOf, checkDay, dateHeading, dateOfPath, dateTitle, datesBetween, dayPath, entryOf, hash, isDate, keyedBlocks,
-	rangeParts,
+	KEY_RE, blocksOf, checkDay, dateHeading, dateOfPath, dateTitle, datesBetween, dayPath, entriesOf, entryHeading, entryOf, hash, isDate,
+	keyedBlocks, rangeParts,
 } from '../src/format/index.ts';
 import { parseMarkdown } from '../src/vendor/markdown/index.ts';
 import { sampleDays } from './fixtures/days.ts';
@@ -53,6 +53,20 @@ describe('the day file', () => {
 		assert.deepEqual(entryOf('## 21:30 · Walk'), { time: '21:30', title: 'Walk' });
 		assert.deepEqual(entryOf('## 00:00'), { time: '00:00', title: null });
 		for (const t of ['## 24:00', '## 9:00', '## 09:60', '# 09:00', '## 09:00 Walk']) assert.equal(entryOf(t), null, t);
+	});
+
+	it('an entry may have no time: a title alone, one that does not start like a time (GM, 2026-11-09)', () => {
+		assert.deepEqual(entryOf('## Morning walk'), { time: null, title: 'Morning walk' });
+		assert.deepEqual(entryOf('## 21 sheep on the road'), { time: null, title: '21 sheep on the road' });
+		for (const t of ['## 9:30 tea', '## 09:30tea'.replace('tea', ' tea'), '##', '## ']) assert.equal(entryOf(t), null, t);
+		for (const [time, title] of [['21:30', 'Walk'], ['21:30', null], [null, 'Walk']] as const) {
+			assert.deepEqual(entryOf(entryHeading(time, title)), { time, title }, 'a heading reads back as itself');
+		}
+		const day = `${dateHeading('2026-11-09')}\n\n## Morning walk\n\nCold.\n\n## 10:40 · Sheep\n\nMany.\n\n## Evening\n\nQuiet.\n`;
+		assert.deepEqual(checkDay('2026-11-09', day), [], 'a day of entries with and without times keeps the rules');
+		const entries = entriesOf(day);
+		assert.deepEqual(entries.map((e) => [e.time, e.title]), [[null, 'Morning walk'], ['10:40', 'Sheep'], [null, 'Evening']]);
+		assert.deepEqual(entries.map((e) => e.id), keyedBlocks(day).filter((b) => b.text.startsWith('## ')).map((b) => b.key), 'an entry’s id is its heading’s key');
 	});
 });
 

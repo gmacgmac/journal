@@ -48,7 +48,7 @@ export interface Day {
 export type Edit =
 	| { op: 'replace'; date: string; start: number; end: number; before: string; after: string }
 	| { op: 'insert'; date: string; start: number; end: number; before: string; text: string }
-	| { op: 'entry'; date: string; time: string; title: string | null; text: string }
+	| { op: 'entry'; date: string; time: string | null; title: string | null; text: string }      // no time: a title
 	| { op: 'range'; date: string; start: number; end: number; before: string; after: string };
 
 /** Exact bytes swapped for others: how an undo is applied. */
@@ -82,6 +82,8 @@ export interface ReadDay {
 	version: string | null;
 	text: string;
 	problems: string[];
+	/** Each entry, in the file's order: its id (what a change names it by), its time and its title, either of which may be null. */
+	entries: { id: string; time: string | null; title: string | null }[];
 }
 
 /** `read_days`' `structuredContent`: whole days from `from`; `next` the first day not read, when the range did not fit. */
@@ -94,6 +96,7 @@ export interface ReadResult {
 export interface WriteResult {
 	date: string;
 	version: string;
+	/** The id of the entry written in, as the day reads now (its heading's key). */
 	entry: string;
 	/** Absent for a removal. */
 	key?: string;

@@ -2,6 +2,7 @@
 // source of both `tools.list()` and the manifest's `tools`. Every description is a words key's text. Built on call, never
 // at import, and importing no `node:` module, so the manifest can read it without the engine's code.
 import type { ListedTool, ToolDecl } from '../../vendor/plugin-host/plugin-host.ts';
+import { KEY_RE } from '../../format/index.ts';
 import { word, type WordKey } from '../words.ts';
 
 /** The most days one `read_days` call reads (its description says so: tests/tools.test.ts holds them equal). */
@@ -35,7 +36,7 @@ const object = (properties: Record<string, Schema>, required: string[]) =>
 const anchor = () => ({
 	date: date(),
 	version: version(),
-	entry: time('journal.tool.field.entry'),
+	entry: described('journal.tool.field.entry', { type: 'string', pattern: KEY_RE.source }),
 	block: text('journal.tool.field.block'),
 });
 
@@ -63,7 +64,7 @@ function defs(): ToolDef[] {
 				text: text('journal.tool.field.writing'),
 				version: version('journal.tool.add_entry.version'),
 				future: future(),
-			}, ['date', 'time', 'text']),
+			}, ['date', 'text']),
 		},
 		{
 			name: 'replace_block', words: 'journal.tool.replace_block', writes: true, destructive: true,

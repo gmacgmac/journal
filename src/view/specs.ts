@@ -1,7 +1,8 @@
 // What a session saves for a block already on the page (see `editor.ts`):
 //   body     paragraphs, lists, to-dos and quotes, saved as a replace; Add title from here gives its entry a title
 //   heading  an entry's time and title, edited in their own places: the time stays in the margin, so the box is
-//            never squeezed into it
+//            never squeezed into it; the time can be taken off (the title then holds the entry) or put back
+import { entryHeading, entryOf } from '../format/index.ts';
 import { inlineMarkdown } from '../vendor/markdown/index.ts';
 import { readInlines } from './dom-tree.ts';
 import { bodyMarkdown } from './editor.ts';
@@ -57,35 +58,80 @@ export function bodySpec(node: BlockNode): Spec {
 
 export const TIME_RE = /^([01]?\d|2[0-3]):[0-5]\d$/;
 
-/** The time and title a heading's places hold, or what is wrong; only `textContent` of the time is read. */
-export type Heading = { time: string; title: string | null } | { problem: string };
+/** The time and title a heading's places hold (either may be null, not both), or what is wrong; only `textContent` of
+ * the time is read, and an empty time is none. */
+export type Heading = { time: string | null; title: string | null } | { problem: string };
 
-/** Read a time and title into an entry heading's Markdown, or say what is wrong. */
+/** Read a time and title into an entry heading's parts, or say what is wrong. */
 export function headingMarkdown(time: Pick<Node, 'textContent'>, title: Node | null): Heading {
 	const t = (time.textContent ?? '').trim();
-	if (!TIME_RE.test(t)) return { problem: say('journal.view.write.timeShape') };
 	const words = title === null ? '' : inlineMarkdown(readInlines(title)).trim();
-	return { time: t.padStart(5, '0'), title: words === '' ? null : words };
+	const named = words === '' ? null : words;
+	if (t === '') {
+		// No time: the title holds the entry, and must read back as a title (not start like a time).
+		return named !== null && entryOf(entryHeading(null, named))?.time === null ? { time: null, title: named } : { problem: say('journal.view.write.untimed') };
+	}
+	if (!TIME_RE.test(t)) return { problem: say('journal.view.write.timeShape') };
+	return { time: t.padStart(5, '0'), title: named };
+}
+
+/** The time now, `HH:MM`, where the person is. `now` is for tests. */
+export const timeNow = (now = new Date()): string => now.toTimeString().slice(0, 5);
+
+/**
+ * The time of a heading being written, taken off or put back (the bar's No time and Add time). Off, the time's place is
+ * emptied and hidden, the entry is marked `no-time`, and the title is opened, since it now holds the entry; back on, the
+ * time it had returns, or the time now.
+ */
+export function timeSwitch(node: HTMLElement, time: HTMLElement, title: () => HTMLElement | null, addTitle: () => void) {
+	let kept = (time.textContent ?? '').trim();
+	return {
+		timed: () => !time.hidden,
+		setTimed(on: boolean) {
+			if (on) {
+				time.hidden = false;
+				time.textContent = kept === '' ? timeNow() : kept;
+				node.classList.remove('no-time');
+				return time.focus();
+			}
+			kept = (time.textContent ?? '').trim() || kept;
+			time.textContent = '';
+			time.hidden = true;
+			node.classList.add('no-time');
+			const t = title();
+			if (t === null) addTitle();
+			else t.focus();
+		},
+	};
 }
 
 export function headingSpec(node: BlockNode): Spec {
 	const time = node.querySelector<HTMLElement>('.time')!;
 	let title = node.querySelector<HTMLElement>('.title');
-	const st = { before: node._text ?? '', shown: clones(node), hadTitle: title !== null };
+	const st = { before: node._text ?? '', shown: clones(node), hadTitle: title !== null, hadNoTime: node.classList.contains('no-time') };
+	function addTitle(): void {
+		node.classList.add('has-title');
+		title = el('span', [el('br')], { class: 'title', 'data-placeholder': say('journal.view.write.title') });
+		node.append(title);
+		node._editor?.arm(title);
+		title.focus();
+	}
+	const timing = timeSwitch(node, time, () => title, addTitle);
 	return {
 		kind: 'heading',
 		root: time,
-		editables: () => [time, title].filter((e): e is HTMLElement => e !== null),
+		editables: () => [time, title].filter((e): e is HTMLElement => e !== null && !e.hidden),
 		focusTarget: () => title ?? time,
 		read() {
 			const h = headingMarkdown(time, title);
 			if ('problem' in h) return h;
-			const md = h.title === null ? `## ${h.time}` : `## ${h.time} · ${h.title}`;
+			const md = entryHeading(h.time, h.title);
 			return { edit: md === st.before ? null : { op: 'replace', ...range(node), before: st.before, after: md } };
 		},
 		restore() {
 			node.replaceChildren(...st.shown.map((c) => c.cloneNode(true)));
 			node.classList.toggle('has-title', st.hadTitle);
+			node.classList.toggle('no-time', st.hadNoTime);
 		},
 		landing: ({ edit }) => startOf(edit),
 		enter(target) {
@@ -94,13 +140,9 @@ export function headingSpec(node: BlockNode): Spec {
 			return true;
 		},
 		canTitle: () => title === null,
-		addTitle() {
-			node.classList.add('has-title');
-			title = el('span', [el('br')], { class: 'title', 'data-placeholder': say('journal.view.write.title') });
-			node.append(title);
-			node._editor?.arm(title);
-			title.focus();
-		},
+		addTitle,
+		timed: timing.timed,
+		setTimed: timing.setTimed,
 		/** Delete on a heading removes the whole entry: its time, title and writing. */
 		remove(s) {
 			const parts: BlockNode[] = [node];

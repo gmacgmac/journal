@@ -202,6 +202,9 @@
 	/* A time is a note in the margin: the interface's face, small and quiet, on its entry's first line. */
 	.time { display: block; color: var(--journal-ink-soft); font: calc(0.82 * var(--journal-rem))/var(--journal-line) var(--journal-font); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
 	.has-title .time { justify-self: end; text-align: right; line-height: calc(1.1 * var(--journal-line)); }
+	/* An entry with no time: the margin stays empty, and its title sits where every title sits. */
+	.time[hidden] { display: none; }
+	.block.entry-head.has-title .title { grid-column: 2; }
 	/* An entry's title: upright, set a little larger and in the full ink; italics stay for quotes and emphasis. */
 	.title { font-size: 1.1em; font-weight: 600; letter-spacing: 0.003em; color: var(--journal-ink); }
 	.block.entry-head.has-title { margin-bottom: 0.15em; }

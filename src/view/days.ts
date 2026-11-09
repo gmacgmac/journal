@@ -4,7 +4,7 @@
 // whose block changed stays (marked stale), and a draft stays where it was put.
 // A day whose file breaks the rules (spec § The data) is drawn as it is, read only, with its problems over it: no block
 // opens, no box ticks, and no entry is added, since the engine refuses every write to it.
-import { ENTRY_RE, localToday } from '../format/index.ts';
+import { entryOf, localToday } from '../format/index.ts';
 import type { Block, Day } from './wire.ts';
 import { el, parseMarkdown, renderMarkdown } from './render.ts';
 import { isEditing, type BlockNode } from './session.ts';
@@ -25,13 +25,19 @@ export function setRange(node: BlockNode, date: string, b: Block): void {
 export function blockElement(date: string, b: Block, hintId: string): BlockNode {
 	const node: BlockNode = el('div', [], { class: 'block', tabindex: '0', 'aria-describedby': hintId });
 	setRange(node, date, b);
-	const entry = ENTRY_RE.exec(b.text);
+	const entry = entryOf(b.text);
 	if (entry !== null) {
 		node.classList.add('entry-head');
-		node.append(el('span', [`${entry[1]}:${entry[2]}`], { class: 'time' }));
-		if (entry[3] !== undefined) {
+		// An entry with no time keeps the time's place, empty and hidden, so its title sits where every title sits.
+		const time = el('span', entry.time === null ? [] : [entry.time], { class: 'time' });
+		if (entry.time === null) {
+			time.hidden = true;
+			node.classList.add('no-time');
+		}
+		node.append(time);
+		if (entry.title !== null) {
 			node.classList.add('has-title');
-			node.append(el('span', [...renderMarkdown(entry[3])[0]!.childNodes], { class: 'title' }));
+			node.append(el('span', [...renderMarkdown(entry.title)[0]!.childNodes], { class: 'title' }));
 		}
 	} else {
 		node.dataset.kind = parseMarkdown(b.text)[0]?.kind ?? 'paragraph';

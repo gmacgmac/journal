@@ -7,7 +7,7 @@ import { describe, it } from 'node:test';
 import { createEngine } from '../src/engine/engine.ts';
 import { word } from '../src/engine/words.ts';
 import { READ_MAX_CHARS } from '../src/engine/tools/index.ts';
-import { MAX_DAY_BYTES, blocksOf, dateHeading, keyedBlocks } from '../src/format/index.ts';
+import { MAX_DAY_BYTES, blocksOf, dateHeading, entriesOf, keyedBlocks } from '../src/format/index.ts';
 import { CHANGE_WORDS, PLUGIN_ID } from '../src/manifest.ts';
 import type { ReadResult, WriteResult } from '../src/seam-types.ts';
 import { dayFile, version, writeDay } from '../src/store/index.ts';
@@ -44,6 +44,9 @@ const wrote = (r: ToolResult) => {
 	return r.structuredContent as WriteResult;
 };
 
+/** The id of `body`'s entry at `time`: what a change names it by. */
+const idAt = (body: string, time: string) => entriesOf(body).find((e) => e.time === time)!.id;
+
 /** The block of `date`'s text at `index`. */
 const blockAt = (body: string, index: number) => blocksOf(body)[index]!;
 
@@ -71,9 +74,11 @@ describe('read_days', () => {
 		const { days, next } = r.structuredContent as ReadResult;
 		assert.equal(next, undefined);
 		assert.deepEqual(days.map((d) => [d.date, d.exists]), [['2026-10-01', true], ['2026-10-02', true], ['2026-10-03', false]]);
-		assert.deepEqual(days[0], { date: DATE, title: 'Thursday 1 October 2026', exists: true, version: version(read()), text: read(), problems: [] });
-		assert.deepEqual(days[2], { date: '2026-10-03', title: 'Saturday 3 October 2026', exists: false, version: null, text: '', problems: [] });
+		const entries = entriesOf(read()).map(({ id, time, title }) => ({ id, time, title }));
+		assert.deepEqual(days[0], { date: DATE, title: 'Thursday 1 October 2026', exists: true, version: version(read()), text: read(), problems: [], entries });
+		assert.deepEqual(days[2], { date: '2026-10-03', title: 'Saturday 3 October 2026', exists: false, version: null, text: '', problems: [], entries: [] });
 		assert.ok(text(r).includes(version(read())) && text(r).includes(read().trimEnd()), 'the text holds each day and its version');
+		assert.ok(entries.length > 0 && entries.every((e) => text(r).includes(e.id)), 'and the id of each entry');
 		// `to` left out reads one day.
 		assert.deepEqual(((await call('read_days', { from: DATE })).structuredContent as ReadResult).days.map((d) => d.date), [DATE]);
 		// Whole days until the next would not fit; always at least one; `next` the first left out.
@@ -105,9 +110,9 @@ describe('a write to a day after today', () => {
 	// Each write tool aimed at `date`, whose page (when it has one) holds a `## 09:00` entry with the block `Planned.`.
 	const writes: [string, (date: string, v: string | null) => Record<string, unknown>][] = [
 		['add_entry', (date, v) => ({ date, time: '10:00', text: 'Later.', version: v })],
-		['insert_after', (date, v) => ({ date, version: v, entry: '09:00', block: 'Planned.', text: 'More.' })],
-		['replace_block', (date, v) => ({ date, version: v, entry: '09:00', block: 'Planned.', text: 'Changed.' })],
-		['delete_block', (date, v) => ({ date, version: v, entry: '09:00', block: 'Planned.' })],
+		['insert_after', (date, v) => ({ date, version: v, entry: idAt(page(date), '09:00'), block: 'Planned.', text: 'More.' })],
+		['replace_block', (date, v) => ({ date, version: v, entry: idAt(page(date), '09:00'), block: 'Planned.', text: 'Changed.' })],
+		['delete_block', (date, v) => ({ date, version: v, entry: idAt(page(date), '09:00'), block: 'Planned.' })],
 	];
 
 	for (const [tool, input] of writes) {
@@ -158,7 +163,7 @@ describe('the writes', () => {
 		const w = wrote(r);
 		const at = before.indexOf('## 13:15');
 		assert.equal(read(), `${before.slice(0, at)}## 10:00 · Coffee\n\nA long one.\n\n${before.slice(at)}`);
-		assert.deepEqual(w, { date: DATE, version: version(read()), entry: '10:00', key: keyedBlocks(read()).find((b) => b.text === '## 10:00 · Coffee')!.key });
+		assert.deepEqual(w, { date: DATE, version: version(read()), entry: idAt(read(), '10:00'), key: keyedBlocks(read()).find((b) => b.text === '## 10:00 · Coffee')!.key });
 		assert.deepEqual(heard, [{ date: DATE }], 'the write is said at once');
 		// No version: placed in the day as it is now; a day with no page gets one.
 		wrote(await call('add_entry', { date: DATE, time: '23:00', text: 'Late.' }));
@@ -170,7 +175,7 @@ describe('the writes', () => {
 
 	it('replace, delete and insert change only the anchored block', async (t) => {
 		const { call, read } = toolsOn(t);
-		const anchor = (index: number) => ({ date: DATE, version: version(read()), entry: '13:15', block: blockAt(read(), index).text });
+		const anchor = (index: number) => ({ date: DATE, version: version(read()), entry: idAt(read(), '13:15'), block: blockAt(read(), index).text });
 		const splice = (body: string, index: number, to: string) => {
 			const b = blockAt(body, index);
 			return body.slice(0, b.start) + to + body.slice(b.end);
@@ -192,10 +197,10 @@ describe('the writes', () => {
 		was = read();
 		w = wrote(await call('replace_block', { ...anchor(4), block: '## 13:15 · Work going well', text: '## 13:30 · Work' }));
 		assert.equal(read(), splice(was, 4, '## 13:30 · Work'));
-		assert.equal(w.entry, '13:30');
+		assert.equal(w.entry, idAt(read(), '13:30'), 'the entry, named by its new id');
 		// A block is matched whole, with the whitespace round it set aside.
 		was = read();
-		wrote(await call('delete_block', { date: DATE, version: version(was), entry: '06:50', block: `  ${blockAt(was, 2).text}\n` }));
+		wrote(await call('delete_block', { date: DATE, version: version(was), entry: idAt(was, '06:50'), block: `  ${blockAt(was, 2).text}\n` }));
 		assert.equal(read(), was.slice(0, blockAt(was, 2).start) + was.slice(blockAt(was, 3).start));
 	});
 
@@ -205,7 +210,7 @@ describe('the writes', () => {
 		const old = version(read());
 		const b = blockAt(read(), 5).text;
 		for (const v of ['0123456789abcdef', null]) {
-			assert.equal(refusal(await call('replace_block', { date: DATE, version: v, entry: '13:15', block: b, text: 'x' })), 'stale');
+			assert.equal(refusal(await call('replace_block', { date: DATE, version: v, entry: idAt(read(), '13:15'), block: b, text: 'x' })), 'stale');
 			assert.equal(refusal(await call('add_entry', { date: DATE, version: v, time: '10:00', text: 'x' })), 'stale');
 		}
 		assert.equal(refusal(await call('add_entry', { date: '2026-11-07', version: old, time: '10:00', text: 'x' })), 'stale');
@@ -216,7 +221,7 @@ describe('the writes', () => {
 	it('an ambiguous anchor is refused unless nth says which', async (t) => {
 		const { call, read, dir } = toolsOn(t, true);
 		writeDay(dir, DATE, '# Thursday 1 October 2026\n\n## 09:00\n\nSame.\n\nOther.\n\nSame.\n\n## 10:00\n\nSame.\n');
-		const at = () => ({ date: DATE, version: version(read()), entry: '09:00', block: 'Same.' });
+		const at = () => ({ date: DATE, version: version(read()), entry: idAt(read(), '09:00'), block: 'Same.' });
 		const r = await call('delete_block', at());
 		assert.equal(refusal(r), 'ambiguous');
 		assert.ok(text(r).includes('2'), 'the refusal says how many match');
@@ -232,7 +237,7 @@ describe('the writes', () => {
 		assert.ok(recordable(CHANGE_EXAMPLES.meta, 'example', ['example.change.edited']));
 		for (const none of CHANGE_EXAMPLES.none) assert.ok(!recordable(none, 'example', ['example.change.edited']), JSON.stringify(none));
 		const { call, read } = toolsOn(t);
-		const at = (index: number) => ({ date: DATE, version: version(read()), entry: '13:15', block: blockAt(read(), index).text });
+		const at = (index: number) => ({ date: DATE, version: version(read()), entry: idAt(read(), '13:15'), block: blockAt(read(), index).text });
 		const results = [
 			await call('add_entry', { date: DATE, time: '10:00', text: 'One.\n\nTwo.' }),
 			await call('replace_block', { ...at(8), text: 'Changed.' }),
@@ -255,6 +260,46 @@ describe('the writes', () => {
 	});
 });
 
+describe('entries with no time (GM, 2026-11-09)', () => {
+	it('add_entry with a title and no time goes at the end of the day; one with a time still goes by its time', async (t) => {
+		const { call, read } = toolsOn(t);
+		const before = read();
+		const w = wrote(await call('add_entry', { date: DATE, title: 'Thoughts', text: 'No time for this one.' }));
+		assert.equal(read(), `${before.trimEnd()}\n\n## Thoughts\n\nNo time for this one.\n`);
+		assert.equal(w.entry, entriesOf(read()).at(-1)!.id, 'it answers the new entry’s id');
+		assert.equal(w.key, keyedBlocks(read()).find((b) => b.text === '## Thoughts')!.key);
+		// A timed entry later in the day goes before the first later time, so after the untimed one only when it is the latest.
+		wrote(await call('add_entry', { date: DATE, time: '23:59', text: 'Last thing.' }));
+		assert.ok(read().endsWith('## Thoughts\n\nNo time for this one.\n\n## 23:59\n\nLast thing.\n'));
+	});
+
+	it('an entry with no time is read with its id, and changed, extended and given a time by it', async (t) => {
+		const { call, read } = toolsOn(t);
+		wrote(await call('add_entry', { date: DATE, title: 'Thoughts', text: 'First.' }));
+		const r = await call('read_days', { from: DATE });
+		const day = (r.structuredContent as ReadResult).days[0]!;
+		const untimed = day.entries.find((e) => e.time === null)!;
+		assert.deepEqual([untimed.title, text(r).includes(`Thoughts: ${untimed.id}`)], ['Thoughts', true]);
+		const at = () => ({ date: DATE, version: version(read()), entry: untimed.id });
+		wrote(await call('insert_after', { ...at(), block: 'First.', text: 'Second.' }));
+		assert.ok(read().endsWith('## Thoughts\n\nFirst.\n\nSecond.\n'));
+		const w = wrote(await call('replace_block', { ...at(), block: '## Thoughts', text: '## 22:15 · Thoughts' }));
+		assert.ok(read().includes('## 22:15 · Thoughts\n\nFirst.'));
+		assert.equal(w.entry, entriesOf(read()).find((e) => e.time === '22:15')!.id, 'a new heading is a new id');
+		// And back to no time.
+		wrote(await call('replace_block', { date: DATE, version: version(read()), entry: w.entry, block: '## 22:15 · Thoughts', text: '## Thoughts' }));
+		assert.ok(read().includes('## Thoughts\n\nFirst.'));
+	});
+
+	it('two entries at one time are named apart by their ids', async (t) => {
+		const { call, read, dir } = toolsOn(t, true);
+		writeDay(dir, DATE, '# Thursday 1 October 2026\n\n## 09:00\n\nOne.\n\n## 09:00\n\nTwo.\n');
+		const [, second] = entriesOf(read());
+		wrote(await call('replace_block', { date: DATE, version: version(read()), entry: second!.id, block: 'Two.', text: 'Second.' }));
+		assert.equal(read(), '# Thursday 1 October 2026\n\n## 09:00\n\nOne.\n\n## 09:00\n\nSecond.\n');
+	});
+});
+
 describe('refusals', () => {
 	it('every refusal is a result with its code, never a throw', async (t) => {
 		const { call, read, dir, snapshot } = toolsOn(t);
@@ -263,15 +308,16 @@ describe('refusals', () => {
 		writeDay(dir, '2026-11-09', `${dateHeading('2026-11-09')}\n\n## 09:00\n\n${'w'.repeat(MAX_DAY_BYTES - 100)}\n`);
 		writeDay(dir, '2026-11-08', '# Sunday 8 November 2026\n\n## 09:00\n\nOne.\n\n## 09:00\n\nTwo.\n');
 		const v = (date = DATE) => version(read(date));
-		const at = (entry: string, block: string, date = DATE) => ({ date, version: v(date), entry, block });
+		const at = (time: string, block: string, date = DATE) => ({ date, version: v(date), entry: idAt(read(date), time), block });
 		const cases: [string, string, Record<string, unknown>][] = [
 			['input', 'read_days', { from: '2026-10-01', to: 'tomorrow' }],
 			['dates', 'read_days', { from: '2026-10-05', to: '2026-10-01' }],
 			['dates', 'read_days', { from: '2026-01-01', to: '2026-03-01' }],
 			['stale', 'insert_after', { ...at('06:50', blockAt(read(), 2).text), version: '0123456789abcdef', text: 'x' }],
-			['no-page', 'delete_block', { date: '2026-11-07', version: null, entry: '09:00', block: 'x' }],
-			['no-entry', 'delete_block', at('09:00', 'x')],
-			['ambiguous-entry', 'delete_block', at('09:00', 'One.', '2026-11-08')],
+			['no-page', 'delete_block', { date: '2026-11-07', version: null, entry: '0badc0de-0', block: 'x' }],
+			['no-entry', 'delete_block', { ...at('06:50', 'x'), entry: '0badc0de-0' }],
+			['untimed', 'add_entry', { date: DATE, text: 'No time and no title.' }],
+			['untimed', 'add_entry', { date: DATE, title: '9:30 tea', text: 'A title that reads as a time.' }],
 			['no-block', 'delete_block', at('06:50', 'Not on the page.')],
 			['entry-exists', 'add_entry', { date: DATE, time: '13:15', text: 'x' }],
 			['entry-exists', 'replace_block', { ...at('06:50', '## 06:50'), text: '## 13:15' }],
@@ -304,14 +350,14 @@ describe('refusals', () => {
 		assert.equal(warned.length, 1);
 		seen.add('failed');
 		assert.deepEqual([...seen].sort(), [
-			'ambiguous-entry', 'date-heading', 'dates', 'entry-exists', 'failed', 'heading', 'input', 'malformed', 'no-block', 'no-entry',
-			'no-page', 'rules', 'stale', 'too-big', 'tool',
+			'date-heading', 'dates', 'entry-exists', 'failed', 'heading', 'input', 'malformed', 'no-block', 'no-entry',
+			'no-page', 'rules', 'stale', 'too-big', 'tool', 'untimed',
 		], 'every code is reached (ambiguous has its own test)');
 	});
 
 	it('an input outside its schema is refused input', async (t) => {
 		const { call, read, snapshot } = toolsOn(t);
-		const ok = { date: DATE, version: version(read()), entry: '06:50', block: blockAt(read(), 2).text, text: 'x' };
+		const ok = { date: DATE, version: version(read()), entry: idAt(read(), '06:50'), block: blockAt(read(), 2).text, text: 'x' };
 		const bad: [string, string, unknown][] = [
 			['date', 'read_days', { to: DATE }],
 			['extra', 'read_days', { from: DATE, extra: 1 }],

@@ -42,6 +42,9 @@ export function createBar(bar: HTMLElement): Bar {
 			bar.hidden = false;
 			bar.dataset.kind = s.kind;
 			bar.querySelector<HTMLElement>('[data-act=title]')!.hidden = !s.canTitle();
+			const timed = s.timed();
+			bar.querySelector<HTMLElement>('[data-act=notime]')!.hidden = timed !== true;
+			bar.querySelector<HTMLElement>('[data-act=addtime]')!.hidden = timed !== false;
 			linkForm.hidden = true;
 			api.say();
 		},

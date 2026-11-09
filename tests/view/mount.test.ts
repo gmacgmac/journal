@@ -269,6 +269,41 @@ describe('mount', () => {
 		m.view.unmount();
 	});
 
+	it('an entry with no time keeps the margin empty and its title where every title sits', async () => {
+		const { from } = recent();
+		const m = await mounted((h) => h.files.set(from, fileOf(from, '## Morning walk', 'Cold.', '## 10:40 · Sheep', 'Many.')));
+		const [untimed, timed] = [...q(m.root, `.day[data-date="${from}"]`).querySelectorAll('.entry-head')];
+		assert.ok(untimed!.classList.contains('no-time') && untimed!.classList.contains('has-title'));
+		assert.ok(untimed!.querySelector('.time')!.hidden);
+		assert.equal(untimed!.querySelector('.title')!.textContent, 'Morning walk');
+		assert.ok(!timed!.classList.contains('no-time'));
+		m.view.unmount();
+	});
+
+	it('a new entry can be written with no time: No time takes it off and opens the title, Add time puts it back', async () => {
+		const { from } = recent();
+		const m = await mounted((h) => h.files.set(from, fileOf(from, '## 08:00', 'Morning.')));
+		const bar = (act: string) => q(m.root, `[data-act="${act}"]`);
+		fire(q(m.root, `.day[data-date="${from}"]`).querySelector('.add-entry'), 'click');
+		const draft = q(m.root, '.entry-draft');
+		const time = draft.querySelector('.time')!;
+		assert.ok(!bar('notime').hidden && bar('addtime').hidden, 'a new entry has a time, and can drop it');
+		const now = time.textContent;
+		fire(bar('notime'), 'click');
+		assert.ok(time.hidden && draft.classList.contains('no-time'));
+		assert.ok(draft.querySelector('.title'), 'the title opens: it now holds the entry');
+		assert.ok(bar('notime').hidden && !bar('addtime').hidden);
+		fire(bar('addtime'), 'click');
+		assert.ok(!time.hidden && time.textContent === now, 'the time it had comes back');
+		fire(bar('notime'), 'click');
+		draft.querySelector('.title')!.replaceChildren('Thoughts');
+		draft.querySelector('.entry-body')!.querySelector('p')!.replaceChildren('No time for this.');
+		fire(bar('done'), 'click');
+		await settle();
+		assert.deepEqual(m.calls.edits.at(-1), { op: 'entry', date: from, time: null, title: 'Thoughts', text: 'No time for this.' });
+		m.view.unmount();
+	});
+
 	it('a refused tick is said through notify and the box goes back', async () => {
 		const { from } = recent();
 		const m = await mounted((h) => h.files.set(from, fileOf(from, '## 08:00', '- [ ] water the plants')));

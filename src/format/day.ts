@@ -3,10 +3,11 @@
 //
 // One file per day at `YYYY/MM/YYYY-MM-DD.md`:
 //   - the first line is `# Weekday D Month YYYY`, matching the file's date;
-//   - each `## HH:MM` (optionally ` · Title`) starts an entry, `00:00` to `23:59`;
+//   - each `## HH:MM` (optionally ` · Title`) starts an entry, `00:00` to `23:59`, and so does `## Title` alone: an entry
+//     with no time (GM, 2026-11-09), whose title does not start like a time;
 //   - an entry's body is paragraphs, lists and quotes; nothing else.
 // No front matter, no IDs, no HTML, lines end with a plain `\n`.
-import { blocksOf, type SpanBlock } from './blocks.ts';
+import { blocksOf, keyedBlocks, type SpanBlock } from './blocks.ts';
 import { dateTitle } from './dates.ts';
 
 /** The most bytes a day file may hold; a larger one is not read, and no write may make one. */
@@ -19,8 +20,10 @@ export const MAX_DAY_BYTES = 256 * 1024;
 export const MAX_DAY_BLOCKS = 2000;
 export const MAX_DAY_JSON_BYTES = 384 * 1024;
 
-/** An entry's heading. A time `HH:MM` (00:00 to 23:59), then ` · ` and a title. */
+/** An entry's heading with a time: `HH:MM` (00:00 to 23:59), then ` · ` and a title. */
 export const ENTRY_RE = /^## ([01]\d|2[0-3]):([0-5]\d)(?: · (\S.*))?$/;
+/** An entry's heading with no time: a title alone, one that does not start like a time (`9:30`, `21:30 …`). */
+export const UNTIMED_RE = /^## (?!\d{1,2}:\d{2}(?:\s|$))(\S.*)$/;
 /** A time as an entry and the person's edits name it. */
 export const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 /** The block kinds an entry's body may hold. */
@@ -34,14 +37,37 @@ export function dateHeading(date: string): string {
 	return `# ${dateTitle(date)}`;
 }
 
-export function entryHeading(time: string, title: string | null = null): string {
+/** An entry's heading: its time and title, or its title alone. An entry has one or the other, or both. */
+export function entryHeading(time: string | null, title: string | null = null): string {
+	if (time === null) return `## ${title ?? ''}`;
 	return title === null ? `## ${time}` : `## ${time} · ${title}`;
 }
 
-/** An entry heading's parts, or null when `text` is not one. */
-export function entryOf(text: string): { time: string; title: string | null } | null {
+/** An entry heading's parts, or null when `text` is not one. An entry with no time has a title. */
+export function entryOf(text: string): { time: string | null; title: string | null } | null {
 	const m = ENTRY_RE.exec(text);
-	return m === null ? null : { time: `${m[1]}:${m[2]}`, title: m[3] ?? null };
+	if (m !== null) return { time: `${m[1]}:${m[2]}`, title: m[3] ?? null };
+	const u = UNTIMED_RE.exec(text);
+	return u === null ? null : { time: null, title: u[1]! };
+}
+
+/** One entry of a day: its id (its heading's key), its time and title, and where its heading starts. */
+export interface EntryRef {
+	id: string;
+	time: string | null;
+	title: string | null;
+	start: number;
+}
+
+/**
+ * The day's entries, in the file's order. An entry's id is its heading block's key (`keyedBlocks`): what the bot names an
+ * entry by, apart from its time, so an entry with no time, or two at one time, are named all the same (GM, 2026-11-09).
+ */
+export function entriesOf(text: string): EntryRef[] {
+	return keyedBlocks(text).flatMap((b) => {
+		const entry = entryOf(b.text);
+		return entry === null ? [] : [{ id: b.key, ...entry, start: b.start }];
+	});
 }
 
 /** What is wrong with a day, by code; the engine words it (`src/engine/words.ts`). */

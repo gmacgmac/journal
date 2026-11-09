@@ -4,14 +4,14 @@
 // writes it atomically (`writeDay`). A refusal writes nothing.
 import type { ChangeMeta, ToolResult } from '../../vendor/plugin-host/plugin-host.ts';
 import {
-	blocksOf, checkDay, dateHeading, dateTitle, dayPath, entryOf, isDate, keyedBlocks, type SpanBlock,
+	blocksOf, checkDay, dateHeading, dateTitle, dayPath, entriesOf, entryHeading, isDate, keyedBlocks, type SpanBlock,
 } from '../../format/index.ts';
 import type { Edit, WriteResult } from '../../seam-types.ts';
 import { TOO_BIG_VARS, plan, readDayFile, version as versionOf, writeDay, type Refusal } from '../../store/index.ts';
 import { problemText, word } from '../words.ts';
 import { done, refused } from './result.ts';
 
-export interface EntryInput { date: string; time: string; text: string; title?: string; version?: string | null; future?: boolean }
+export interface EntryInput { date: string; time?: string; text: string; title?: string; version?: string | null; future?: boolean }
 export interface AnchorInput { date: string; version: string | null; entry: string; block: string; nth?: number; future?: boolean }
 export type BlockOp = 'replace' | 'delete' | 'insert';
 
@@ -43,16 +43,15 @@ function opened(dir: string, date: string, given: string | null | undefined, nee
 	return { text: file.text };
 }
 
-/** The block `a` names: under the one entry at `a.entry`, whose whole text is `a.block`, the `nth` such from the top. */
+/** The block `a` names: under the entry whose id is `a.entry`, whose whole text is `a.block`, the `nth` such from the top. */
 function anchored(date: string, text: string, a: AnchorInput): SpanBlock | ToolResult {
 	const blocks = blocksOf(text);
 	const want = a.block.trim();
 	if (want === dateHeading(date)) return refused('date-heading');
-	const heads = blocks.flatMap((b, i) => (b.kind === 'heading' && entryOf(b.text)?.time === a.entry ? [i] : []));
+	const entry = entriesOf(text).find((e) => e.id === a.entry);
 	const vars = { ...about(date), entry: a.entry };
-	if (heads.length === 0) return refused('no-entry', vars);
-	if (heads.length > 1) return refused('ambiguous-entry', { ...vars, count: heads.length });
-	const first = heads[0]!;
+	if (entry === undefined) return refused('no-entry', vars);
+	const first = blocks.findIndex((b) => b.start === entry.start);
 	const next = blocks.findIndex((b, i) => i > first && b.kind === 'heading');
 	const matches = blocks.slice(first, next < 0 ? blocks.length : next).filter((b) => b.text.trim() === want);
 	if (matches.length === 0) return refused('no-block', vars);
@@ -69,18 +68,21 @@ function storeRefusal(date: string, r: Refusal): ToolResult {
 		case 'malformed': return refused('malformed', { ...about(date), problems: '' });
 		case 'heading': case 'date-heading': return refused(r.code);
 		case 'changed': return refused('stale');
-		case 'unreadable': return refused('input', { field: 'text' });
+		case 'unreadable': return r.say === 'journal.problem.entry-untimed' ? refused('untimed') : refused('input', { field: 'text' });
 	}
 }
 
-/** What a write says of itself: its change words, the entry's time (from the changed block's new text), where the changed
- * block now starts (null for a removal), and how many blocks it wrote. */
+/** What a write says of itself: its change words, where the changed block now starts (null for a removal; `near`, where
+ * it was, then names its entry), and how many blocks it wrote. */
 interface Wrote {
 	words: string;
-	entry: (blockText: string | undefined) => string;
 	at: (after: string) => number | null;
+	near?: number;
 	count: (before: string | null, after: string) => number;
 }
+
+/** The id of the entry holding the place `at` in `text`: the last entry starting at or before it. */
+const entryAt = (text: string, at: number): string | undefined => entriesOf(text).filter((e) => e.start <= at).at(-1)?.id;
 
 /** Plans `e` on `before`, writes it, and answers with the day's new version, the block's key and the change line. */
 function save(dir: string, before: string | null, e: Edit, how: Wrote, wrote: (date: string) => void): ToolResult {
@@ -91,25 +93,29 @@ function save(dir: string, before: string | null, e: Edit, how: Wrote, wrote: (d
 	const after = planned.text;
 	const at = how.at(after);
 	const block = at === null ? undefined : keyedBlocks(after).find((b) => b.start === at);
-	const structured: WriteResult = { date: e.date, version: versionOf(after), entry: how.entry(block?.text) };
+	const structured: WriteResult = { date: e.date, version: versionOf(after), entry: entryAt(after, at ?? how.near ?? 0) ?? '' };
 	if (block !== undefined) structured.key = block.key;
 	const subject = dateTitle(e.date);
 	const change: ChangeMeta = { words: how.words, count: how.count(before, after), subject, reveal: block === undefined ? { date: e.date } : { date: e.date, key: block.key } };
 	return done(word('journal.saved', { title: subject, date: e.date, version: structured.version }), structured, change);
 }
 
-/** `add_entry`: a new entry placed by its time; the day's page is made when it has none. */
+/** `add_entry`: a new entry, placed by its time, or at the end of the day with none; the day's page is made when it has none. */
 export function addEntry(dir: string, input: EntryInput, wrote: (date: string) => void, today: () => string): ToolResult {
 	const late = tooLate(input.date, input.future, today);
 	if (late !== null) return late;
 	const day = opened(dir, input.date, input.version, false);
 	if ('content' in day) return day;
 	if (input.text.trim() === '') return refused('input', { field: 'text' });
-	const e: Edit = { op: 'entry', date: input.date, time: input.time, title: input.title ?? null, text: input.text };
+	const time = input.time ?? null;
+	const title = input.title === undefined || input.title.trim() === '' ? null : input.title.trim();
+	if (time === null && title === null) return refused('untimed');
+	const e: Edit = { op: 'entry', date: input.date, time, title, text: input.text };
+	const heading = entryHeading(time, title);
 	return save(dir, day.text, e, {
 		words: 'journal.change.entry',
-		entry: () => input.time,
-		at: (after) => blocksOf(after).find((b) => b.kind === 'heading' && entryOf(b.text)?.time === input.time)?.start ?? null,
+		// With a time, the one entry at it; with none, the new one is the last with that heading.
+		at: (after) => blocksOf(after).filter((b) => b.text === heading).at(time === null ? -1 : 0)?.start ?? null,
 		count: () => 1,
 	}, wrote);
 }
@@ -129,9 +135,8 @@ export function changeBlock(dir: string, op: BlockOp, input: AnchorInput & { tex
 	const e: Edit = op === 'insert' ? { op: 'insert', ...span, text } : { op: 'replace', ...span, after: op === 'delete' ? '' : text };
 	return save(dir, before, e, {
 		words: `journal.change.${op}`,
-		// A heading replaced gives its entry a new time.
-		entry: (t) => (op === 'replace' && block.kind === 'heading' && t !== undefined ? entryOf(t)?.time ?? input.entry : input.entry),
 		at: () => (op === 'delete' ? null : op === 'insert' ? block.end + 2 : block.start),
+		near: block.start,
 		count: (was, after) => (op === 'insert' ? blocksOf(after).length - blocksOf(was ?? '').length : 1),
 	}, wrote);
 }

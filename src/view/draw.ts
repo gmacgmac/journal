@@ -14,6 +14,8 @@ function bar(): HTMLElement {
 			act('link', say('journal.view.bar.link'), { title: say('journal.view.bar.linkHint') }),
 			act('todo', say('journal.view.bar.todo'), { title: say('journal.view.bar.todoHint') }),
 			act('title', say('journal.view.bar.title'), { hidden: '' }),
+			act('notime', say('journal.view.bar.noTime'), { hidden: '', title: say('journal.view.bar.noTimeHint') }),
+			act('addtime', say('journal.view.bar.addTime'), { hidden: '' }),
 			el('span', [], { class: 'gap' }),
 			act('ask', say('journal.view.bar.ask')),
 			act('remove', say('journal.view.bar.remove')),

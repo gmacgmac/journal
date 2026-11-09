@@ -32,6 +32,7 @@ export function startSession(node: BlockNode, host: Page, spec: Spec, at: Where 
 	const s: Session = {
 		node, host, spec, kind: spec.kind, root: spec.root ?? node, busy: false, saving: null,
 		canTitle: () => spec.addTitle !== undefined && spec.canTitle?.() === true,
+		timed: () => (spec.setTimed === undefined ? null : spec.timed?.() ?? null),
 		focus(where = 'end') {
 			if (typeof where === 'object') {
 				const { x, y } = where;
@@ -97,6 +98,10 @@ export function startSession(node: BlockNode, host: Page, spec: Spec, at: Where 
 		else if (name === 'todo') toTodo(s);
 		else if (name === 'title') {
 			spec.addTitle?.();
+			bar.showBar(s);
+		}
+		else if (name === 'notime' || name === 'addtime') {
+			spec.setTimed?.(name === 'addtime');
 			bar.showBar(s);
 		}
 		else if (name === 'ask') host.ask(node);

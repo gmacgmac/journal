@@ -41,6 +41,10 @@ export interface Spec {
 	enter?(target: EventTarget | null): boolean;
 	canTitle?(): boolean;
 	addTitle?(): void;
+	/** Whether the entry has a time (true) or none (false); absent when the writing has no say in it. */
+	timed?(): boolean;
+	/** Gives the entry a time again, or takes it away (a title then holds the entry). */
+	setTimed?(on: boolean): void;
 	remove?(s: Session): void;
 }
 
@@ -56,6 +60,8 @@ export interface Session {
 	/** The block above, kept when this one is removed so the caret can go to its end. */
 	prev?: BlockNode | null;
 	canTitle(): boolean;
+	/** The bar's No time (true) or Add time (false); null when neither applies. */
+	timed(): boolean | null;
 	focus(where?: Where): void;
 	act(name: string, restore?: () => void): void;
 	arm(e: HTMLElement): void;

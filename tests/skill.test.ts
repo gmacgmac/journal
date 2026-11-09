@@ -63,9 +63,9 @@ describe('the skill', () => {
 		const engine = createEngine({ dir, name: () => 'A bot', warn: () => {}, flags: {} });
 		const ctx = { caller: { by: 'agent' as const, agent: 'bot-0123456789abcdef' }, signal: new AbortController().signal };
 		await engine.tools.call('add_entry', { date: '2026-11-07', time: '09:00', text: '- [ ] One\n- [ ] Two', version: null }, ctx);
-		const day = async () => ((await engine.tools.call('read_days', { from: '2026-11-07' }, ctx)).structuredContent as { days: { version: string; text: string }[] }).days[0]!;
-		const { version } = await day();
-		await engine.tools.call('insert_after', { date: '2026-11-07', version, entry: '09:00', block: '- [ ] One\n- [ ] Two', text: '- [ ] Three' }, ctx);
+		const day = async () => ((await engine.tools.call('read_days', { from: '2026-11-07' }, ctx)).structuredContent as { days: { version: string; text: string; entries: { id: string }[] }[] }).days[0]!;
+		const { version, entries } = await day();
+		await engine.tools.call('insert_after', { date: '2026-11-07', version, entry: entries[0]!.id, block: '- [ ] One\n- [ ] Two', text: '- [ ] Three' }, ctx);
 		const page = (await day()).text;
 		assert.ok(page.includes('- [ ] Two\n\n- [ ] Three'), 'a block of its own');
 		const bullet = skill.slice(skill.indexOf('- `insert_after`')).split(/\n- |\n\n/)[0]!;
