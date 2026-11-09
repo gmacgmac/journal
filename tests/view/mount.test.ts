@@ -7,8 +7,9 @@ import { before, describe, it } from 'node:test';
 import { addDays, localToday } from '../../src/format/index.ts';
 import { PAGE_BATCH } from '../../src/view/feed.ts';
 import { say } from '../../src/view/words.ts';
-import { FakeEvent, fire, installDom, settle, type FakeElement } from './fake-dom.ts';
-import { fileOf, mounted, recent } from './fake-host.ts';
+import { FakeEvent, fire, installDom, newRoot, settle, type FakeElement } from './fake-dom.ts';
+import { fakeHost, fileOf, mounted, recent } from './fake-host.ts';
+import { mountJournal } from '../../src/view/journal.ts';
 
 const q = (root: HTMLElement, sel: string) => root.querySelector(sel) as unknown as FakeElement;
 const dates = (root: HTMLElement) => [...root.querySelectorAll('.day')].map((d) => d.getAttribute('data-date'));
@@ -193,6 +194,17 @@ describe('mount', () => {
 		await settle();
 		assert.equal(m.root.querySelector(`.day[data-date="${addDays(from, -30)}"]`), null, 'a day outside the gap is not taken');
 		m.view.unmount();
+	});
+
+	it('an event of {} that comes before the first draw settles (the host says one as its stream opens) throws nothing and reads nothing twice', async () => {
+		const h = fakeHost();
+		const root = newRoot();
+		const view = mountJournal(root, h.host);
+		h.emit({});
+		await settle();
+		assert.deepEqual(h.calls.notes, []);
+		assert.equal(dates(root).length, 7);
+		view.unmount();
 	});
 
 	it('an event of {} reads every day shown again, in place', async () => {

@@ -484,7 +484,7 @@ saves; a to-do ticks and saves at once; Undo is a toast inside `root`.
 | Member | The Journal's use |
 |---|---|
 | `api` | `days?from=…&to=…` (GET, followed by `next` until the range is read), `pages?before=…&limit=…` (GET, one batch at a time) and `edit` (POST, `content-type: application/json`), paths with no leading `/`; a reply with status 400 or more is a problem (§ Routes) |
-| `events` | `{ date }` of a day shown reads that day again; of an older day the running journal reaches but does not show, draws its new page in; `{}` reads every day shown again; any other ref is ignored |
+| `events` | `{ date }` of a day shown reads that day again; of an older day the running journal reaches but does not show, draws its new page in; `{}` reads every day shown again, after a draw under way (one before the first draw lands reads nothing: "an event of {} that comes before the first draw settles (the host says one as its stream opens) throws nothing and reads nothing twice"); any other ref is ignored |
 | `chat` | `add(chip)` for a block's Add to chat in the writing bar (a `block` chip); nothing is staged by `attach`; no `send` |
 | `settings` | Nothing |
 | `notify` | A refused save or tick (`error`), and a reveal it cannot show. A refused save that is a clash stays in the writing bar with its two choices instead |

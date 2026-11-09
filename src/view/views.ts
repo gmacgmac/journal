@@ -208,8 +208,13 @@ export function createViews(d: ViewsDeps) {
 		ensure(day).classList.add('fresh');
 	}
 
-	/** Every day shown, read again and patched in place: the sheet does not move. */
+	/**
+	 * Every day shown, read again and patched in place: the sheet does not move. It waits for a draw under way (the host
+	 * says `{}` as its stream opens, often before the first draw lands); a journal not yet drawn has nothing to read again.
+	 */
 	async function reread(): Promise<void> {
+		await drawing;
+		if (place.view === 'journal' && feed.recentFrom === '') return;
 		const dates = [...shown.keys()];
 		if (place.view === 'journal') {
 			const r = await routes.days(feed.recentFrom, addDays(feed.recentFrom, RECENT_DAYS - 1));
