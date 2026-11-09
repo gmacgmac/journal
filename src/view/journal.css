@@ -18,8 +18,10 @@
 	--journal-size: calc(17px * var(--journal-scale));
 	--journal-leading: 1.62;
 	--journal-line: calc(var(--journal-size) * var(--journal-leading));
-	/* On a narrow page, the room over and under a time, which sits on a line of its own between two entries. */
-	--journal-time-gap: calc(0.85 * var(--journal-size));
+	/* On a narrow page, the room over an entry's divider and under it: a time sits nearer its own title; a divider with
+	   no time has as much room under it as over it. */
+	--journal-divider-over: calc(1.13 * var(--journal-size));
+	--journal-divider-under: calc(0.57 * var(--journal-size));
 	/* The entry column: the times' margin and the gap before the writing. The phone layout narrows both. */
 	/* The times' column: as wide as a time, which starts on the date's left edge, so the writing has the rest (GM). */
 	--journal-time-w: calc(2.75 * var(--journal-rem));
@@ -319,16 +321,17 @@
 		   entry's time is a small line of its own in the space between entries, just over its title. The entries are
 		   one column, so nothing lays out beside a time. */
 		.entries, .block.entry-head.has-title, .entry-draft { display: block; }
-		/* Every entry opens with a divider in the space between entries: a dashed hairline either side of its time (the gap
-		   markers' dashes), bold and centred; an entry with no time shows the line alone, so every entry is set apart the
-		   same. It sits nearer its own title than the entry above (two thirds of the room over it, one third under). */
+		/* Every entry opens with a divider in the space between entries: a few dashes (the gap markers') either side of its
+		   time, bold and centred, nearer its own title than the entry above; an entry with no time shows the dashes alone,
+		   with as much room under them as over, so every entry is set apart the same. */
 		.time, .has-title .time, .time[hidden] {
-			display: flex; align-items: center; gap: 10px; justify-self: stretch;
-			line-height: 1.2; margin-bottom: calc(var(--journal-time-gap) * 0.67); font-weight: 600;
+			display: flex; align-items: center; justify-content: center; gap: 10px; justify-self: stretch;
+			line-height: 1.2; margin-bottom: var(--journal-divider-under); font-weight: 600;
 		}
-		.time::before, .time::after { content: ''; flex: 1; border-top: 1px dashed var(--journal-rule); }
+		.time::before, .time::after { content: ''; width: 1.6em; border-top: 1px dashed var(--journal-rule); }
 		.time:empty { gap: 0; }
-		.entry-head:not(:first-child), .entry-draft { margin-top: calc(var(--journal-time-gap) * 1.33); }
+		.no-time .time { margin-bottom: var(--journal-divider-over); }
+		.entry-head:not(:first-child), .entry-draft { margin-top: var(--journal-divider-over); }
 		.entries > .entry-head:not(.has-title):not(:first-child) + .block { margin-top: 0; }
 		/* A time being written is a field of its own size, centred where the time shows, with no lines. */
 		.entry-head.editing .time, .entry-draft .time { display: block; justify-self: center; margin-left: 0; }
