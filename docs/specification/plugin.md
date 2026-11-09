@@ -453,8 +453,8 @@ module-level variable holds a day, a session, a listener or a timer, so two moun
   marker says how many days lie between and offers Add a page, held to those days (one day: that day at once).
 - **Day**, one day alone, for a long day: `‹` and `›` step a day, the date opens the date picker, and Today comes back.
 
-**The toolbar is one row at every width** (`src/view/toolbar.ts`): the view toggle, the view shown named in the accent
-(`--journal-app-accent`, the host's accent as text; a press switches to the other view, and a press on the other view's name, where both show, goes there;
+**The toolbar is one row at every width** (`src/view/toolbar.ts`): the view toggle, the view shown filled as Done is
+(`--journal-fill`, white on it; a press switches to the other view, and a press on the other view's name, where both show, goes there;
 a narrow pane shows only the view it is on); in Day, the day's controls; and Add a page, `+` and its words (a narrow pane
 shows only `+`, its name still "Add a page").
 
@@ -528,9 +528,9 @@ paper as its own look when the host sets none.
 
 - **Mode**: `.journal { color-scheme: var(--host-color-scheme, light dark) }`. Every colour of the Journal's own is a
   `light-dark()` pair, kept native in the built stylesheet, so it follows the bot's light or dark live.
-- **Hierarchy** (GM, 2026-11-09): the date in the date ink; an entry's title upright, semibold, 1.1em, in the ink; its
+- **Hierarchy** (GM, 2026-11-09): the date in the date ink, at `--journal-date-size` (1.6em), clearly over a title; an entry's title upright, semibold, 1.1em, in the ink; its
   writing in `--journal-body`; a time small and quiet in the interface's face (`--journal-font`), on its entry's first line
-  (the entries' grid aligns each row by its baseline); more room between entries (1.7em) than inside one; a list's bullets
+  (the entries' grid aligns each row by its baseline); more room between entries (1.45em) than inside one; a list's bullets
   small, in the date ink. Italics are for quotes and emphasis only.
 - **Type**: `--journal-font: var(--host-font, system-ui, sans-serif)`, `--journal-mono: var(--host-font-mono, ui-monospace, monospace)`;
   the date headings keep the paper's serif, `--journal-serif` (the Journal's own); `--host-text-scale` scales the page's text
@@ -549,7 +549,7 @@ paper as its own look when the host sets none.
 | `--journal-ink`, `--journal-ink-soft` | `var(--host-ink)`, `var(--host-ink-muted)` | `light-dark(#2a241e, #ece5da)`, `light-dark(#6f5f4a, #c6baac)` |
 | `--journal-body` | `color-mix(in oklab, var(--journal-ink) 82%, var(--journal-page) 18%)`: the writing, one step softer than the ink, so an entry's title (in the ink) stands over it | the same mix of the Journal's own |
 | `--journal-date-ink`, `--journal-link` | `var(--host-accent-strong)` | `light-dark(#8a4320, #f2a77c)`, `light-dark(#9b4519, #ff9a66)` |
-| `--journal-fill`, `--journal-fill-hover`, `--journal-on-fill` | `var(--host-accent-fill, var(--host-accent))`, `var(--host-accent-fill-hover, var(--host-accent-strong))`, `var(--host-on-accent)`: Done | the paper's terracotta, `light-dark(#a3471b, #f2a77c)` and `light-dark(#873a14, #f6bc98)`; the page as the ink on it |
+| `--journal-fill`, `--journal-fill-hover`, `--journal-on-fill` | `var(--host-accent-fill, var(--host-accent))`, `var(--host-accent-fill-hover, var(--host-accent-strong))`, `var(--host-on-accent)`: Done and the view shown | nclite's own warm rust, `light-dark(#c4501f, #d2602f)` and its hover `light-dark(#ac461b, #b95429)`, white on them |
 | `--journal-focus` | `var(--host-focus, var(--host-accent))` | `light-dark(#c4501f, #ff8a4f)` |
 | `--journal-warn`, `--journal-shadow`, `--journal-fold` | The Journal's own, whatever the host sets | the proof's |
 
