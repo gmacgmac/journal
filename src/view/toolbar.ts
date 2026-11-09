@@ -1,5 +1,6 @@
-// The bar over the paper: which view (the running journal, or one day); in Day, the day shown, the days either side and
-// the way back to today; and Add a page, which asks which day. Drawn once per mount; `show` brings it in line with the
+// The bar over the paper, one row at every width: which view (one toggle, the view shown filled in the accent; a press
+// switches to the other, and on a wide bar a press on the other's name goes there); in Day, the day shown, the days either
+// side and the way back to today; and Add a page (+), which asks which day. Drawn once per mount; `show` brings it in line with the
 // place. It says what the person asked for through `actions` and decides nothing itself.
 import { isDate } from '../format/index.ts';
 import { shortDate } from './dates.ts';
@@ -21,12 +22,12 @@ export interface Toolbar {
 }
 
 const button = (words: string, attrs: Record<string, string>) => el('button', [words], { type: 'button', ...attrs });
-const viewButton = (view: View, words: ViewWord) => button(say(words), { 'data-view': view, 'aria-pressed': 'false' });
+const VIEW_WORDS: Record<View, ViewWord> = { journal: 'journal.view.views.journal', day: 'journal.view.views.day' };
+const other = (view: View): View => (view === 'journal' ? 'day' : 'journal');
 
 export function createToolbar(actions: ToolbarActions): Toolbar {
-	const views = el('div', [viewButton('journal', 'journal.view.views.journal'), viewButton('day', 'journal.view.views.day')], {
-		class: 'views', role: 'group', 'aria-label': say('journal.view.views.label'),
-	});
+	const option = (view: View) => el('span', [say(VIEW_WORDS[view])], { class: 'view-opt', 'data-view': view });
+	const views = el('button', [option('journal'), option('day')], { type: 'button', class: 'views' });
 	const dayLabel = el('span');
 	const pick = el('button', [dayLabel], { type: 'button', class: 'day-pick', 'data-nav': 'pick', title: say('journal.view.nav.pick'), 'aria-haspopup': 'dialog' });
 	const pickField = dateField(say('journal.view.nav.pick'));
@@ -37,7 +38,9 @@ export function createToolbar(actions: ToolbarActions): Toolbar {
 		button('›', { 'data-nav': 'next', 'aria-label': say('journal.view.nav.after') }),
 		toToday,
 	], { class: 'day-nav' });
-	const add = button(say('journal.view.add.page'), { 'data-add': '', class: 'add-page', 'aria-haspopup': 'dialog' });
+	const add = el('button', [el('span', ['+'], { class: 'plus', 'aria-hidden': 'true' }), el('span', [say('journal.view.add.page')], { class: 'add-words' })], {
+		type: 'button', 'data-add': '', class: 'add-page', title: say('journal.view.add.page'), 'aria-haspopup': 'dialog',
+	});
 	const addField = dateField(say('journal.view.add.pick'));
 	const bar = el('nav', [views, dayNav, el('span', [add, addField], { class: 'picker-anchor add-anchor' })], {
 		class: 'range', 'aria-label': say('journal.view.range.label'),
@@ -49,8 +52,11 @@ export function createToolbar(actions: ToolbarActions): Toolbar {
 	bar.addEventListener('click', (e) => {
 		const t = (e.target as Element).closest<HTMLElement>('button');
 		if (t === null) return;
-		const view = t.dataset.view;
-		if (view === 'journal' || view === 'day') return actions.view(view);
+		if (t === views) {
+			// The other view's name goes there; anywhere else on the toggle switches.
+			const named = (e.target as Element).closest<HTMLElement>('.view-opt')?.dataset.view;
+			return actions.view(named === other(place.view) ? named : other(place.view));
+		}
 		switch (t.dataset.nav) {
 			case 'prev': return actions.step(-1);
 			case 'next': return actions.step(1);
@@ -72,7 +78,8 @@ export function createToolbar(actions: ToolbarActions): Toolbar {
 		show(p, t) {
 			place = p;
 			today = t;
-			for (const b of views.querySelectorAll<HTMLElement>('button')) b.setAttribute('aria-pressed', String(b.dataset.view === p.view));
+			for (const o of views.querySelectorAll<HTMLElement>('.view-opt')) o.classList.toggle('on', o.dataset.view === p.view);
+			views.setAttribute('aria-label', say('journal.view.views.switch', { now: say(VIEW_WORDS[p.view]), other: say(VIEW_WORDS[other(p.view)]) }));
 			dayNav.hidden = p.view !== 'day';
 			const date = p.date ?? t;
 			dayLabel.textContent = date === t ? say('journal.view.today') : shortDate(date);

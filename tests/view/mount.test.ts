@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { before, describe, it } from 'node:test';
 import { addDays, localToday } from '../../src/format/index.ts';
 import { PAGE_BATCH } from '../../src/view/feed.ts';
+import { say } from '../../src/view/words.ts';
 import { FakeEvent, fire, installDom, settle, type FakeElement } from './fake-dom.ts';
 import { fileOf, mounted, recent } from './fake-host.ts';
 
@@ -24,7 +25,8 @@ describe('mount', () => {
 		assert.deepEqual(m.calls.gets, [daysQuery(from, to), pagesQuery(from)]);
 		assert.deepEqual(dates(m.root), [0, 1, 2, 3, 4, 5, 6].map((n) => addDays(to, -n)));
 		assert.deepEqual(m.view.pageChip()?.ref, { from, to });
-		assert.equal(q(m.root, '[data-view="journal"]').getAttribute('aria-pressed'), 'true');
+		assert.ok(q(m.root, '.view-opt[data-view="journal"]').classList.contains('on'), 'the view shown is the filled one');
+		assert.equal(q(m.root, '.views').getAttribute('aria-label'), say('journal.view.views.switch', { now: 'Journal', other: 'Day' }));
 		assert.ok(q(m.root, '.day-nav').hidden, 'stepping a day is Day’s');
 		m.view.unmount();
 	});
@@ -59,6 +61,22 @@ describe('mount', () => {
 		assert.equal(m.calls.gets.at(-1), pagesQuery(older[PAGE_BATCH - 1]!));
 		assert.deepEqual(dates(m.root).slice(7), older);
 		assert.equal(m.root.querySelector('.feed-end'), null, 'no more to read');
+		m.view.unmount();
+	});
+
+	it('the view toggle switches to the other view from anywhere on it, and to a view named on it', async () => {
+		const m = await mounted();
+		fire(q(m.root, '.views'), 'click');
+		await settle();
+		assert.ok(q(m.root, '.view-opt[data-view="day"]').classList.contains('on'));
+		fire(q(m.root, '.view-opt[data-view="day"]'), 'click');
+		await settle();
+		assert.ok(q(m.root, '.view-opt[data-view="journal"]').classList.contains('on'), 'a press on the view shown switches too');
+		fire(q(m.root, '.view-opt[data-view="day"]'), 'click');
+		await settle();
+		fire(q(m.root, '.view-opt[data-view="journal"]'), 'click');
+		await settle();
+		assert.ok(q(m.root, '.view-opt[data-view="journal"]').classList.contains('on'));
 		m.view.unmount();
 	});
 

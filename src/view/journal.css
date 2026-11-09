@@ -48,8 +48,9 @@
 	--journal-ink-soft: var(--host-ink-muted, light-dark(#6f5f4a, #c6baac));
 	--journal-date-ink: var(--host-accent-strong, light-dark(#8a4320, #f2a77c));
 	--journal-link: var(--host-accent-strong, light-dark(#9b4519, #ff9a66));
-	--journal-fill: var(--host-accent-fill, var(--host-accent, var(--journal-ink)));
-	--journal-fill-hover: var(--host-accent-fill-hover, var(--host-accent-strong, var(--journal-ink)));
+	/* The fill of the view shown and of Done: the host's, else the paper's own terracotta, the colour of its dates. */
+	--journal-fill: var(--host-accent-fill, var(--host-accent, light-dark(#a3471b, #f2a77c)));
+	--journal-fill-hover: var(--host-accent-fill-hover, var(--host-accent-strong, light-dark(#873a14, #f6bc98)));
 	--journal-on-fill: var(--host-on-accent, var(--journal-page));
 	--journal-focus: var(--host-focus, var(--host-accent, light-dark(#c4501f, #ff8a4f)));
 	/* The ring a focused control draws: the focus colour, but none on what a pointer press focused (focus.ts), so the ring
@@ -70,7 +71,9 @@
 		display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 8px 16px;
 		font: calc(14px * var(--journal-scale))/1.3 var(--journal-font); background: var(--journal-app-bg); color: var(--journal-app-ink); border-bottom: 1px solid var(--journal-app-line);
 	}
-	.range { display: flex; flex: 1; flex-wrap: wrap; align-items: center; gap: 8px; }
+	/* One row at every width: nothing in it wraps or grows. */
+	.range { display: flex; flex: 1; flex-wrap: nowrap; align-items: center; gap: 6px; min-width: 0; }
+	.range > * { flex: none; }
 	.range button {
 		min-height: 32px; padding: 4px 12px;
 		font: inherit; color: var(--journal-app-ink); background: var(--journal-app-field);
@@ -79,17 +82,23 @@
 	.range button:hover { border-color: var(--journal-app-line-strong); background: var(--journal-app-raised); }
 	.range :focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 2px; }
 	.range [hidden] { display: none; }
-	/* Which view: one segmented group, as the host's own (the pressed one lifted on the raised ground with a ring). */
-	.views { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--journal-app-line); border-radius: 9px; background: var(--journal-app-field); }
-	.range .views button { min-width: 5.5em; min-height: 26px; padding: 2px 12px; border: 0; border-radius: 6px; background: none; color: var(--journal-app-muted); }
-	.range .views button:hover { color: var(--journal-app-ink); background: var(--journal-app-raised); }
-	.range .views button[aria-pressed='true'] { color: var(--journal-app-ink); background: var(--journal-app-raised); box-shadow: inset 0 0 0 1px var(--journal-app-line-strong); }
+	/* Which view: one toggle, the view shown filled in the accent (the host's primary fill), the other quiet beside it. */
+	.range .views { display: inline-flex; gap: 2px; padding: 2px; }
+	.view-opt {
+		display: inline-flex; align-items: center; justify-content: center; min-width: 5.5em; padding: 3px 12px;
+		border-radius: 6px; color: var(--journal-app-muted);
+	}
+	.views:hover .view-opt:not(.on) { color: var(--journal-app-ink); }
+	.view-opt.on { color: var(--journal-on-fill); background: var(--journal-fill); }
+	.views:hover .view-opt.on { background: var(--journal-fill-hover); }
 	.day-nav { display: inline-flex; align-items: center; gap: 4px; }
 	.day-nav [data-nav='prev'], .day-nav [data-nav='next'] { min-width: 32px; padding: 4px 8px; }
 	/* The day, one width for every day ("Wed 30 Sep" the widest), so the arrows either side never move. */
 	.range .day-pick { width: 7.5em; padding: 4px 6px; text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
 	.range .away { visibility: hidden; }
 	.add-anchor { margin-left: auto; }
+	.add-page { display: inline-flex; align-items: center; gap: 6px; }
+	.plus { font-size: 1.25em; line-height: 1; }
 	/* A date field laid over the button that opens its picker: not seen, not tabbed to (picker.ts). */
 	.picker-anchor { position: relative; display: inline-flex; }
 	input.picker { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; opacity: 0; pointer-events: none; }
@@ -282,7 +291,13 @@
 		.entries { grid-template-columns: var(--journal-time-w) minmax(0, 1fr); }
 		/* A finger's reach: every control of the two bars, and Add an entry, at least --journal-tap high. */
 		.range button, .range input, .bar button, .bar-link input, .add-entry, .gap-add, .feed-more { min-height: var(--journal-tap); }
-		.range .views button { min-height: calc(var(--journal-tap) - 6px); }
+		/* One row in a narrow pane: the toggle shows only the view it is on, Add a page is its +, and the day is narrower. */
+		.range button { padding: 4px 10px; }
+		.view-opt { min-width: 0; padding: 3px 10px; }
+		.view-opt:not(.on), .add-words { display: none; }
+		.add-page { min-width: var(--journal-tap); justify-content: center; padding: 4px; }
+		.day-nav [data-nav='prev'], .day-nav [data-nav='next'] { min-width: 36px; }
+		.range .day-pick { width: 6.8em; }
 		.bar button { min-width: var(--journal-tap); }
 	}
 }

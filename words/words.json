@@ -84,7 +84,7 @@
 	"journal.problem.kind.hr": "a rule",
 	"journal.problem.kind.other": "that kind of block",
 	"journal.view.range.label": "Days shown",
-	"journal.view.views.label": "View",
+	"journal.view.views.switch": "{now}, switch to {other}",
 	"journal.view.views.journal": "Journal",
 	"journal.view.views.day": "Day",
 	"journal.view.nav.before": "Day before",
