@@ -453,8 +453,8 @@ module-level variable holds a day, a session, a listener or a timer, so two moun
   marker says how many days lie between and offers Add a page, held to those days (one day: that day at once).
 - **Day**, one day alone, for a long day: `‹` and `›` step a day, the date opens the date picker, and Today comes back.
 
-**The toolbar is one row at every width** (`src/view/toolbar.ts`): the view toggle, the view shown filled in the accent
-(`--journal-fill`; a press switches to the other view, and a press on the other view's name, where both show, goes there;
+**The toolbar is one row at every width** (`src/view/toolbar.ts`): the view toggle, the view shown named in the accent
+(`--journal-app-accent`, the host's accent as text; a press switches to the other view, and a press on the other view's name, where both show, goes there;
 a narrow pane shows only the view it is on); in Day, the day's controls; and Add a page, `+` and its words (a narrow pane
 shows only `+`, its name still "Add a page").
 
@@ -544,7 +544,7 @@ paper as its own look when the host sets none.
 | `--journal-rule`, `--journal-field-line` | `var(--host-line)`, `var(--host-line-strong)` | `light-dark(#e4d8c4, #332d29)`, `light-dark(#d8c8b0, #463f3a)` |
 | `--journal-ink`, `--journal-ink-soft` | `var(--host-ink)`, `var(--host-ink-muted)` | `light-dark(#2a241e, #ece5da)`, `light-dark(#6f5f4a, #c6baac)` |
 | `--journal-date-ink`, `--journal-link` | `var(--host-accent-strong)` | `light-dark(#8a4320, #f2a77c)`, `light-dark(#9b4519, #ff9a66)` |
-| `--journal-fill`, `--journal-fill-hover`, `--journal-on-fill` | `var(--host-accent-fill, var(--host-accent))`, `var(--host-accent-fill-hover, var(--host-accent-strong))`, `var(--host-on-accent)`: the view shown, and Done | the paper's terracotta, `light-dark(#a3471b, #f2a77c)` and `light-dark(#873a14, #f6bc98)`; the page as the ink on it |
+| `--journal-fill`, `--journal-fill-hover`, `--journal-on-fill` | `var(--host-accent-fill, var(--host-accent))`, `var(--host-accent-fill-hover, var(--host-accent-strong))`, `var(--host-on-accent)`: Done | the paper's terracotta, `light-dark(#a3471b, #f2a77c)` and `light-dark(#873a14, #f6bc98)`; the page as the ink on it |
 | `--journal-focus` | `var(--host-focus, var(--host-accent))` | `light-dark(#c4501f, #ff8a4f)` |
 | `--journal-warn`, `--journal-shadow`, `--journal-fold` | The Journal's own, whatever the host sets | the proof's |
 

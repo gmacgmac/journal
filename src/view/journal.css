@@ -34,6 +34,8 @@
 	--journal-app-raised: var(--host-surface-sunken, light-dark(#f5eee3, #25211e));
 	--journal-app-muted: var(--host-ink-muted, light-dark(#63523d, #dcd6d2));
 	--journal-app-line-strong: var(--host-line-strong, light-dark(#d8c8b0, #463f3a));
+	/* The accent where it is text on the bar: the view shown. */
+	--journal-app-accent: var(--host-accent-strong, light-dark(#8a4320, #f2a77c));
 	/* The paper. */
 	--journal-desk: color-mix(in oklab, var(--host-canvas, light-dark(#e6dccb, #13100f)) 92%, var(--host-accent, var(--host-canvas, light-dark(#e6dccb, #13100f))) 8%);
 	--journal-page: color-mix(in oklab, var(--host-surface, light-dark(#fbf6ec, #1c1916)) 95%, var(--host-accent, var(--host-surface, light-dark(#fbf6ec, #1c1916))) 5%);
@@ -82,15 +84,14 @@
 	.range button:hover { border-color: var(--journal-app-line-strong); background: var(--journal-app-raised); }
 	.range :focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 2px; }
 	.range [hidden] { display: none; }
-	/* Which view: one toggle, the view shown filled in the accent (the host's primary fill), the other quiet beside it. */
+	/* Which view: one toggle, the view shown named in the accent on a lifted ground, the other quiet beside it. */
 	.range .views { display: inline-flex; gap: 2px; padding: 2px; }
 	.view-opt {
 		display: inline-flex; align-items: center; justify-content: center; min-width: 5.5em; padding: 3px 12px;
 		border-radius: 6px; color: var(--journal-app-muted);
 	}
 	.views:hover .view-opt:not(.on) { color: var(--journal-app-ink); }
-	.view-opt.on { color: var(--journal-on-fill); background: var(--journal-fill); }
-	.views:hover .view-opt.on { background: var(--journal-fill-hover); }
+	.view-opt.on { color: var(--journal-app-accent); background: var(--journal-app-raised); box-shadow: inset 0 0 0 1px var(--journal-app-line-strong); }
 	.day-nav { display: inline-flex; align-items: center; gap: 4px; }
 	.day-nav [data-nav='prev'], .day-nav [data-nav='next'] { min-width: 32px; padding: 4px 8px; }
 	/* The day, one width for every day ("Wed 30 Sep" the widest), so the arrows either side never move. */
@@ -177,13 +178,14 @@
 
 	/* Times in the margin; writing in the measure beside them. Blocks stay one flat
 	   list so a live update never has to regroup them. */
-	.entries { display: grid; grid-template-columns: var(--journal-time-w) minmax(0, 36em); column-gap: var(--journal-gutter); }
+	/* Each time sits on the line its entry's first words sit on (its baseline), whatever their sizes. */
+	.entries { display: grid; grid-template-columns: var(--journal-time-w) minmax(0, 36em); column-gap: var(--journal-gutter); align-items: baseline; }
 	.block { grid-column: 2; margin: 0 -8px 0.7em; padding: 1px 8px; border-radius: 4px; cursor: text; }
 	.block:hover { background: var(--journal-hover); }
 	.block:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 1px; }
 	.block.entry-head { grid-column: 1; margin: 0; padding: 1px 0; text-align: right; }
 	.block.entry-head.has-title {
-		grid-column: 1 / -1; display: grid; grid-template-columns: subgrid;
+		grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: baseline;
 		margin-bottom: 0.25em; text-align: left;
 	}
 	.entry-head:not(:first-child), .entry-head:not(.has-title):not(:first-child) + .block { margin-top: 1.1em; }
