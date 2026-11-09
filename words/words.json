@@ -97,8 +97,6 @@
 	"journal.view.add.page": "Add a page",
 	"journal.view.add.short": "Page",
 	"journal.view.add.pick": "Which day?",
-	"journal.view.gap.day": "1 day",
-	"journal.view.gap.days": "{count} days",
 	"journal.view.gap.add": "Add a page between {from} and {to}",
 	"journal.view.more": "Earlier pages",
 	"journal.view.bar.label": "Writing",

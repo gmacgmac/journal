@@ -68,7 +68,9 @@ export function entryDraft(section: HTMLElement, host: Page): Session {
 		},
 		restore() {
 			node.remove();
-			section.classList.remove('drafting');
+			// A day put on the journal only to write in, left unwritten, goes again (GM, 2026-11-09).
+			section.classList.remove('drafting', 'placed');
+			host.relayout();
 		},
 		landing({ edit, res }) {
 			if (edit.op !== 'entry') return NaN;

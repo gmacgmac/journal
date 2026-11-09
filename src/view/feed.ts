@@ -1,7 +1,7 @@
 // The running journal's sheet: days newest first. Today is always on it, as one line with the way to start it when it has
 // no page; every other day is on it only when it has a page (GM, 2026-11-09: no row per empty day), the recent days read
 // at once and the older a batch at a time. Between two days that are not
-// next to each other, a gap marker says how many days lie between and offers to add a page in them; at the foot, Earlier
+// next to each other, a gap marker offers to add a page in them; at the foot, Earlier
 // pages while there are more. All of it is laid out from the sections on the sheet, so a day put in or taken out anywhere
 // only needs `layout` again.
 import { addDays, daysBetween } from '../format/index.ts';
@@ -32,10 +32,10 @@ export function gapMarker(newer: string, older: string): HTMLElement | null {
 	const add = el('button', [icon('plus'), say('journal.view.add.page')], {
 		type: 'button', class: 'gap-add', 'aria-label': say('journal.view.gap.add', { from: dayMonth(from), to: dayMonth(to) }),
 	});
-	return el('div', [
-		el('span', [say(count === 1 ? 'journal.view.gap.day' : 'journal.view.gap.days', { count })], { class: 'gap-count' }),
-		el('span', [add, dateField(say('journal.view.add.pick'))], { class: 'picker-anchor' }),
-	], { class: 'gap-marker', 'data-from': from, 'data-to': to });
+	// Only the way to add a page: how many days lie between is not worth a line of its own (GM, 2026-11-09).
+	return el('div', [el('span', [add, dateField(say('journal.view.add.pick'))], { class: 'picker-anchor' })], {
+		class: 'gap-marker', 'data-from': from, 'data-to': to,
+	});
 }
 
 /**

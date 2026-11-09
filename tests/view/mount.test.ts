@@ -145,7 +145,7 @@ describe('mount', () => {
 		m.view.unmount();
 	});
 
-	it('Add a page asks which day and opens a new entry on it, in its place', async () => {
+	it('Add a page asks which day and opens a new entry on it, in its place; left unwritten, the day goes again', async () => {
 		const { from } = recent();
 		const far = addDays(from, -20);
 		const m = await mounted((h) => h.files.set(addDays(from, -40), fileOf(addDays(from, -40), '## 08:00', 'Long ago.')));
@@ -161,6 +161,11 @@ describe('mount', () => {
 		assert.ok(day.classList.contains('placed'));
 		assert.ok(day.querySelector('.entry-draft'), 'a new entry, open for writing');
 		assert.equal(m.root.querySelectorAll('.gap-marker').length, 2);
+		fire(q(m.root, '[data-act="done"]'), 'click');
+		await settle();
+		assert.deepEqual(dates(m.root).slice(1), [addDays(from, -40)], 'left unwritten, the day goes again');
+		assert.equal(m.root.querySelectorAll('.gap-marker').length, 1);
+		assert.equal(m.calls.edits.length, 0);
 		m.view.unmount();
 	});
 

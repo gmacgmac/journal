@@ -61,6 +61,7 @@ export function mountJournal(root: HTMLElement, host: PluginHost): PluginView {
 			if (r.ok && r.days[0] !== undefined) page.patch(r.days[0]);
 		},
 		undo: (u, label) => undo.push(u, label),
+		relayout: () => void (live.on && views.relayout()),
 		blockAt: (date, start) => sheet.querySelector<BlockNode>(`.block[data-date="${date}"][data-start="${start}"]:not(.draft)`),
 		focusAt: (date, start) => page.blockAt(date, start)?.focus(),
 		open(node, at = 'end') {

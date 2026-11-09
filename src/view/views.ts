@@ -257,6 +257,7 @@ export function createViews(d: ViewsDeps) {
 			return place.view === 'day' ? { from: place.date, to: place.date } : { from: feed.recentFrom, to: drawnToday() };
 		},
 		sectionOf,
+		relayout,
 		open: () => (place.view === 'day' ? showDay(place.date) : showJournal(place.date)),
 		showJournal,
 		showDay,

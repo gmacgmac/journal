@@ -458,8 +458,8 @@ module-level variable holds a day, a session, a listener or a timer, so two moun
   row per empty day). The recent days, today and the six before it (`RECENT_DAYS`, `recentDays`), are read at once; older
   pages `PAGE_BATCH` (10) at a time from `GET pages`, read on as the person nears the foot, or with Earlier pages
   (`src/view/feed.ts`). Today with no page is one line: its date, named Today, and Start today's page. Between two days
-  that are not next to each other, a gap marker says how many days lie between and offers Add a page (a plus and its
-  words), held to those days (one day: that day at once). A day not shown that gains a page, from anyone, is drawn in.
+  that are not next to each other, a gap marker offers only Add a page (a plus and its
+  words; no count of the days, GM 2026-11-09), held to those days (one day: that day at once). A day not shown that gains a page, from anyone, is drawn in.
 - **Day**, one day alone, for a long day: `‹` and `›` step a day, the date opens the date picker, and Today comes back.
 
 **The toolbar is one row at every width** (`src/view/toolbar.ts`): the view toggle, the view shown filled as Done is
@@ -530,7 +530,7 @@ in, from its event or from a catch-up, and the gap round it splits", "the writin
 scrolls, Done outside it, every icon named", "before the recent days, only days with a page, a gap marker between two apart, and Earlier
 pages while more are left", "Day shows one day, steps a day at a time and comes back to today", "the place is kept per bot:
 the next mount opens where the last one was, and on today once the date moves on", "Add a page asks which day and opens a new
-entry on it, in its place", "a gap of one day adds a page there at once; a longer gap holds the picker to its days", "an event
+entry on it, in its place; left unwritten, the day goes again", "a gap of one day adds a page there at once; a longer gap holds the picker to its days", "an event
 of { date } reads a day shown again, draws a new older page in, and ignores the rest"; `tests/view/place.test.ts`;
 `tests/view/dates.test.ts` "the recent days are the last seven, ending on today, across a month and a year"; JR_04 "a block's
 Add to chat calls chat.add with a chip inside CHIP_LIMITS", "a days chip is null for a range longer than CHIP_DAYS, so the

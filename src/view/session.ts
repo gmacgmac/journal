@@ -79,6 +79,8 @@ export interface Page {
 	edit(e: Edit): Promise<EditResult>;
 	/** Bring a day's elements in line with `day`; `fresh` marks new blocks (the bot's, not the person's). */
 	patch(day: Day, fresh?: boolean): void;
+	/** The running journal laid out again (a day left unwritten goes); nothing in Day. */
+	relayout(): void;
 	refresh(date: string): Promise<void>;
 	undo(undo: RangeEdit, label: string): void;
 	blockAt(date: string, start: number): BlockNode | null;
