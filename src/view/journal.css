@@ -319,13 +319,21 @@
 		   entry's time is a small line of its own in the space between entries, just over its title. The entries are
 		   one column, so nothing lays out beside a time. */
 		.entries, .block.entry-head.has-title, .entry-draft { display: block; }
-		/* The time sits in the middle of the space between two entries, as much room over it as under it, centred
-		   across the page and set bold. */
-		.time, .has-title .time { line-height: 1.2; margin-bottom: var(--journal-time-gap); justify-self: stretch; text-align: center; font-weight: 600; }
-		.entry-head:not(:first-child), .entry-draft { margin-top: var(--journal-time-gap); }
+		/* Every entry opens with a divider in the space between entries: a dashed hairline either side of its time (the gap
+		   markers' dashes), bold and centred; an entry with no time shows the line alone, so every entry is set apart the
+		   same. It sits nearer its own title than the entry above (two thirds of the room over it, one third under). */
+		.time, .has-title .time, .time[hidden] {
+			display: flex; align-items: center; gap: 10px; justify-self: stretch;
+			line-height: 1.2; margin-bottom: calc(var(--journal-time-gap) * 0.67); font-weight: 600;
+		}
+		.time::before, .time::after { content: ''; flex: 1; border-top: 1px dashed var(--journal-rule); }
+		.time:empty { gap: 0; }
+		.entry-head:not(:first-child), .entry-draft { margin-top: calc(var(--journal-time-gap) * 1.33); }
 		.entries > .entry-head:not(.has-title):not(:first-child) + .block { margin-top: 0; }
-		/* A time being written keeps a field of its own size, centred where the time shows. */
-		.entry-head.editing .time, .entry-draft .time { justify-self: center; margin-left: 0; }
+		/* A time being written is a field of its own size, centred where the time shows, with no lines. */
+		.entry-head.editing .time, .entry-draft .time { display: block; justify-self: center; margin-left: 0; }
+		.entry-head.editing .time::before, .entry-head.editing .time::after, .entry-draft .time::before, .entry-draft .time::after { content: none; }
+		.entry-head.editing .time[hidden], .entry-draft .time[hidden] { display: none; }
 		.add-entry { margin-left: -8px; }
 		/* A finger's reach: every control of the two bars, and Add an entry, at least --journal-tap high. */
 		.range button, .range input, .bar button, .bar-link input, .add-entry, .gap-add, .feed-more { min-height: var(--journal-tap); }
