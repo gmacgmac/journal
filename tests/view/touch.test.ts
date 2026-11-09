@@ -10,7 +10,7 @@ import { describe, it } from 'node:test';
 import { withoutComments } from './css.ts';
 
 const CSS = withoutComments(fs.readFileSync(path.join(import.meta.dirname, '../../src/view/journal.css'), 'utf8'));
-const NARROW = '@container journal (max-width: 899px)';
+const NARROW = '@container journal (max-width: 559px)';
 
 /** The text inside the braces that open at `at`. */
 function inside(css: string, at: number): string {

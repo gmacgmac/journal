@@ -580,7 +580,7 @@ properties of the contract's list", "every rule is under .journal".
   by the bar), so the page never scrolls on into an empty stretch (GM's 161: a fixed 168px once did).
 - **The toolbar does not move as the days change**: the day is one width for every date (`.day-pick`), and Today keeps
   its place, out of sight and out of the tab order, while today is shown.
-- **The phone layout** (the container query `journal (max-width: 899px)`): the sheet is the whole pane, titles and writing
+- **The phone layout** (the container query `journal (max-width: 559px)`, below which the wide layout leaves too little room for its column of times (GM, 2026-11-09: 899px switched too early)): the sheet is the whole pane, titles and writing
   all start at the left edge, one column, and every entry opens with a divider in the space between entries: a short solid line
   in the date ink either side of its time, bold and centred, nearer its title than the entry above (`--journal-divider-over`,
   `--journal-divider-under`); an entry with no time shows the line alone, as much room under it as over, and a finger's

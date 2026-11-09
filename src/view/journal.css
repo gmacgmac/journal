@@ -308,7 +308,7 @@
 	.toast button:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 2px; }
 
 	/* ─── Phone: one page, one day under another ────────────────────────────── */
-	@container journal (max-width: 899px) {
+	@container journal (max-width: 559px) {
 		/* The sheet is the whole pane: no desk round it, and past the last day only the end's room, on the page's own ground. */
 		.paper { padding: 0 0 calc(var(--journal-bar-h, 0px) + var(--journal-end)); background: var(--journal-page); --journal-end: 24px; }
 		.sheet { max-width: none; padding: 24px 16px 16px; box-shadow: none; border-radius: 0; }
