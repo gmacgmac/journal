@@ -529,8 +529,8 @@ paper as its own look when the host sets none.
 - **Mode**: `.journal { color-scheme: var(--host-color-scheme, light dark) }`. Every colour of the Journal's own is a
   `light-dark()` pair, kept native in the built stylesheet, so it follows the bot's light or dark live.
 - **Hierarchy** (GM, 2026-11-09): the date in the date ink, at `--journal-date-size` (1.6em), clearly over a title; an entry's title upright, semibold, 1.1em, in the ink; its
-  writing in `--journal-body`; a time small and quiet in the interface's face (`--journal-font`), on its entry's first line
-  (the entries' grid aligns each row by its baseline); more room between entries (1.45em) than inside one; a list's bullets
+  writing in `--journal-body`; a time small and quiet in the interface's face (`--journal-font`), centred on its entry's first
+  line (rows start together, and a time's line is as tall as that first line, `--journal-line`, a title's 1.1 times it); more room between entries (1.45em) than inside one; a list's bullets
   small, in the date ink. Italics are for quotes and emphasis only.
 - **Type**: `--journal-font: var(--host-font, system-ui, sans-serif)`, `--journal-mono: var(--host-font-mono, ui-monospace, monospace)`;
   the date headings keep the paper's serif, `--journal-serif` (the Journal's own); `--host-text-scale` scales the page's text

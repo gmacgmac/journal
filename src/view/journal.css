@@ -14,6 +14,10 @@
 	/* Type: the host's faces and size; the date headings keep the paper's serif. */
 	--journal-scale: var(--host-text-scale, 1);
 	--journal-rem: calc(1rem * var(--journal-scale));
+	/* The writing's size and leading, and one line of it: a time's line is that tall, so it centres on it. */
+	--journal-size: calc(17px * var(--journal-scale));
+	--journal-leading: 1.62;
+	--journal-line: calc(var(--journal-size) * var(--journal-leading));
 	/* The entry column: the times' margin and the gap before the writing. The phone layout narrows both. */
 	--journal-time-w: calc(3.4 * var(--journal-rem));
 	--journal-gutter: 20px;
@@ -112,7 +116,7 @@
 	/* ─── The open journal ──────────────────────────────────────────────────── */
 	/* The desk, and past the last day only the room the writing bar needs while it is up (161: a fixed room once left an
 	   empty stretch under the last day). */
-	.paper { flex: 1; min-height: 0; overflow: auto; scroll-padding-bottom: calc(var(--journal-bar-h, 0px) + 32px); padding: 32px 24px calc(var(--journal-bar-h, 0px) + var(--journal-end)); background: var(--journal-desk); color: var(--journal-body); font: calc(17px * var(--journal-scale))/1.62 var(--journal-serif); }
+	.paper { flex: 1; min-height: 0; overflow: auto; scroll-padding-bottom: calc(var(--journal-bar-h, 0px) + 32px); padding: 32px 24px calc(var(--journal-bar-h, 0px) + var(--journal-end)); background: var(--journal-desk); color: var(--journal-body); font: var(--journal-size)/var(--journal-leading) var(--journal-serif); }
 	/* At least the whole paper high: a page with little on it is still a whole page, room to write. */
 	.sheet {
 		min-width: 0; max-width: var(--journal-sheet-w); min-height: 100%; margin: 0 auto; padding: var(--journal-sheet-pad);
@@ -182,21 +186,22 @@
 
 	/* Times in the margin; writing in the measure beside them. Blocks stay one flat
 	   list so a live update never has to regroup them. */
-	/* Each time sits on the line its entry's first words sit on (its baseline), whatever their sizes. */
-	.entries { display: grid; grid-template-columns: var(--journal-time-w) minmax(0, 42em); column-gap: var(--journal-gutter); align-items: baseline; }
+	/* Each time is centred on its entry's first line, whatever their sizes: rows start together, and a time's line is as
+	   tall as that first line (`--journal-line`, a title's 1.1 times it), so both sit in the middle of the same height. */
+	.entries { display: grid; grid-template-columns: var(--journal-time-w) minmax(0, 42em); column-gap: var(--journal-gutter); align-items: start; }
 	.block { grid-column: 2; margin: 0 -8px 0.7em; padding: 1px 8px; border-radius: 4px; cursor: text; }
 	.block:hover { background: var(--journal-hover); }
 	.block:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 1px; }
 	.block.entry-head { grid-column: 1; margin: 0; padding: 1px 0; text-align: right; }
 	.block.entry-head.has-title {
-		grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: baseline;
+		grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: start;
 		margin-bottom: 0.25em; text-align: left;
 	}
 	/* The rhythm: more room between entries than inside one, and a title close over its writing. */
 	.entry-head:not(:first-child), .entry-head:not(.has-title):not(:first-child) + .block { margin-top: 1.45em; }
 	/* A time is a note in the margin: the interface's face, small and quiet, on its entry's first line. */
-	.time { color: var(--journal-ink-soft); font: calc(0.82 * var(--journal-rem))/1 var(--journal-font); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
-	.has-title .time { justify-self: end; text-align: right; }
+	.time { display: block; color: var(--journal-ink-soft); font: calc(0.82 * var(--journal-rem))/var(--journal-line) var(--journal-font); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+	.has-title .time { justify-self: end; text-align: right; line-height: calc(1.1 * var(--journal-line)); }
 	/* An entry's title: upright, set a little larger and in the full ink; italics stay for quotes and emphasis. */
 	.title { font-size: 1.1em; font-weight: 600; letter-spacing: 0.003em; color: var(--journal-ink); }
 	.block.entry-head.has-title { margin-bottom: 0.15em; }
@@ -226,12 +231,14 @@
 	/* An entry heading edits its time and title where they stand: the time keeps the margin. */
 	.block.entry-head.editing { background: none; outline: none; }
 	.entry-head.editing :is(.time, .title), .entry-draft .time { border-radius: 3px; background: var(--journal-field); box-shadow: 0 0 0 1px var(--journal-field-line); }
-	.entry-head.editing [contenteditable]:focus, .entry-draft :is(.time, .title):focus { box-shadow: 0 0 0 2px var(--journal-focus); }
+	.entry-head.editing [contenteditable]:focus, .entry-draft .time:focus { box-shadow: 0 0 0 2px var(--journal-focus); }
 	.entry-draft { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; margin: 1.1em 0 0.7em; padding: 0; }
 	.block.entry-draft.editing { background: none; outline: none; }
 	.entry-draft .time { grid-column: 1; align-self: start; justify-self: end; padding: 0 2px; }
 	.entry-column { grid-column: 2; margin: 0 -8px; padding: 1px 8px; border-radius: 4px; background: var(--journal-field); outline: 2px solid var(--journal-focus); outline-offset: 1px; }
+	/* A new entry's title is written inside the entry's one ring, set as a title is, with no box of its own. */
 	.entry-column .title { display: block; margin-bottom: 0.15em; }
+	.title[data-placeholder]:empty::before, .title[data-placeholder]:has(> br:only-child)::before { font-style: normal; }
 	.entry-body > * { margin: 0; }
 	.entry-body > * + * { margin-top: 0.7em; }
 
