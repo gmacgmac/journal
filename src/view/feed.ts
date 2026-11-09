@@ -3,18 +3,14 @@
 // next to each other, a gap marker says how many days lie between and offers to add a page in them; at the foot, Earlier
 // pages while there are more. All of it is laid out from the sections on the sheet, so a day put in or taken out anywhere
 // only needs `layout` again.
-import { addDays, dateTitle, daysBetween } from '../format/index.ts';
+import { addDays, daysBetween } from '../format/index.ts';
 import { dayMonth } from './dates.ts';
 import { dateField } from './picker.ts';
 import { el } from './render.ts';
-import type { Day } from './wire.ts';
 import { say } from './words.ts';
 
 /** How many older pages one read asks for. */
 export const PAGE_BATCH = 10;
-
-/** A day with no page, as the routes answer one. */
-export const noPage = (date: string): Day => ({ date, title: dateTitle(date), exists: false, version: null, blocks: [], problems: [] });
 
 export const sectionsOf = (sheet: HTMLElement): HTMLElement[] => [...sheet.querySelectorAll<HTMLElement>(':scope > .day')];
 
@@ -46,7 +42,6 @@ export function gapMarker(newer: string, older: string): HTMLElement | null {
  * offers Earlier pages while `more`. Answers the dates taken off.
  */
 export function layout(sheet: HTMLElement, opts: { recentFrom: string; more: boolean }): string[] {
-	for (const m of sheet.querySelectorAll(':scope > .gap-marker')) m.remove();
 	const gone: string[] = [];
 	for (const s of sectionsOf(sheet)) {
 		const keep = !s.classList.contains('gap') || s.dataset.date! >= opts.recentFrom || s.classList.contains('drafting') || s.classList.contains('placed');
@@ -55,11 +50,22 @@ export function layout(sheet: HTMLElement, opts: { recentFrom: string; more: boo
 			s.remove();
 		}
 	}
+	// A marker that is already right stays (focus on its Add a page, or its open date field, is kept); the rest are made
+	// again or taken off.
 	const list = sectionsOf(sheet);
+	const kept = new Set<Element>();
 	for (let i = 0; i + 1 < list.length; i += 1) {
 		const marker = gapMarker(list[i]!.dataset.date!, list[i + 1]!.dataset.date!);
-		if (marker !== null) list[i]!.after(marker);
+		if (marker === null) continue;
+		const there = list[i]!.nextElementSibling as HTMLElement | null;
+		const same = there?.classList.contains('gap-marker') === true && there.dataset.from === marker.dataset.from && there.dataset.to === marker.dataset.to;
+		if (same) kept.add(there!);
+		else {
+			list[i]!.after(marker);
+			kept.add(marker);
+		}
 	}
+	for (const m of sheet.querySelectorAll(':scope > .gap-marker')) if (!kept.has(m)) m.remove();
 	const foot = sheet.querySelector(':scope > .feed-end');
 	if (!opts.more) foot?.remove();
 	else if (foot === null) sheet.append(el('div', [el('button', [say('journal.view.more')], { type: 'button', class: 'feed-more' })], { class: 'feed-end' }));

@@ -74,7 +74,7 @@ words key. The `input` of each tool is that tool's JSON Schema exactly as `tools
   "id": "journal",
   "name": "journal.plugin.name",
   "version": "0.1.0",
-  "seam": 1,
+  "seam": 2,
   "icon": "journal",
   "view": { "module": "view/journal.js", "styles": ["view/journal.css"], "export": "mount" },
   "engine": { "module": "engine/engine.js", "export": "createEngine" },
@@ -205,7 +205,9 @@ most `limit` (1 to `MAX_PAGES`, 31; `PAGES_DEFAULT`, 10, when left out), for the
 found by walking the year and month folders (`datesWithPages`, `src/store/folders.ts`), never through a link. `200`
 `{ "days": Day[], "next"?: "YYYY-MM-DD" }`, each day whole, under the same budget as `days` (always at least one); `next`
 is the oldest day given when older pages are left, so the view reads on with `before=next`. `400` `dates` (not a date) or
-`limit`.
+`limit`. Proven by `tests/routes.test.ts`: "pages answers only the days that have a page, newest first, before a date, and says
+where to read on", "pages gives PAGES_DEFAULT when not told how many, none for an empty journal, and refuses a bad date or
+limit", "pages stops at the budget, always gives one day, and says next".
 
 **`POST edit`**, body one `Edit`, JSON (the proof's four edits, `src/store/edits.ts` `plan`), each anchored to bytes the view
 saw and refused, never merged, when they changed:
@@ -236,9 +238,6 @@ it; the person's offsets are now stale. For `replace` and `insert`, when the blo
 exactly one top-level block of the day's text now equals `before`, the engine anchors to that block instead; when none, or
 more than one, does, the edit is refused `changed` with the day as it is. `range` (an undo) is never moved: it is exact
 bytes. The answer's `day` gives the view the block's new offsets.
-Proven by `tests/routes.test.ts`: "pages answers only the days that have a page, newest first, before a date, and says
-where to read on", "pages gives PAGES_DEFAULT when not told how many, none for an empty journal, and refuses a bad date or
-limit", "pages stops at the budget, always gives one day, and says next".
 Proven by FIX_01b `tests/budget.test.ts`: "a legal day of tiny blocks lets its week be read, and an edit to it answers
 within the limit", the same for "U+0001 text", "an edit that lands never answers as if it failed, even with a large undo", "a
 day at every limit at once still answers alone within the limit, by the route and the tool"; and JR_02 `tests/routes.test.ts`:
@@ -439,7 +438,7 @@ says what the Journal is and when to read the skill, and `label`, the few plain 
 Under `add_entry` it says that a day with no page takes `null` as its version, or none (WORDS_01 W3).
 
 It is a prompt: a change to it runs its scenarios (nclite TRACKER `N220`); FIX_01b's change (W3, W4) has not run them yet,
-so they are owed. Proven by JR_05 `tests/skill.test.ts`: "the skill is within SKILL_BYTES", "the skill opens with front matter naming the plugin and saying when to read it", "every tool the skill names is a
+so they are owed. Proven by JR_05 `tests/skill.test.ts`: "the skill is within SKILL_BYTES", "the skill opens with front matter naming the plugin, labelling it, and saying when to read it", "every tool the skill names is a
 tool of the manifest"; FIX_01b: "every refusal that sends the bot to the file is named where the skill says what to do when
 refused", "the skill says what add_entry takes as the version of a day with no page".
 
@@ -527,7 +526,7 @@ of { date } reads a day shown again, draws a new older page in, and ignores the 
 Add to chat calls chat.add with a chip inside CHIP_LIMITS", "a days chip is null for a range longer than CHIP_DAYS, so the
 header never offers one resolve would refuse", "pageChip counts only the days of its range: an older page shown below does
 not make it too long", "a reveal of each ref shape the Journal has made is understood, and any other is said through notify",
-"leave saves, and asks through confirm only when the save is refused or slower than VIEW_ANSWER_MS / 2", "an event of {}
+"leave saves, and asks nothing when the save lands", "a refused save asks through confirm: keep writing answers false and the words stay", "a save slower than LEAVE_SAVE_MS asks, inside the host’s wait; a second call gets the same answer", "an event of {}
 reads every day shown again, in place". In a real browser, by nclite's smoke rows for the Journal (INT_01): opens on the
 running journal, writes in place, two bots' Journals open at once without sharing, closing with unsaved writing saves it; and
 by hand in `npm run dev` (README).
@@ -564,7 +563,7 @@ paper as its own look when the host sets none.
 | `--journal-date-ink`, `--journal-link` | `var(--host-accent-strong)` | `light-dark(#8a4320, #f2a77c)`, `light-dark(#9b4519, #ff9a66)` |
 | `--journal-fill`, `--journal-fill-hover`, `--journal-on-fill` | `var(--host-accent-fill, var(--host-accent))`, `var(--host-accent-fill-hover, var(--host-accent-strong))`, `var(--host-on-accent)`: Done and the view shown | nclite's own warm rust, `light-dark(#c4501f, #d2602f)` and its hover `light-dark(#ac461b, #b95429)`, white on them |
 | `--journal-focus` | `var(--host-focus, var(--host-accent))` | `light-dark(#c4501f, #ff8a4f)` |
-| `--journal-warn`, `--journal-shadow`, `--journal-fold` | The Journal's own, whatever the host sets | the proof's |
+| `--journal-warn`, `--journal-shadow` | The Journal's own, whatever the host sets | the proof's |
 
 Each token is declared on `.journal` with its host form, whose `var()` falls back to the right-hand column. **Contrast**: ink
 and soft ink on desk, page, field, hover and fresh meet APCA Lc 60, and date ink and links Lc 45, for the host values of
@@ -588,11 +587,12 @@ properties of the contract's list", "every rule is under .journal".
   pages, is at least `--journal-tap`
   (44px, the Journal's own: it cannot read nclite's `--tap-min`) high, the writing bar's one-letter buttons as wide. The desktop
   layout is unchanged by it.
-- **The entry column**: `--journal-time-w` (the times' margin, as wide as a time, each time starting on the date's left
-  edge, GM 2026-11-09) and `--journal-gutter` place both the entries' grid and Add an
-  entry, whose words start where an entry's writing starts (its padding in the gutter, as a block's); the phone layout changes
-  only the two measures. Proven by FIX_01b `tests/view/touch.test.ts`: "every control of the range bar and the writing bar, and
-  Add an entry, is at least --journal-tap high", "Add an entry starts its words where an entry’s text starts, on both layouts".
+- **The entry column**: on the desktop, `--journal-time-w` (the times' margin, as wide as a time, each time starting on
+  the date's left edge, GM 2026-11-09) and `--journal-gutter` place both the entries' grid and Add an entry, whose words
+  start where an entry's writing starts (its padding in the gutter, as a block's). The phone layout has no column: the
+  entries are one, and Add an entry's words start at the left edge, as the writing does. Proven by FIX_01b
+  `tests/view/touch.test.ts`: "every control of the toolbar and the writing bar, and Add an entry, is at least
+  --journal-tap high", "Add an entry starts its words where an entry’s text starts, on both layouts".
 
 ## Words
 

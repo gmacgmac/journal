@@ -56,7 +56,8 @@ export function bodySpec(node: BlockNode): Spec {
 	};
 }
 
-export const TIME_RE = /^([01]?\d|2[0-3]):[0-5]\d$/;
+/** A time as the person types it: an hour of one digit is taken (`9:30`), and saved as `09:30`. */
+export const TYPED_TIME_RE = /^([01]?\d|2[0-3]):[0-5]\d$/;
 
 /** The time and title a heading's places hold (either may be null, not both), or what is wrong; only `textContent` of
  * the time is read, and an empty time is none. */
@@ -71,7 +72,7 @@ export function headingMarkdown(time: Pick<Node, 'textContent'>, title: Node | n
 		// No time: the title holds the entry, and must read back as a title (not start like a time).
 		return named !== null && entryOf(entryHeading(null, named))?.time === null ? { time: null, title: named } : { problem: say('journal.view.write.untimed') };
 	}
-	if (!TIME_RE.test(t)) return { problem: say('journal.view.write.timeShape') };
+	if (!TYPED_TIME_RE.test(t)) return { problem: say('journal.view.write.timeShape') };
 	return { time: t.padStart(5, '0'), title: named };
 }
 

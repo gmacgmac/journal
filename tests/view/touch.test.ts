@@ -1,7 +1,8 @@
 // The phone layout's touch targets and the entry column, held as rules of the stylesheet (screen review, FIX_01b): under
-// the narrow container query every control of the range bar and the writing bar, and Add an entry / Start this page, is at
+// the narrow container query every control of the toolbar and the writing bar, and Add an entry / Start this page, is at
 // least `--journal-tap` (44px) high, with the desktop layout untouched; and Add an entry starts its words where an
-// entry's text starts, from the same measures the entries' grid uses.
+// entry's text starts: beside the times on the desktop, from the same measures the entries' grid uses, and at the left
+// edge on the phone, where the entries are one column (GM, 2026-11-09).
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -37,10 +38,10 @@ const valuesOf = (block: string, selector: string, property: string) =>
 const narrow = inside(CSS, CSS.indexOf(NARROW));
 const wide = CSS.replace(narrow, '');
 const TAP = 'var(--journal-tap)';
-const CONTROLS = ['.range button', '.range input', '.bar button', '.bar-link input', '.add-entry', '.gap-add', '.feed-more'];
+const CONTROLS = ['.toolbar button', '.toolbar input', '.bar button', '.bar-link input', '.add-entry', '.gap-add', '.feed-more'];
 
 describe('the phone layout', () => {
-	it('every control of the range bar and the writing bar, and Add an entry, is at least --journal-tap high', () => {
+	it('every control of the toolbar and the writing bar, and Add an entry, is at least --journal-tap high', () => {
 		assert.ok(CSS.indexOf(NARROW) >= 0, 'the narrow layout is a container query');
 		assert.match(CSS, /--journal-tap:\s*44px;/);
 		for (const selector of CONTROLS) assert.ok(valuesOf(narrow, selector, 'min-height').includes(TAP), `${selector} min-height`);
@@ -49,16 +50,17 @@ describe('the phone layout', () => {
 	});
 
 	it('Add an entry starts its words where an entry’s text starts, on both layouts', () => {
-		// The entries' grid and Add an entry read the same two measures; the narrow layout changes only the measures.
-		const columns = [...valuesOf(wide, '.entries', 'grid-template-columns'), ...valuesOf(narrow, '.entries', 'grid-template-columns')];
+		// On the desktop the entries' grid and Add an entry read the same two measures.
+		const columns = valuesOf(wide, '.entries', 'grid-template-columns');
 		assert.ok(columns.length > 0 && columns.every((v) => v.startsWith('var(--journal-time-w) ')), columns.join(' | '));
-		assert.deepEqual(valuesOf(narrow, '.entries', 'column-gap'), [], 'the phone changes the gutter by its measure only');
 		assert.deepEqual(valuesOf(wide, '.entries', 'column-gap'), ['var(--journal-gutter)']);
 		const margin = valuesOf(wide, '.add-entry', 'margin')[0] ?? '';
 		const padding = valuesOf(wide, '.add-entry', 'padding')[0] ?? '';
 		const inset = /^\S+ (\S+)$/.exec(padding)?.[1];
 		assert.ok(inset !== undefined, `padding ${padding}`);
 		assert.match(margin, new RegExp(`calc\\(var\\(--journal-time-w\\) \\+ var\\(--journal-gutter\\) - ${inset}\\)`), 'the words, not the button’s edge, meet the column');
-		assert.ok(rules(narrow).some((r) => r.decls.has('--journal-time-w') && r.decls.has('--journal-gutter')), 'the phone sets the measures');
+		// On the phone the entries are one column, and Add an entry's words start at the left edge, as an entry's text does.
+		assert.ok(valuesOf(narrow, '.entries', 'display').includes('block'), 'one column');
+		assert.ok(valuesOf(narrow, '.add-entry', 'margin-left').includes(`-${inset}`), 'its words, not its edge, at the left');
 	});
 });

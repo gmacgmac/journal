@@ -82,5 +82,7 @@ export function readPages<T extends { date: string }>(
 		if (days.length > 0 && (chars > budget.chars || bytes > budget.bytes)) return { days, next: days.at(-1)!.date };
 		days.push(day);
 	}
-	return dates.length > count && days.length > 0 ? { days, next: days.at(-1)!.date } : { days };
+	// Older pages are left: read on before the last one given, or, when every one listed went before it was read, before the
+	// last one listed.
+	return dates.length > count ? { days, next: days.at(-1)?.date ?? dates[count - 1]! } : { days };
 }

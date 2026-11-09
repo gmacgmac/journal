@@ -3,4 +3,4 @@
 export { TOO_BIG_VARS, anchorOf, isEdit, plan, undoOf, type Plan, type Refusal, type RefusalCode } from './edits.ts';
 export { applyEdit, dayFile, planEdit, readDayFile, version, writeDay, type Applied, type DayFile, type Planned } from './store.ts';
 export { REPLY_BUDGET, dayFits, jsonBytes } from './size.ts';
-export { datesWithPages, folders, monthFolders } from './folders.ts';
+export { datesWithPages, monthFolders } from './folders.ts';

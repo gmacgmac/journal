@@ -72,12 +72,12 @@ function storeRefusal(date: string, r: Refusal): ToolResult {
 	}
 }
 
-/** What a write says of itself: its change words, where the changed block now starts (null for a removal; `near`, where
- * it was, then names its entry), and how many blocks it wrote. */
+/** What a write says of itself: its change words, where the changed block now starts (null for a removal: `removedFrom`,
+ * the id of the entry it was in, then names the entry), and how many blocks it wrote. */
 interface Wrote {
 	words: string;
 	at: (after: string) => number | null;
-	near?: number;
+	removedFrom?: string;
 	count: (before: string | null, after: string) => number;
 }
 
@@ -93,7 +93,7 @@ function save(dir: string, before: string | null, e: Edit, how: Wrote, wrote: (d
 	const after = planned.text;
 	const at = how.at(after);
 	const block = at === null ? undefined : keyedBlocks(after).find((b) => b.start === at);
-	const structured: WriteResult = { date: e.date, version: versionOf(after), entry: entryAt(after, at ?? how.near ?? 0) ?? '' };
+	const structured: WriteResult = { date: e.date, version: versionOf(after), entry: (at === null ? how.removedFrom : entryAt(after, at)) ?? '' };
 	if (block !== undefined) structured.key = block.key;
 	const subject = dateTitle(e.date);
 	const change: ChangeMeta = { words: how.words, count: how.count(before, after), subject, reveal: block === undefined ? { date: e.date } : { date: e.date, key: block.key } };
@@ -136,7 +136,8 @@ export function changeBlock(dir: string, op: BlockOp, input: AnchorInput & { tex
 	return save(dir, before, e, {
 		words: `journal.change.${op}`,
 		at: () => (op === 'delete' ? null : op === 'insert' ? block.end + 2 : block.start),
-		near: block.start,
+		// A key does not depend on place, so the entry a removal was in keeps its id (unless its heading was what went).
+		removedFrom: entryAt(before, block.start),
 		count: (was, after) => (op === 'insert' ? blocksOf(after).length - blocksOf(was ?? '').length : 1),
 	}, wrote);
 }

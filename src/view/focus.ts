@@ -33,7 +33,8 @@ export function trackFocusSource(root: HTMLElement): () => void {
 		if (e.key === 'Tab') pressed = false;
 	};
 	const onFocusIn = (e: FocusEvent) => mark(e.target, pressed);
-	const onFocusOut = (e: FocusEvent) => mark(e.target, false);
+	// The mark always comes off: writing opened after the press is not marked, but what it was opened on may be.
+	const onFocusOut = (e: FocusEvent) => (e.target as HTMLElement | null)?.removeAttribute?.(ATTR);
 	const doc = document;
 	root.addEventListener('pointerdown', onPointer, true);
 	doc.addEventListener('keydown', onKey);

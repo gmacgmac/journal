@@ -22,8 +22,8 @@
 	   no time has as much room under it as over it. */
 	--journal-divider-over: calc(1.13 * var(--journal-size));
 	--journal-divider-under: calc(0.57 * var(--journal-size));
-	/* The entry column: the times' margin and the gap before the writing. The phone layout narrows both. */
-	/* The times' column: as wide as a time, which starts on the date's left edge, so the writing has the rest (GM). */
+	/* The times' column beside the writing: as wide as a time, which starts on the date's left edge (GM). The phone layout
+	   has no column: it sets each time on a line of its own. */
 	--journal-time-w: calc(2.75 * var(--journal-rem));
 	--journal-gutter: 18px;
 	/* The least a control is high on the phone layout, for a finger. */
@@ -37,7 +37,7 @@
 	--journal-font: var(--host-font, system-ui, -apple-system, 'Segoe UI', sans-serif);
 	--journal-mono: var(--host-font-mono, ui-monospace, Menlo, monospace);
 	--journal-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, ui-serif, serif;
-	/* The range bar: the host's own grounds and ink. */
+	/* The toolbar: the host's own grounds and ink. */
 	--journal-app-bg: var(--host-canvas, light-dark(#faf6ef, #13100f));
 	--journal-app-ink: var(--host-ink, light-dark(#141414, #fafafa));
 	--journal-app-line: var(--host-line, light-dark(#e9ddcc, #332d29));
@@ -73,7 +73,6 @@
 	/* The Journal's own, whatever the host sets. */
 	--journal-warn: light-dark(#8a5508, #ffb54d);
 	--journal-shadow: light-dark(rgb(70 45 20 / 0.16), rgb(0 0 0 / 0.55));
-	--journal-fold: light-dark(rgb(110 80 40 / 0.11), rgb(0 0 0 / 0.4));
 	position: relative; display: flex; flex-direction: column; height: 100%; min-height: 0;
 	container: journal / inline-size;
 
@@ -86,18 +85,18 @@
 		font: calc(14px * var(--journal-scale))/1.3 var(--journal-font); background: var(--journal-app-bg); color: var(--journal-app-ink); border-bottom: 1px solid var(--journal-app-line);
 	}
 	/* One row at every width: nothing in it wraps or grows. */
-	.range { display: flex; flex: 1; flex-wrap: nowrap; align-items: center; gap: 6px; min-width: 0; }
-	.range > * { flex: none; }
-	.range button {
+	.toolbar { display: flex; flex: 1; flex-wrap: nowrap; align-items: center; gap: 6px; min-width: 0; }
+	.toolbar > * { flex: none; }
+	.toolbar button {
 		min-height: 32px; padding: 4px 12px;
 		font: inherit; color: var(--journal-app-ink); background: var(--journal-app-field);
 		border: 1px solid var(--journal-app-line); border-radius: 8px; cursor: pointer;
 	}
-	.range button:hover { border-color: var(--journal-app-line-strong); background: var(--journal-app-raised); }
-	.range :focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 2px; }
-	.range [hidden] { display: none; }
+	.toolbar button:hover { border-color: var(--journal-app-line-strong); background: var(--journal-app-raised); }
+	.toolbar :focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 2px; }
+	.toolbar [hidden] { display: none; }
 	/* Which view: one toggle, the view shown filled as a primary button is (Done), the other quiet beside it. */
-	.range .views { display: inline-flex; gap: 2px; padding: 2px; }
+	.toolbar .views { display: inline-flex; gap: 2px; padding: 2px; }
 	.view-opt {
 		display: inline-flex; align-items: center; justify-content: center; min-width: 5.5em; padding: 3px 12px;
 		border-radius: 6px; color: var(--journal-app-muted);
@@ -108,8 +107,8 @@
 	.day-nav { display: inline-flex; align-items: center; gap: 4px; }
 	.day-nav [data-nav='prev'], .day-nav [data-nav='next'] { min-width: 32px; padding: 4px 8px; }
 	/* The day, one width for every day ("Wed 30 Sep" the widest), so the arrows either side never move. */
-	.range .day-pick { width: 7.5em; padding: 4px 6px; text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
-	.range .away { visibility: hidden; }
+	.toolbar .day-pick { width: 7.5em; padding: 4px 6px; text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+	.toolbar .away { visibility: hidden; }
 	.add-anchor { margin-left: auto; }
 	.add-page { display: inline-flex; align-items: center; gap: 6px; }
 	.plus { font-size: 1.25em; line-height: 1; }
@@ -168,7 +167,6 @@
 	}
 	.gap-add:hover { color: var(--journal-ink); background: var(--journal-hover); }
 	.gap-add:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 1px; }
-	.gap-marker + .day.gap { margin-top: 0; }
 
 	/* The foot of the running journal, while older pages are left to read. */
 	.feed-end { display: flex; justify-content: center; padding-top: 8px; }
@@ -200,7 +198,7 @@
 	.block.entry-head { grid-column: 1; margin: 0; padding: 1px 0; text-align: left; }
 	.block.entry-head.has-title {
 		grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: start;
-		margin-bottom: 0.25em; text-align: left;
+		margin-bottom: 0.15em; text-align: left;
 	}
 	/* The rhythm: more room between entries than inside one, and a title close over its writing. */
 	.entry-head:not(:first-child), .entry-head:not(.has-title):not(:first-child) + .block { margin-top: 1.45em; }
@@ -212,7 +210,6 @@
 	.block.entry-head.has-title .title { grid-column: 2; }
 	/* An entry's title: upright, set a little larger and in the full ink; italics stay for quotes and emphasis. */
 	.title { font-size: 1.1em; font-weight: 600; letter-spacing: 0.003em; color: var(--journal-ink); }
-	.block.entry-head.has-title { margin-bottom: 0.15em; }
 	.block > :is(p, ul, ol, blockquote, pre, table) { margin: 0; }
 	.block ul, .block ol { padding-left: 1.3em; }
 	/* A list belongs to the page: its bullets small, in the date's colour. */
@@ -313,10 +310,9 @@
 	/* ─── Phone: one page, one day under another ────────────────────────────── */
 	@container journal (max-width: 899px) {
 		/* The sheet is the whole pane: no desk round it, and past the last day only the end's room, on the page's own ground. */
-		.paper { padding: 0 0 calc(var(--journal-bar-h, 0px) + var(--journal-end)); background: var(--journal-page); --journal-time-w: calc(2.75 * var(--journal-rem)); --journal-gutter: 12px; --journal-end: 24px; }
+		.paper { padding: 0 0 calc(var(--journal-bar-h, 0px) + var(--journal-end)); background: var(--journal-page); --journal-end: 24px; }
 		.sheet { max-width: none; padding: 24px 16px 16px; box-shadow: none; border-radius: 0; }
 		.journal-tools { padding: 8px 12px; }
-		.entries { grid-template-columns: var(--journal-time-w) minmax(0, 1fr); }
 		/* The writing has the page's whole width (GM, 2026-11-09): titles and writing all start at the left edge, and an
 		   entry's time is a small line of its own in the space between entries, just over its title. The entries are
 		   one column, so nothing lays out beside a time. */
@@ -341,14 +337,14 @@
 		.entry-head.editing .time[hidden], .entry-draft .time[hidden] { display: none; }
 		.add-entry { margin-left: -8px; }
 		/* A finger's reach: every control of the two bars, and Add an entry, at least --journal-tap high. */
-		.range button, .range input, .bar button, .bar-link input, .add-entry, .gap-add, .feed-more { min-height: var(--journal-tap); }
+		.toolbar button, .toolbar input, .bar button, .bar-link input, .add-entry, .gap-add, .feed-more { min-height: var(--journal-tap); }
 		/* One row in a narrow pane: the toggle shows only the view it is on, Add a page is its +, and the day is narrower. */
-		.range button { padding: 4px 10px; }
+		.toolbar button { padding: 4px 10px; }
 		.view-opt { min-width: 0; padding: 3px 10px; }
 		.view-opt:not(.on), .add-words { display: none; }
 		.add-page { min-width: var(--journal-tap); justify-content: center; padding: 4px; }
 		.day-nav [data-nav='prev'], .day-nav [data-nav='next'] { min-width: 36px; }
-		.range .day-pick { width: 6.8em; }
+		.toolbar .day-pick { width: 6.8em; }
 		.bar button { min-width: var(--journal-tap); }
 	}
 }

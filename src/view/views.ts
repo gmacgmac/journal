@@ -39,6 +39,8 @@ export function createViews(d: ViewsDeps) {
 	/** The running journal: the first of its recent days, and where to read older pages on from (null: none left). */
 	const feed = { recentFrom: '', next: null as string | null, reading: false };
 	let seq = 0;
+	/** The draw under way, if any: what reaches into the sheet waits for it, so a draw never wipes what was put in. */
+	let drawing: Promise<boolean> = Promise.resolve(true);
 	let topTimer: ReturnType<typeof setTimeout> | undefined;
 
 	const sectionOf = (date: string) => sheet.querySelector<HTMLElement>(`.day[data-date="${date}"]`);
@@ -62,13 +64,27 @@ export function createViews(d: ViewsDeps) {
 		return open === null || (await open.finish({ then: 'stay' })) === null;
 	}
 
-	async function showJournal(top: string | null = null): Promise<boolean> {
+	/**
+	 * After a read, whether read `n` may still draw: the mount is live, no newer read began, and writing opened while it was
+	 * reading is saved first (the sheet is never drawn over an open editor).
+	 */
+	async function stillWanted(n: number): Promise<boolean> {
+		if (!d.live.on || n !== seq) return false;
+		if (page.sessions.current !== null && !(await writingClosed())) return false;
+		return d.live.on && n === seq;
+	}
+
+	function showJournal(top: string | null = null): Promise<boolean> {
+		return (drawing = drawJournal(top));
+	}
+
+	async function drawJournal(top: string | null): Promise<boolean> {
 		const n = (seq += 1);
 		if (!(await writingClosed())) return false;
 		const today = localToday();
 		const recent = recentDays(today);
 		const [r, older] = await Promise.all([routes.days(recent.from, recent.to), routes.pages(recent.from, PAGE_BATCH)]);
-		if (!d.live.on || n !== seq) return false;
+		if (!(await stillWanted(n))) return false;
 		if (!r.ok) return (d.notify(r.reason), false);
 		if (!older.ok) d.notify(older.reason);
 		const days = [...r.days].reverse().concat(older.ok ? older.days : []);
@@ -84,11 +100,15 @@ export function createViews(d: ViewsDeps) {
 		return true;
 	}
 
-	async function showDay(date: string): Promise<boolean> {
+	function showDay(date: string): Promise<boolean> {
+		return (drawing = drawDay(date));
+	}
+
+	async function drawDay(date: string): Promise<boolean> {
 		const n = (seq += 1);
 		if (!(await writingClosed())) return false;
 		const r = await routes.days(date, date);
-		if (!d.live.on || n !== seq) return false;
+		if (!(await stillWanted(n))) return false;
 		const day = r.ok ? r.days[0] : undefined;
 		if (day === undefined) return (d.notify(r.ok ? say('journal.view.unreadable') : r.reason), false);
 		shown = new Map([[date, day]]);
@@ -141,10 +161,12 @@ export function createViews(d: ViewsDeps) {
 
 	/** Brings `date` onto the sheet, in whichever view is showing; its section, or null when it could not be read. */
 	async function reach(date: string): Promise<HTMLElement | null> {
+		await drawing;
 		if (place.view === 'day') return place.date === date || (await showDay(date)) ? sectionOf(date) : null;
 		if (shown.has(date)) return sectionOf(date);
+		const n = seq;
 		const r = await routes.days(date, date);
-		if (!d.live.on || place.view !== 'journal') return null;
+		if (!d.live.on || n !== seq || place.view !== 'journal') return null;
 		const day = r.ok ? r.days[0] : undefined;
 		if (day === undefined) return (d.notify(r.ok ? say('journal.view.unreadable') : r.reason), null);
 		return ensure(day);
@@ -152,22 +174,32 @@ export function createViews(d: ViewsDeps) {
 
 	/** The days `range` names that have a page, brought onto the running journal; the newest one's section. */
 	async function reachRange(range: Range): Promise<HTMLElement | null> {
+		await drawing;
 		if (place.view === 'day' && !(await showJournal())) return null;
 		const from = daysBetween(range.from, range.to) > RECENT_DAYS * 2 ? addDays(range.to, -(RECENT_DAYS * 2 - 1)) : range.from;
+		const n = seq;
 		const r = await routes.days(from, range.to);
-		if (!d.live.on || !r.ok) return r.ok ? null : (d.notify(r.reason), null);
+		if (!d.live.on || n !== seq || place.view !== 'journal') return null;
+		if (!r.ok) return (d.notify(r.reason), null);
 		for (const day of r.days) if (day.exists || day.date >= feed.recentFrom) ensure(day);
 		return sectionsOf(sheet).find((s) => s.dataset.date! <= range.to && s.dataset.date! >= from) ?? null;
 	}
 
-	/** A change to `date` from anyone: the day read again where it is shown; a new page the journal reaches, drawn in. */
+	/**
+	 * A change to `date` from anyone: the day read again where it is shown; a new page the journal reaches, drawn in; and a
+	 * day after the newest one shown (the pane stayed open past midnight), the journal drawn again round the new today.
+	 */
 	async function changed(date: string): Promise<void> {
+		await drawing;
 		if (shown.has(date)) return page.refresh(date);
-		const reaches = place.view === 'journal' && date < feed.recentFrom && (feed.next === null || date > feed.next);
+		if (place.view !== 'journal') return;
+		if (date > addDays(feed.recentFrom, RECENT_DAYS - 1) && date <= localToday()) return void showJournal(place.date);
+		const reaches = date < feed.recentFrom && (feed.next === null || date > feed.next);
 		if (!reaches) return;
+		const n = seq;
 		const r = await routes.days(date, date);
 		const day = r.ok ? r.days[0] : undefined;
-		if (!d.live.on || place.view !== 'journal' || day === undefined || !day.exists || shown.has(date)) return;
+		if (!d.live.on || n !== seq || place.view !== 'journal' || day === undefined || !day.exists || shown.has(date)) return;
 		ensure(day).classList.add('fresh');
 	}
 

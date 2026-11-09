@@ -1,7 +1,7 @@
 // `read_days`: whole days from `from` until the next would not fit, each with its version, as the bot reads them
 // (docs/specification/plugin.md § Tools, What a read gives). The same read the person's `GET days` makes, on a smaller budget.
 import type { ToolResult } from '../../vendor/plugin-host/plugin-host.ts';
-import { entriesOf, isDate } from '../../format/index.ts';
+import { entriesOf, entryHeading, isDate } from '../../format/index.ts';
 import type { ReadDay, ReadResult } from '../../seam-types.ts';
 import { REPLY_BUDGET, jsonBytes, type DayFile } from '../../store/index.ts';
 import { dayOf, rangeProblem, readDays } from '../days.ts';
@@ -17,14 +17,10 @@ function said(day: ReadDay): string {
 	const lines = [word('journal.read.day', { ...names, version: day.version })];
 	if (day.problems.length > 0) lines.push(word('journal.read.problems'), ...day.problems.map((p) => `- ${p}`));
 	if (day.entries.length > 0) {
-		lines.push(word('journal.read.entries'), ...day.entries.map((e) => word('journal.read.entry', { id: e.id, heading: headingOf(e) })));
+		lines.push(word('journal.read.entries'), ...day.entries.map((e) => word('journal.read.entry', { id: e.id, heading: entryHeading(e.time, e.title).slice(3) })));
 	}
 	return `${lines.join('\n')}\n\n${day.text.trimEnd()}`;
 }
-
-/** An entry as its heading names it: its time and title, its time, or its title. */
-const headingOf = (e: { time: string | null; title: string | null }): string =>
-	e.time === null ? e.title ?? '' : e.title === null ? e.time : `${e.time} · ${e.title}`;
 
 /** A day as the bot reads it, with each entry's id: what a change names an entry by. */
 function readDay(date: string, file: DayFile): ReadDay {

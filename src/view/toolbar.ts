@@ -43,7 +43,7 @@ export function createToolbar(actions: ToolbarActions): Toolbar {
 	});
 	const addField = dateField(say('journal.view.add.pick'));
 	const bar = el('nav', [views, dayNav, el('span', [add, addField], { class: 'picker-anchor add-anchor' })], {
-		class: 'range', 'aria-label': say('journal.view.range.label'),
+		class: 'toolbar', 'aria-label': say('journal.view.toolbar.label'),
 	});
 
 	let place: Place = { view: 'journal', date: null };

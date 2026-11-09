@@ -13,7 +13,7 @@ import { say } from './words.ts';
 const clamp = (text: string, max: number) => (text.length <= max ? text : `${text.slice(0, max - 1)}…`);
 
 /** The entry a block sits under, read from the page: its time and title, or null. */
-export function entryOf(node: BlockNode): string | null {
+export function entryLabelOf(node: BlockNode): string | null {
 	const head = entryHeadOf(node);
 	return head === null ? null : (head._text ?? '').replace(/^##\s+/, '');
 }
@@ -21,7 +21,7 @@ export function entryOf(node: BlockNode): string | null {
 /** A saved block as a chip: `Sat 7 Nov · 21:30 · Walk`, its first words as the detail. */
 export function blockChip(node: BlockNode, text: string): Chip {
 	const date = node.dataset.date!;
-	const entry = entryOf(node);
+	const entry = entryLabelOf(node);
 	const label = entry === null ? shortDate(date) : `${shortDate(date)} · ${entry}`;
 	return {
 		plugin: PLUGIN_ID,

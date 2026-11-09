@@ -163,6 +163,18 @@ describe('mount', () => {
 		m.view.unmount();
 	});
 
+	it('a gap marker that did not change is kept through a relayout, so focus on it stays (review 2026-11-09)', async () => {
+		const { from } = recent();
+		const far = addDays(from, -9);
+		const m = await mounted((h) => h.files.set(far, fileOf(far, '## 08:00', 'Then.')));
+		const marker = q(m.root, '.gap-marker');
+		m.files.set(far, fileOf(far, '## 08:00', 'Then, and more.'));
+		m.emit({ date: far });
+		await settle();
+		assert.equal(q(m.root, '.gap-marker'), marker, 'the same element');
+		m.view.unmount();
+	});
+
 	it('a gap of one day adds a page there at once; a longer gap holds the picker to its days', async () => {
 		const { from } = recent();
 		const m = await mounted((h) => {

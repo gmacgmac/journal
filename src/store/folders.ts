@@ -8,7 +8,7 @@ import { dateOfPath } from '../format/index.ts';
 const gone = (e: unknown): boolean => ['ENOENT', 'ENOTDIR'].includes((e as NodeJS.ErrnoException).code ?? '');
 
 /** The folders under `dir` whose names match `re`, sorted; none when `dir` is not there. */
-export function folders(dir: string, re: RegExp): string[] {
+function folders(dir: string, re: RegExp): string[] {
 	try {
 		return fs.readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory() && re.test(d.name)).map((d) => d.name).sort();
 	} catch (e) {

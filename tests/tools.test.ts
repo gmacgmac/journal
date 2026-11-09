@@ -291,6 +291,15 @@ describe('entries with no time (GM, 2026-11-09)', () => {
 		assert.ok(read().includes('## Thoughts\n\nFirst.'));
 	});
 
+	it('a removal answers the entry the block was in, not the one that now stands where it was (review 2026-11-09)', async (t) => {
+		const { call, read, dir } = toolsOn(t, true);
+		writeDay(dir, DATE, '# Thursday 1 October 2026\n\n## 09:00\n\nFirst.\n\n## 10:00\n\nSecond.\n');
+		const nine = idAt(read(), '09:00');
+		const w = wrote(await call('delete_block', { date: DATE, version: version(read()), entry: nine, block: 'First.' }));
+		assert.equal(w.entry, nine);
+		assert.equal(idAt(read(), '09:00'), nine, 'a key does not move');
+	});
+
 	it('two entries at one time are named apart by their ids', async (t) => {
 		const { call, read, dir } = toolsOn(t, true);
 		writeDay(dir, DATE, '# Thursday 1 October 2026\n\n## 09:00\n\nOne.\n\n## 09:00\n\nTwo.\n');
