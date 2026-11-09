@@ -48,6 +48,8 @@
 	--journal-field-line: var(--host-line-strong, light-dark(#d8c8b0, #463f3a));
 	--journal-ink: var(--host-ink, light-dark(#2a241e, #ece5da));
 	--journal-ink-soft: var(--host-ink-muted, light-dark(#6f5f4a, #c6baac));
+	/* The writing itself, one step softer than the ink, so an entry's title (in the ink) stands over its body. */
+	--journal-body: color-mix(in oklab, var(--journal-ink) 82%, var(--journal-page) 18%);
 	--journal-date-ink: var(--host-accent-strong, light-dark(#8a4320, #f2a77c));
 	--journal-link: var(--host-accent-strong, light-dark(#9b4519, #ff9a66));
 	/* The fill of the view shown and of Done: the host's, else the paper's own terracotta, the colour of its dates. */
@@ -108,7 +110,7 @@
 	/* ─── The open journal ──────────────────────────────────────────────────── */
 	/* The desk, and past the last day only the room the writing bar needs while it is up (161: a fixed room once left an
 	   empty stretch under the last day). */
-	.paper { flex: 1; min-height: 0; overflow: auto; scroll-padding-bottom: calc(var(--journal-bar-h, 0px) + 32px); padding: 32px 24px calc(var(--journal-bar-h, 0px) + var(--journal-end)); background: var(--journal-desk); color: var(--journal-ink); font: calc(17px * var(--journal-scale))/1.62 var(--journal-serif); }
+	.paper { flex: 1; min-height: 0; overflow: auto; scroll-padding-bottom: calc(var(--journal-bar-h, 0px) + 32px); padding: 32px 24px calc(var(--journal-bar-h, 0px) + var(--journal-end)); background: var(--journal-desk); color: var(--journal-body); font: calc(17px * var(--journal-scale))/1.62 var(--journal-serif); }
 	/* At least the whole paper high: a page with little on it is still a whole page, room to write. */
 	.sheet {
 		min-width: 0; max-width: var(--journal-sheet-w); min-height: 100%; margin: 0 auto; padding: var(--journal-sheet-pad);
@@ -116,7 +118,7 @@
 		box-shadow: 0 1px 2px var(--journal-shadow), 0 14px 36px var(--journal-shadow);
 	}
 
-	.day { margin: 0 0 44px; }
+	.day { margin: 0 0 32px; }
 	.day:last-child { margin-bottom: 0; }
 	.day h2 {
 		margin: 0 0 16px; padding-bottom: 8px;
@@ -188,13 +190,19 @@
 		grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: baseline;
 		margin-bottom: 0.25em; text-align: left;
 	}
-	.entry-head:not(:first-child), .entry-head:not(.has-title):not(:first-child) + .block { margin-top: 1.1em; }
-	.time { color: var(--journal-ink-soft); font-size: calc(0.84 * var(--journal-rem)); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+	/* The rhythm: more room between entries than inside one, and a title close over its writing. */
+	.entry-head:not(:first-child), .entry-head:not(.has-title):not(:first-child) + .block { margin-top: 1.7em; }
+	/* A time is a note in the margin: the interface's face, small and quiet, on its entry's first line. */
+	.time { color: var(--journal-ink-soft); font: calc(0.76 * var(--journal-rem))/1 var(--journal-font); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
 	.has-title .time { justify-self: end; text-align: right; }
-	.title { font-style: italic; font-weight: 600; }
+	/* An entry's title: upright, set a little larger and in the full ink; italics stay for quotes and emphasis. */
+	.title { font-size: 1.1em; font-weight: 600; letter-spacing: 0.003em; color: var(--journal-ink); }
+	.block.entry-head.has-title { margin-bottom: 0.15em; }
 	.block > :is(p, ul, ol, blockquote, pre, table) { margin: 0; }
 	.block ul, .block ol { padding-left: 1.3em; }
-	.block li::marker { color: var(--journal-ink-soft); }
+	/* A list belongs to the page: its bullets small, in the date's colour. */
+	.block li::marker { color: var(--journal-date-ink); font-size: 0.8em; }
+	.block li + li { margin-top: 0.15em; }
 	.block blockquote { margin: 0; padding-left: 14px; border-left: 2px solid var(--journal-field-line); font-style: italic; }
 	.block a { color: var(--journal-link); text-decoration-thickness: 1px; text-underline-offset: 2px; }
 	.block code, .block pre { font: 0.88em/1.5 var(--journal-mono); }
@@ -221,7 +229,7 @@
 	.block.entry-draft.editing { background: none; outline: none; }
 	.entry-draft .time { grid-column: 1; align-self: start; justify-self: end; padding: 0 2px; }
 	.entry-column { grid-column: 2; margin: 0 -8px; padding: 1px 8px; border-radius: 4px; background: var(--journal-field); outline: 2px solid var(--journal-focus); outline-offset: 1px; }
-	.entry-column .title { display: block; margin-bottom: 0.25em; font-style: italic; font-weight: 600; }
+	.entry-column .title { display: block; margin-bottom: 0.15em; }
 	.entry-body > * { margin: 0; }
 	.entry-body > * + * { margin-top: 0.7em; }
 

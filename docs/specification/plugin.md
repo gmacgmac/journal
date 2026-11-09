@@ -528,6 +528,10 @@ paper as its own look when the host sets none.
 
 - **Mode**: `.journal { color-scheme: var(--host-color-scheme, light dark) }`. Every colour of the Journal's own is a
   `light-dark()` pair, kept native in the built stylesheet, so it follows the bot's light or dark live.
+- **Hierarchy** (GM, 2026-11-09): the date in the date ink; an entry's title upright, semibold, 1.1em, in the ink; its
+  writing in `--journal-body`; a time small and quiet in the interface's face (`--journal-font`), on its entry's first line
+  (the entries' grid aligns each row by its baseline); more room between entries (1.7em) than inside one; a list's bullets
+  small, in the date ink. Italics are for quotes and emphasis only.
 - **Type**: `--journal-font: var(--host-font, system-ui, sans-serif)`, `--journal-mono: var(--host-font-mono, ui-monospace, monospace)`;
   the date headings keep the paper's serif, `--journal-serif` (the Journal's own); `--host-text-scale` scales the page's text
   (default 1).
@@ -543,6 +547,7 @@ paper as its own look when the host sets none.
 | `--journal-fresh` | `color-mix(in oklab, var(--journal-page) 90%, var(--host-accent) 10%)`: a block just changed or revealed (22% failed the contrast rule with the host's values: muted text Lc 53.6 in light, links Lc 43.8 in dark) | `light-dark(#f3dfc1, #3b2d22)` |
 | `--journal-rule`, `--journal-field-line` | `var(--host-line)`, `var(--host-line-strong)` | `light-dark(#e4d8c4, #332d29)`, `light-dark(#d8c8b0, #463f3a)` |
 | `--journal-ink`, `--journal-ink-soft` | `var(--host-ink)`, `var(--host-ink-muted)` | `light-dark(#2a241e, #ece5da)`, `light-dark(#6f5f4a, #c6baac)` |
+| `--journal-body` | `color-mix(in oklab, var(--journal-ink) 82%, var(--journal-page) 18%)`: the writing, one step softer than the ink, so an entry's title (in the ink) stands over it | the same mix of the Journal's own |
 | `--journal-date-ink`, `--journal-link` | `var(--host-accent-strong)` | `light-dark(#8a4320, #f2a77c)`, `light-dark(#9b4519, #ff9a66)` |
 | `--journal-fill`, `--journal-fill-hover`, `--journal-on-fill` | `var(--host-accent-fill, var(--host-accent))`, `var(--host-accent-fill-hover, var(--host-accent-strong))`, `var(--host-on-accent)`: Done | the paper's terracotta, `light-dark(#a3471b, #f2a77c)` and `light-dark(#873a14, #f6bc98)`; the page as the ink on it |
 | `--journal-focus` | `var(--host-focus, var(--host-accent))` | `light-dark(#c4501f, #ff8a4f)` |

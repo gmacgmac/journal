@@ -35,6 +35,7 @@ const HOST: Host = {
 const PAIRS: [text: string, grounds: string[], lc: number][] = [
 	...['--journal-ink', '--journal-ink-soft'].map((ink): [string, string[], number] =>
 		[ink, ['--journal-desk', '--journal-page', '--journal-field', '--journal-hover', '--journal-fresh'], 60]),
+	['--journal-body', ['--journal-desk', '--journal-page', '--journal-field', '--journal-hover', '--journal-fresh'], 60],
 	['--journal-date-ink', ['--journal-page'], 45],
 	['--journal-link', ['--journal-page', '--journal-field', '--journal-hover', '--journal-fresh'], 45],
 	['--journal-on-fill', ['--journal-fill', '--journal-fill-hover'], 60],

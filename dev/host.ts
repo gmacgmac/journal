@@ -51,6 +51,10 @@ function dress(): void {
 	pane.style.setProperty('--host-color-scheme', mode);
 	pane.style.setProperty('--host-font', "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif");
 	pane.style.setProperty('--host-font-mono', "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace");
+	// The page's serif, to compare faces: set on the Journal's own root, where `--journal-serif` is declared.
+	const serif = $<HTMLSelectElement>('select[name=serif]').value;
+	if (serif === '') root.style.removeProperty('--journal-serif');
+	else root.style.setProperty('--journal-serif', serif);
 	for (const p of COLOUR_PROPS) pane.style.removeProperty(p);
 	if (look !== 'bot') return;
 	const a = ACCENTS[$<HTMLSelectElement>('select[name=accent]').value]!;
@@ -68,13 +72,13 @@ const SAVED = 'journal-dev-switches';
 try {
 	const saved = JSON.parse(localStorage.getItem(SAVED) ?? '{}') as Record<string, string>;
 	for (const [name, value] of Object.entries(saved)) {
-		const el = document.querySelector<HTMLInputElement | HTMLSelectElement>(`[name=${name}][value="${value}"], select[name=${name}]`);
+		const el = document.querySelector<HTMLInputElement | HTMLSelectElement>(`select[name=${name}]`) ?? document.querySelector<HTMLInputElement>(`[name=${name}][value="${value}"]`);
 		if (el instanceof HTMLInputElement) el.checked = true;
 		else if (el instanceof HTMLSelectElement) el.value = value;
 	}
 } catch { /* a page with no storage starts on the defaults */ }
 $('.dev-bar').addEventListener('change', () => {
-	const form = Object.fromEntries(['look', 'mode', 'width', 'accent'].map((n) => [n,
+	const form = Object.fromEntries(['look', 'mode', 'width', 'accent', 'serif'].map((n) => [n,
 		(document.querySelector<HTMLInputElement>(`input[name=${n}]:checked`) ?? document.querySelector<HTMLSelectElement>(`select[name=${n}]`))?.value ?? '']));
 	try { localStorage.setItem(SAVED, JSON.stringify(form)); } catch { /* fine */ }
 	dress();
