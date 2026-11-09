@@ -22,6 +22,8 @@
 	/* The times' column: as wide as a time, which starts on the date's left edge, so the writing has the rest (GM). */
 	--journal-time-w: calc(2.75 * var(--journal-rem));
 	--journal-gutter: 18px;
+	/* How far the writing sits in from the edge where it runs under the times (the phone layout); none beside them. */
+	--journal-indent: 0px;
 	/* The least a control is high on the phone layout, for a finger. */
 	--journal-tap: 44px;
 	/* The sheet: its widest, its inset, and the desk left under it past the last day (more while the writing bar is up). */
@@ -309,17 +311,19 @@
 	/* ─── Phone: one page, one day under another ────────────────────────────── */
 	@container journal (max-width: 899px) {
 		/* The sheet is the whole pane: no desk round it, and past the last day only the end's room, on the page's own ground. */
-		.paper { padding: 0 0 calc(var(--journal-bar-h, 0px) + var(--journal-end)); background: var(--journal-page); --journal-time-w: calc(2.75 * var(--journal-rem)); --journal-gutter: 12px; --journal-end: 24px; }
+		.paper { padding: 0 0 calc(var(--journal-bar-h, 0px) + var(--journal-end)); background: var(--journal-page); --journal-time-w: calc(2.75 * var(--journal-rem)); --journal-gutter: 12px; --journal-end: 24px; --journal-indent: 16px; }
 		.sheet { max-width: none; padding: 24px 16px 16px; box-shadow: none; border-radius: 0; }
 		.journal-tools { padding: 8px 12px; }
 		.entries { grid-template-columns: var(--journal-time-w) minmax(0, 1fr); }
 		/* The writing has the page's whole width (GM, 2026-11-09): under an entry it runs from the left edge, under its
 		   time; a title stays beside its time, and one with no time starts at the edge, as the writing does. */
-		.entries > .block:not(.entry-head) { grid-column: 1 / -1; }
+		/* …a little in from the edge (`--journal-indent`, set on the paper), so it reads as under its entry. */
+		.entries > .block:not(.entry-head) { grid-column: 1 / -1; margin-left: calc(var(--journal-indent) - 8px); }
 		.entries > .entry-head:not(.has-title):not(:first-child) + .block { margin-top: 0.3em; }
 		.block.entry-head.no-time .title, .entry-draft .entry-column { grid-column: 1 / -1; }
-		.entry-draft .entry-column { margin-top: 0.3em; }
-		.add-entry { margin-left: -8px; }
+		.block.entry-head.no-time .title { margin-left: var(--journal-indent); }
+		.entry-draft .entry-column { margin-top: 0.3em; margin-left: calc(var(--journal-indent) - 8px); }
+		.add-entry { margin-left: calc(var(--journal-indent) - 8px); }
 		/* A finger's reach: every control of the two bars, and Add an entry, at least --journal-tap high. */
 		.range button, .range input, .bar button, .bar-link input, .add-entry, .gap-add, .feed-more { min-height: var(--journal-tap); }
 		/* One row in a narrow pane: the toggle shows only the view it is on, Add a page is its +, and the day is narrower. */

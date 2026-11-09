@@ -581,7 +581,8 @@ properties of the contract's list", "every rule is under .journal".
 - **The toolbar does not move as the days change**: the day is one width for every date (`.day-pick`), and Today keeps
   its place, out of sight and out of the tab order, while today is shown.
 - **The phone layout** (the container query `journal (max-width: 899px)`): the sheet is the whole pane, the writing runs
-  from the left edge under its entry's time (a title stays beside its time; one with no time starts at the edge), and a finger's
+  under its entry's time, a little in from the left edge (`--journal-indent`; a title stays beside its time, and one with
+  no time starts where the writing does), and a finger's
   reach: every control of the toolbar and the writing bar, Add an entry / Start this page, a gap's Add a page and Earlier
   pages, is at least `--journal-tap`
   (44px, the Journal's own: it cannot read nclite's `--tap-min`) high, the writing bar's one-letter buttons as wide. The desktop
