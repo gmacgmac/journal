@@ -542,7 +542,7 @@ paper as its own look when the host sets none.
 - **Mode**: `.journal { color-scheme: var(--host-color-scheme, light dark) }`. Every colour of the Journal's own is a
   `light-dark()` pair, kept native in the built stylesheet, so it follows the bot's light or dark live.
 - **Hierarchy** (GM, 2026-11-09): the date in the date ink, at `--journal-date-size` (1.6em), clearly over a title; an entry's title upright, semibold, 1.1em, in the ink; its
-  writing in `--journal-body`; a time small and quiet in the interface's face (`--journal-font`), centred on its entry's first
+  writing in `--journal-body`; a time small, in the date ink and the interface's face (`--journal-font`), centred on its entry's first
   line (rows start together, and a time's line is as tall as that first line, `--journal-line`, a title's 1.1 times it); more room between entries (1.45em) than inside one; a list's bullets
   small, in the date ink. Italics are for quotes and emphasis only.
 - **Type**: `--journal-font: var(--host-font, system-ui, sans-serif)`, `--journal-mono: var(--host-font-mono, ui-monospace, monospace)`;
@@ -581,8 +581,8 @@ properties of the contract's list", "every rule is under .journal".
 - **The toolbar does not move as the days change**: the day is one width for every date (`.day-pick`), and Today keeps
   its place, out of sight and out of the tab order, while today is shown.
 - **The phone layout** (the container query `journal (max-width: 899px)`): the sheet is the whole pane, titles and writing
-  all start at the left edge, one column, and an entry's time is a small line of its own in the space between entries, just
-  over its title, and a finger's
+  all start at the left edge, one column, and an entry's time is a small line of its own in the middle of the space between
+  entries (`--journal-time-gap` over and under it), over its title, and a finger's
   reach: every control of the toolbar and the writing bar, Add an entry / Start this page, a gap's Add a page and Earlier
   pages, is at least `--journal-tap`
   (44px, the Journal's own: it cannot read nclite's `--tap-min`) high, the writing bar's one-letter buttons as wide. The desktop

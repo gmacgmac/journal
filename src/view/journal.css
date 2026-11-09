@@ -18,6 +18,8 @@
 	--journal-size: calc(17px * var(--journal-scale));
 	--journal-leading: 1.62;
 	--journal-line: calc(var(--journal-size) * var(--journal-leading));
+	/* On a narrow page, the room over and under a time, which sits on a line of its own between two entries. */
+	--journal-time-gap: calc(0.85 * var(--journal-size));
 	/* The entry column: the times' margin and the gap before the writing. The phone layout narrows both. */
 	/* The times' column: as wide as a time, which starts on the date's left edge, so the writing has the rest (GM). */
 	--journal-time-w: calc(2.75 * var(--journal-rem));
@@ -201,7 +203,7 @@
 	/* The rhythm: more room between entries than inside one, and a title close over its writing. */
 	.entry-head:not(:first-child), .entry-head:not(.has-title):not(:first-child) + .block { margin-top: 1.45em; }
 	/* A time is a note in the margin: the interface's face, small and quiet, on its entry's first line. */
-	.time { display: block; color: var(--journal-ink-soft); font: calc(0.82 * var(--journal-rem))/var(--journal-line) var(--journal-font); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+	.time { display: block; color: var(--journal-date-ink); font: calc(0.82 * var(--journal-rem))/var(--journal-line) var(--journal-font); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
 	.has-title .time { justify-self: start; text-align: left; line-height: calc(1.1 * var(--journal-line)); }
 	/* An entry with no time: the margin stays empty, and its title sits where every title sits. */
 	.time[hidden] { display: none; }
@@ -317,8 +319,9 @@
 		   entry's time is a small line of its own in the space between entries, just over its title. The entries are
 		   one column, so nothing lays out beside a time. */
 		.entries, .block.entry-head.has-title, .entry-draft { display: block; }
-		.time, .has-title .time { line-height: 1.2; margin-bottom: 0.3em; }
-		.entry-head:not(:first-child), .entry-draft { margin-top: 1.2em; }
+		/* The time sits in the middle of the space between two entries: as much room over it as under it. */
+		.time, .has-title .time { line-height: 1.2; margin-bottom: var(--journal-time-gap); }
+		.entry-head:not(:first-child), .entry-draft { margin-top: var(--journal-time-gap); }
 		.entries > .entry-head:not(.has-title):not(:first-child) + .block { margin-top: 0; }
 		.entry-draft .time { margin-left: -2px; }
 		.add-entry { margin-left: -8px; }
