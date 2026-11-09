@@ -48,7 +48,8 @@
 	/* The paper. */
 	/* The desk is the app's own ground, the chat's beside it, untinted: the accent is for what is chosen, never a surface (GM). */
 	--journal-desk: var(--host-canvas, light-dark(#e6dccb, #13100f));
-	--journal-page: color-mix(in oklab, var(--host-surface, light-dark(#fbf6ec, #1c1916)) 95%, var(--host-accent, var(--host-surface, light-dark(#fbf6ec, #1c1916))) 5%);
+	/* The paper is the host's own surface, untinted: an accent mixed into a dark ground reads as mud (GM, 2026-11-09). */
+	--journal-page: var(--host-surface, light-dark(#fbf6ec, #1c1916));
 	--journal-field: var(--host-surface, light-dark(#fffdf8, #25211e));
 	--journal-hover: var(--host-surface-sunken, light-dark(#f4ecdf, #25211e));
 	/* 10% of the accent: at 12% the host's muted ink on it already sits at Lc 60 (tests/view/colours.test.ts). */

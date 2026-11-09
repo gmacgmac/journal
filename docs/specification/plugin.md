@@ -554,7 +554,7 @@ paper as its own look when the host sets none.
 | Token | Is | Without the host |
 |---|---|---|
 | `--journal-desk` | `var(--host-canvas)`, untinted: the chat's own ground beside it; the accent marks what is chosen, never a surface (GM, 2026-11-09) | `light-dark(#e6dccb, #13100f)` |
-| `--journal-page` | `color-mix(in oklab, var(--host-surface) 95%, var(--host-accent) 5%)` | `light-dark(#fbf6ec, #1c1916)` |
+| `--journal-page` | `var(--host-surface)`, untinted: an accent mixed into a dark ground reads as mud, and the accent marks the type (GM, 2026-11-09) | `light-dark(#fbf6ec, #1c1916)` |
 | `--journal-field` | `var(--host-surface)`: the ground of a block open for writing | `light-dark(#fffdf8, #25211e)` |
 | `--journal-hover` | `var(--host-surface-sunken)` | `light-dark(#f4ecdf, #25211e)` |
 | `--journal-fresh` | `color-mix(in oklab, var(--journal-page) 90%, var(--host-accent) 10%)`: a block just changed or revealed (22% failed the contrast rule with the host's values: muted text Lc 53.6 in light, links Lc 43.8 in dark) | `light-dark(#f3dfc1, #3b2d22)` |
