@@ -321,15 +321,17 @@
 		   entry's time is a small line of its own in the space between entries, just over its title. The entries are
 		   one column, so nothing lays out beside a time. */
 		.entries, .block.entry-head.has-title, .entry-draft { display: block; }
-		/* Every entry opens with a divider in the space between entries: a few dashes (the gap markers') either side of its
+		/* Every entry opens with a divider in the space between entries: a few dashes in the accent either side of its
 		   time, bold and centred, nearer its own title than the entry above; an entry with no time shows the dashes alone,
 		   with as much room under them as over, so every entry is set apart the same. */
 		.time, .has-title .time, .time[hidden] {
 			display: flex; align-items: center; justify-content: center; gap: 10px; justify-self: stretch;
 			line-height: 1.2; margin-bottom: var(--journal-divider-under); font-weight: 600;
 		}
-		.time::before, .time::after { content: ''; width: 1.6em; border-top: 1px dashed var(--journal-rule); }
-		.time:empty { gap: 0; }
+		.time::before, .time::after { content: ''; width: 1.6em; border-top: 1px dashed var(--journal-date-ink); }
+		/* No time: one run of dashes, as long as the two either side of a time. */
+		.time:empty::before { width: 3.2em; }
+		.time:empty::after { content: none; }
 		.no-time .time { margin-bottom: var(--journal-divider-over); }
 		.entry-head:not(:first-child), .entry-draft { margin-top: var(--journal-divider-over); }
 		.entries > .entry-head:not(.has-title):not(:first-child) + .block { margin-top: 0; }

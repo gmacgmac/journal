@@ -581,8 +581,8 @@ properties of the contract's list", "every rule is under .journal".
 - **The toolbar does not move as the days change**: the day is one width for every date (`.day-pick`), and Today keeps
   its place, out of sight and out of the tab order, while today is shown.
 - **The phone layout** (the container query `journal (max-width: 899px)`): the sheet is the whole pane, titles and writing
-  all start at the left edge, one column, and every entry opens with a divider in the space between entries: a few dashes
-  either side of its time, bold and centred, nearer its title than the entry above (`--journal-divider-over`,
+  all start at the left edge, one column, and every entry opens with a divider in the space between entries: a few dashes in
+  the date ink either side of its time, bold and centred, nearer its title than the entry above (`--journal-divider-over`,
   `--journal-divider-under`); an entry with no time shows the dashes alone, as much room under them as over, and a finger's
   reach: every control of the toolbar and the writing bar, Add an entry / Start this page, a gap's Add a page and Earlier
   pages, is at least `--journal-tap`
