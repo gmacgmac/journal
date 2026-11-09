@@ -582,7 +582,7 @@ properties of the contract's list", "every rule is under .journal".
   its place, out of sight and out of the tab order, while today is shown.
 - **The phone layout** (the container query `journal (max-width: 899px)`): the sheet is the whole pane, titles and writing
   all start at the left edge, one column, and an entry's time is a small line of its own in the middle of the space between
-  entries (`--journal-time-gap` over and under it), over its title, and a finger's
+  entries (`--journal-time-gap` over and under it), centred across the page and bold, over its title, and a finger's
   reach: every control of the toolbar and the writing bar, Add an entry / Start this page, a gap's Add a page and Earlier
   pages, is at least `--journal-tap`
   (44px, the Journal's own: it cannot read nclite's `--tap-min`) high, the writing bar's one-letter buttons as wide. The desktop

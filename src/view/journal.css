@@ -319,11 +319,13 @@
 		   entry's time is a small line of its own in the space between entries, just over its title. The entries are
 		   one column, so nothing lays out beside a time. */
 		.entries, .block.entry-head.has-title, .entry-draft { display: block; }
-		/* The time sits in the middle of the space between two entries: as much room over it as under it. */
-		.time, .has-title .time { line-height: 1.2; margin-bottom: var(--journal-time-gap); }
+		/* The time sits in the middle of the space between two entries, as much room over it as under it, centred
+		   across the page and set bold. */
+		.time, .has-title .time { line-height: 1.2; margin-bottom: var(--journal-time-gap); justify-self: stretch; text-align: center; font-weight: 600; }
 		.entry-head:not(:first-child), .entry-draft { margin-top: var(--journal-time-gap); }
 		.entries > .entry-head:not(.has-title):not(:first-child) + .block { margin-top: 0; }
-		.entry-draft .time { margin-left: -2px; }
+		/* A time being written keeps a field of its own size, centred where the time shows. */
+		.entry-head.editing .time, .entry-draft .time { justify-self: center; margin-left: 0; }
 		.add-entry { margin-left: -8px; }
 		/* A finger's reach: every control of the two bars, and Add an entry, at least --journal-tap high. */
 		.range button, .range input, .bar button, .bar-link input, .add-entry, .gap-add, .feed-more { min-height: var(--journal-tap); }
