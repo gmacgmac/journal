@@ -584,7 +584,8 @@ properties of the contract's list", "every rule is under .journal".
   pages, is at least `--journal-tap`
   (44px, the Journal's own: it cannot read nclite's `--tap-min`) high, the writing bar's one-letter buttons as wide. The desktop
   layout is unchanged by it.
-- **The entry column**: `--journal-time-w` (the times' margin) and `--journal-gutter` place both the entries' grid and Add an
+- **The entry column**: `--journal-time-w` (the times' margin, as wide as a time, each time starting on the date's left
+  edge, GM 2026-11-09) and `--journal-gutter` place both the entries' grid and Add an
   entry, whose words start where an entry's writing starts (its padding in the gutter, as a block's); the phone layout changes
   only the two measures. Proven by FIX_01b `tests/view/touch.test.ts`: "every control of the range bar and the writing bar, and
   Add an entry, is at least --journal-tap high", "Add an entry starts its words where an entry’s text starts, on both layouts".

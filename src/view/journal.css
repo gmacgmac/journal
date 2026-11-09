@@ -19,8 +19,9 @@
 	--journal-leading: 1.62;
 	--journal-line: calc(var(--journal-size) * var(--journal-leading));
 	/* The entry column: the times' margin and the gap before the writing. The phone layout narrows both. */
-	--journal-time-w: calc(3.4 * var(--journal-rem));
-	--journal-gutter: 20px;
+	/* The times' column: as wide as a time, which starts on the date's left edge, so the writing has the rest (GM). */
+	--journal-time-w: calc(2.75 * var(--journal-rem));
+	--journal-gutter: 18px;
 	/* The least a control is high on the phone layout, for a finger. */
 	--journal-tap: 44px;
 	/* The sheet: its widest, its inset, and the desk left under it past the last day (more while the writing bar is up). */
@@ -192,7 +193,7 @@
 	.block { grid-column: 2; margin: 0 -8px 0.7em; padding: 1px 8px; border-radius: 4px; cursor: text; }
 	.block:hover { background: var(--journal-hover); }
 	.block:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 1px; }
-	.block.entry-head { grid-column: 1; margin: 0; padding: 1px 0; text-align: right; }
+	.block.entry-head { grid-column: 1; margin: 0; padding: 1px 0; text-align: left; }
 	.block.entry-head.has-title {
 		grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: start;
 		margin-bottom: 0.25em; text-align: left;
@@ -201,7 +202,7 @@
 	.entry-head:not(:first-child), .entry-head:not(.has-title):not(:first-child) + .block { margin-top: 1.45em; }
 	/* A time is a note in the margin: the interface's face, small and quiet, on its entry's first line. */
 	.time { display: block; color: var(--journal-ink-soft); font: calc(0.82 * var(--journal-rem))/var(--journal-line) var(--journal-font); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
-	.has-title .time { justify-self: end; text-align: right; line-height: calc(1.1 * var(--journal-line)); }
+	.has-title .time { justify-self: start; text-align: left; line-height: calc(1.1 * var(--journal-line)); }
 	/* An entry with no time: the margin stays empty, and its title sits where every title sits. */
 	.time[hidden] { display: none; }
 	.block.entry-head.has-title .title { grid-column: 2; }
@@ -238,7 +239,7 @@
 	.entry-head.editing [contenteditable]:focus, .entry-draft .time:focus { box-shadow: 0 0 0 2px var(--journal-focus); }
 	.entry-draft { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; margin: 1.1em 0 0.7em; padding: 0; }
 	.block.entry-draft.editing { background: none; outline: none; }
-	.entry-draft .time { grid-column: 1; align-self: start; justify-self: end; padding: 0 2px; }
+	.entry-draft .time { grid-column: 1; align-self: start; justify-self: start; padding: 0 2px; margin-left: -2px; }
 	.entry-column { grid-column: 2; margin: 0 -8px; padding: 1px 8px; border-radius: 4px; background: var(--journal-field); outline: 2px solid var(--journal-focus); outline-offset: 1px; }
 	/* A new entry's title is written inside the entry's one ring, set as a title is, with no box of its own. */
 	.entry-column .title { display: block; margin-bottom: 0.15em; }
@@ -308,7 +309,7 @@
 	/* ─── Phone: one page, one day under another ────────────────────────────── */
 	@container journal (max-width: 899px) {
 		/* The sheet is the whole pane: no desk round it, and past the last day only the end's room, on the page's own ground. */
-		.paper { padding: 0 0 calc(var(--journal-bar-h, 0px) + var(--journal-end)); background: var(--journal-page); --journal-time-w: calc(2.9 * var(--journal-rem)); --journal-gutter: 12px; --journal-end: 24px; }
+		.paper { padding: 0 0 calc(var(--journal-bar-h, 0px) + var(--journal-end)); background: var(--journal-page); --journal-time-w: calc(2.75 * var(--journal-rem)); --journal-gutter: 12px; --journal-end: 24px; }
 		.sheet { max-width: none; padding: 24px 16px 16px; box-shadow: none; border-radius: 0; }
 		.journal-tools { padding: 8px 12px; }
 		.entries { grid-template-columns: var(--journal-time-w) minmax(0, 1fr); }
