@@ -24,6 +24,20 @@ export function bodyMarkdown(root: Node): { md: string } | { problem: string } {
 	return same(parseMarkdown(md), blocks) ? { md } : { problem: say('journal.view.write.inexact') };
 }
 
+/**
+ * The prompt ("Write…", "Title") shows only while the writing it sits in holds no text at all: on the writing itself, or on
+ * its first line. A line the browser leaves holding a stray break after a join, or a new line made by Enter, never shows
+ * it. Kept by the editor as the person types (`data-blank`), since a stylesheet cannot tell text from a break.
+ */
+export function markBlank(editable: HTMLElement): void {
+	const empty = (editable.textContent ?? '') === '';
+	for (const p of [editable, ...editable.querySelectorAll<HTMLElement>('[data-placeholder]')]) {
+		if (!p.hasAttribute('data-placeholder')) continue;
+		if (empty && (p === editable || p === editable.firstElementChild)) p.setAttribute('data-blank', '');
+		else p.removeAttribute('data-blank');
+	}
+}
+
 export function startSession(node: BlockNode, host: Page, spec: Spec, at: Where = 'end'): Session {
 	const { bar, sessions } = host;
 	const open = sessions.current;
@@ -68,12 +82,16 @@ export function startSession(node: BlockNode, host: Page, spec: Spec, at: Where 
 	return s;
 
 	function arm(e: HTMLElement): void {
+		markBlank(e);
 		e.contentEditable = 'true';
 		e.setAttribute('role', 'textbox');
 		e.setAttribute('aria-multiline', String(e === s.root && s.kind !== 'heading'));
 		e.addEventListener('keydown', (ev) => onKeyDown(ev, s), { signal: listening.signal });
 		e.addEventListener('beforeinput', (ev) => onBeforeInput(ev, s), { signal: listening.signal });
-		e.addEventListener('input', (ev) => onInput(ev as InputEvent, s), { signal: listening.signal });
+		e.addEventListener('input', (ev) => {
+			onInput(ev as InputEvent, s);
+			markBlank(e);
+		}, { signal: listening.signal });
 	}
 
 	function close(): void {

@@ -227,7 +227,8 @@
 	.block > p + p, .block > p + :is(ul, ol, blockquote), .block > :is(ul, ol, blockquote) + * { margin-top: 0.7em; }
 	.block.stale { outline-color: var(--journal-warn); }
 	.busy { opacity: 0.6; pointer-events: none; }
-	[data-placeholder]:empty::before, [data-placeholder]:has(> br:only-child)::before {
+	/* The prompt, while the writing it sits in is empty (`markBlank`, editor.ts). */
+	[data-placeholder][data-blank]::before {
 		content: attr(data-placeholder); color: var(--journal-ink-soft); font-style: italic; pointer-events: none;
 	}
 
@@ -241,7 +242,7 @@
 	.entry-column { grid-column: 2; margin: 0 -8px; padding: 1px 8px; border-radius: 4px; background: var(--journal-field); outline: 2px solid var(--journal-focus); outline-offset: 1px; }
 	/* A new entry's title is written inside the entry's one ring, set as a title is, with no box of its own. */
 	.entry-column .title { display: block; margin-bottom: 0.15em; }
-	.title[data-placeholder]:empty::before, .title[data-placeholder]:has(> br:only-child)::before { font-style: normal; }
+	.title[data-placeholder][data-blank]::before { font-style: normal; }
 	.entry-body > * { margin: 0; }
 	.entry-body > * + * { margin-top: 0.7em; }
 
