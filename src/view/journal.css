@@ -52,6 +52,9 @@
 	--journal-fill-hover: var(--host-accent-fill-hover, var(--host-accent-strong, var(--journal-ink)));
 	--journal-on-fill: var(--host-on-accent, var(--journal-page));
 	--journal-focus: var(--host-focus, var(--host-accent, light-dark(#c4501f, #ff8a4f)));
+	/* The ring a focused control draws: the focus colour, but none on what a pointer press focused (focus.ts), so the ring
+	   shows only for Tab. */
+	--journal-ring: var(--journal-focus);
 	/* The Journal's own, whatever the host sets. */
 	--journal-warn: light-dark(#8a5508, #ffb54d);
 	--journal-shadow: light-dark(rgb(70 45 20 / 0.16), rgb(0 0 0 / 0.55));
@@ -60,6 +63,7 @@
 	container: journal / inline-size;
 
 	* { box-sizing: border-box; }
+	[data-pointer-focus] { --journal-ring: transparent; }
 	/* A host's own element rules reach in (the app sets every h2 small and in capitals); say ours. */
 	h2 { text-transform: none; }
 	.journal-tools {
@@ -73,15 +77,18 @@
 		border: 1px solid var(--journal-app-line); border-radius: 8px; cursor: pointer;
 	}
 	.range button:hover { border-color: var(--journal-app-line-strong); background: var(--journal-app-raised); }
-	.range :focus-visible { outline: 2px solid var(--journal-focus); outline-offset: 2px; }
+	.range :focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 2px; }
 	.range [hidden] { display: none; }
 	/* Which view: one segmented group, as the host's own (the pressed one lifted on the raised ground with a ring). */
 	.views { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--journal-app-line); border-radius: 9px; background: var(--journal-app-field); }
-	.range .views button { min-height: 26px; padding: 2px 12px; border: 0; border-radius: 6px; background: none; color: var(--journal-app-muted); }
+	.range .views button { min-width: 5.5em; min-height: 26px; padding: 2px 12px; border: 0; border-radius: 6px; background: none; color: var(--journal-app-muted); }
 	.range .views button:hover { color: var(--journal-app-ink); background: var(--journal-app-raised); }
 	.range .views button[aria-pressed='true'] { color: var(--journal-app-ink); background: var(--journal-app-raised); box-shadow: inset 0 0 0 1px var(--journal-app-line-strong); }
 	.day-nav { display: inline-flex; align-items: center; gap: 4px; }
 	.day-nav [data-nav='prev'], .day-nav [data-nav='next'] { min-width: 32px; padding: 4px 8px; }
+	/* The day, one width for every day ("Wed 30 Sep" the widest), so the arrows either side never move. */
+	.range .day-pick { width: 7.5em; padding: 4px 6px; text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+	.range .away { visibility: hidden; }
 	.add-anchor { margin-left: auto; }
 	/* A date field laid over the button that opens its picker: not seen, not tabbed to (picker.ts). */
 	.picker-anchor { position: relative; display: inline-flex; }
@@ -92,8 +99,9 @@
 	/* The desk, and past the last day only the room the writing bar needs while it is up (161: a fixed room once left an
 	   empty stretch under the last day). */
 	.paper { flex: 1; min-height: 0; overflow: auto; scroll-padding-bottom: calc(var(--journal-bar-h, 0px) + 32px); padding: 32px 24px calc(var(--journal-bar-h, 0px) + var(--journal-end)); background: var(--journal-desk); color: var(--journal-ink); font: calc(17px * var(--journal-scale))/1.62 var(--journal-serif); }
+	/* At least the whole paper high: a page with little on it is still a whole page, room to write. */
 	.sheet {
-		min-width: 0; max-width: var(--journal-sheet-w); margin: 0 auto; padding: var(--journal-sheet-pad);
+		min-width: 0; max-width: var(--journal-sheet-w); min-height: 100%; margin: 0 auto; padding: var(--journal-sheet-pad);
 		background-color: var(--journal-page); border-radius: 4px;
 		box-shadow: 0 1px 2px var(--journal-shadow), 0 14px 36px var(--journal-shadow);
 	}
@@ -114,12 +122,14 @@
 	.day.gap h2 { flex: 1; margin: 0; padding: 0; border: 0; font-size: var(--journal-rem); font-weight: 400; color: var(--journal-ink-soft); }
 	.day.gap.today { margin-bottom: 36px; }
 	.day.gap.today h2 { font-size: calc(1.3 * var(--journal-rem)); font-weight: 600; color: var(--journal-date-ink); }
+	.sheet[data-view='day']:has(> .day.gap:not(.drafting)) { cursor: text; }
 	/* Alone in Day, or being started: a day with no page wears the full date heading. */
 	.sheet[data-view='day'] .day.gap h2, .day.gap.drafting h2 {
 		padding-bottom: 8px; border-bottom: 1px solid var(--journal-rule);
 		font-size: calc(1.3 * var(--journal-rem)); font-weight: 600; color: var(--journal-date-ink);
 	}
 	.day.gap .add-entry { margin: 0; }
+	.day.gap.drafting .add-entry { display: none; }
 	.day.gap.drafting { margin-bottom: 44px; }
 	.day.gap.drafting .entries { margin-top: 12px; }
 
@@ -134,7 +144,7 @@
 		text-decoration: underline dotted; text-underline-offset: 3px;
 	}
 	.gap-add:hover { color: var(--journal-ink); background: var(--journal-hover); }
-	.gap-add:focus-visible { outline: 2px solid var(--journal-focus); outline-offset: 1px; }
+	.gap-add:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 1px; }
 	.gap-marker + .day.gap { margin-top: 0; }
 
 	/* The foot of the running journal, while older pages are left to read. */
@@ -144,7 +154,7 @@
 		background: none; border: 1px solid var(--journal-rule); border-radius: 999px; cursor: pointer;
 	}
 	.feed-more:hover { color: var(--journal-ink); background: var(--journal-hover); }
-	.feed-more:focus-visible { outline: 2px solid var(--journal-focus); outline-offset: 2px; }
+	.feed-more:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 2px; }
 	.quiet { margin: 0; font-style: italic; color: var(--journal-ink-soft); }
 	.day:not(.blank) .empty { display: none; }
 	.day.fresh { border-radius: 4px; animation: journal-fresh 2.4s ease-out; }
@@ -161,7 +171,7 @@
 	.entries { display: grid; grid-template-columns: var(--journal-time-w) minmax(0, 36em); column-gap: var(--journal-gutter); }
 	.block { grid-column: 2; margin: 0 -8px 0.7em; padding: 1px 8px; border-radius: 4px; cursor: text; }
 	.block:hover { background: var(--journal-hover); }
-	.block:focus-visible { outline: 2px solid var(--journal-focus); outline-offset: 1px; }
+	.block:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 1px; }
 	.block.entry-head { grid-column: 1; margin: 0; padding: 1px 0; text-align: right; }
 	.block.entry-head.has-title {
 		grid-column: 1 / -1; display: grid; grid-template-columns: subgrid;
@@ -195,7 +205,7 @@
 	/* An entry heading edits its time and title where they stand: the time keeps the margin. */
 	.block.entry-head.editing { background: none; outline: none; }
 	.entry-head.editing :is(.time, .title), .entry-draft .time { border-radius: 3px; background: var(--journal-field); box-shadow: 0 0 0 1px var(--journal-field-line); }
-	.entry-head.editing [contenteditable]:focus, .entry-draft [contenteditable]:focus { box-shadow: 0 0 0 2px var(--journal-focus); }
+	.entry-head.editing [contenteditable]:focus, .entry-draft :is(.time, .title):focus { box-shadow: 0 0 0 2px var(--journal-focus); }
 	.entry-draft { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; margin: 1.1em 0 0.7em; padding: 0; }
 	.block.entry-draft.editing { background: none; outline: none; }
 	.entry-draft .time { grid-column: 1; align-self: start; justify-self: end; padding: 0 2px; }
@@ -207,7 +217,7 @@
 	/* To-dos: the box hangs where a bullet would; a done item goes quiet. */
 	.block li.task { list-style: none; }
 	input.todo { width: 1em; height: 1em; margin: 0 0.45em 0 -1.35em; vertical-align: -0.12em; accent-color: var(--journal-focus); cursor: pointer; }
-	input.todo:focus-visible { outline: 2px solid var(--journal-focus); outline-offset: 2px; }
+	input.todo:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 2px; }
 	li.task:has(> input.todo:checked) { color: var(--journal-ink-soft); }
 
 	/* Add an entry: quiet until the day is pointed at, always there for a keyboard or a finger. Its words start where an
@@ -219,7 +229,7 @@
 	}
 	.day:hover .add-entry, .add-entry:focus-visible, .day.gap .add-entry { opacity: 1; }
 	.add-entry:hover { color: var(--journal-ink); background: var(--journal-hover); }
-	.add-entry:focus-visible { outline: 2px solid var(--journal-focus); outline-offset: 1px; }
+	.add-entry:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 1px; }
 	.day.drafting .add-entry { visibility: hidden; }
 	@media (hover: none) { .add-entry { opacity: 1; } }
 
@@ -248,7 +258,7 @@
 	.bar button:hover, .actions button:hover { background: var(--journal-hover); }
 	:is(.bar, .actions) button.primary { color: var(--journal-on-fill); background: var(--journal-fill); border-color: var(--journal-fill); }
 	:is(.bar, .actions) button.primary:hover { background: var(--journal-fill-hover); border-color: var(--journal-fill-hover); }
-	:is(.bar, .actions) button:focus-visible, .bar-link input:focus-visible { outline: 2px solid var(--journal-focus); outline-offset: 2px; }
+	:is(.bar, .actions) button:focus-visible, .bar-link input:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 2px; }
 	.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
 	blockquote.current { margin: 0; padding-left: 14px; border-left: 2px solid var(--journal-field-line); font: italic var(--journal-rem)/1.55 var(--journal-serif); color: var(--journal-ink); }
 	blockquote.current > * { margin: 0; }
@@ -261,7 +271,7 @@
 	}
 	.toast button { min-height: 30px; padding: 4px 12px; font: inherit; color: var(--journal-page); background: none; border: 1px solid currentColor; border-radius: 999px; cursor: pointer; }
 	.toast button[hidden] { display: none; }
-	.toast button:focus-visible { outline: 2px solid var(--journal-focus); outline-offset: 2px; }
+	.toast button:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 2px; }
 
 	/* ─── Phone: one page, one day under another ────────────────────────────── */
 	@container journal (max-width: 899px) {

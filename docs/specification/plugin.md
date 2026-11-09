@@ -491,6 +491,12 @@ characters, flattened> }`, inside the contract's `CHIP_LIMITS`. A block not yet 
 **Keys.** A key the view acts on is `preventDefault`ed inside `root`; it uses no capture-phase listener on the window or the
 document. Undo is `Cmd/Ctrl+Z` only while focus is in `root`.
 
+**The focus ring shows only for Tab** (GM, 2026-11-09; the board's pointer focus). What a pointer press focused carries
+`data-pointer-focus`, and every ring reads `--journal-ring`, which is transparent on it, so a modifier or another key
+pressed afterwards lights nothing; focus Tab moved never carries it; writing is never marked, since there the ring says
+where typing goes (`trackFocusSource`, `src/view/focus.ts`: presses on `root`, Tab on the document, bubbling). Proven by
+`tests/view/focus.test.ts`.
+
 Proven by `tests/view/` (pure parts, and the whole mount on its fake DOM, `tests/view/fake-dom.ts`): JR_03
 `tests/view/mount.test.ts` (two journals in one page share nothing, and unmount leaves nothing behind); the views (GM,
 2026-11-09): "opens on the running journal: today and the six days before it, newest first", "a recent day with no page is
@@ -544,9 +550,13 @@ enough that the host's own pairs carry over. Proven by JR_04 `tests/view/colours
 helper): "every pair meets its tier with the host's values and without them, light and dark", "the stylesheet reads only host
 properties of the contract's list", "every rule is under .journal".
 
-- **The sheet**: one sheet of paper on the desk, at most `--journal-sheet-w` wide, its inset `--journal-sheet-pad`. Past the
+- **The sheet**: one sheet of paper on the desk, at most `--journal-sheet-w` wide, its inset `--journal-sheet-pad`, and at
+  least the paper's height, so a day with little on it is still a whole page (in Day, a press anywhere on a day with no page
+  starts writing). Past the
   last day the desk leaves only `--journal-end`, and the writing bar's height while it is up (`--journal-bar-h`, measured
   by the bar), so the page never scrolls on into an empty stretch (GM's 161: a fixed 168px once did).
+- **The toolbar does not move as the days change**: the day is one width for every date (`.day-pick`), and Today keeps
+  its place, out of sight and out of the tab order, while today is shown.
 - **The phone layout** (the container query `journal (max-width: 899px)`): the sheet is the whole pane, and a finger's
   reach: every control of the toolbar and the writing bar, Add an entry / Start this page, a gap's Add a page and Earlier
   pages, is at least `--journal-tap`

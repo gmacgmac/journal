@@ -2,6 +2,7 @@
 // `mountJournal(root, host)` draws only inside `root` and talks to the world only through `host`, the contract's `PluginHost` (spec § The view):
 //   host.api        its own routes, `days`, `pages` and `edit` (`wire.ts`)
 //   host.store      the place: the view, and the day in it (`place.ts`)
+// and focus.ts marks focus a pointer gave, so the ring shows only for Tab.
 //   host.events     `{ date }` when a day file changes, from anyone; `{}` to read every day shown again
 //   host.chat.add   a block, as a chip, from the writing bar's Add to chat
 //   host.notify     a refused save, tick or undo, and a reveal it cannot show
@@ -23,6 +24,7 @@ import { blockChip, daysChip } from './chips.ts';
 import { readBlocks } from './dom-tree.ts';
 import { draftAfter, entryDraft } from './drafts.ts';
 import { drawView } from './draw.ts';
+import { trackFocusSource } from './focus.ts';
 import { isEditing, startSession } from './editor.ts';
 import { createLeave } from './leave.ts';
 import { openPicker } from './picker.ts';
@@ -77,6 +79,7 @@ export function mountJournal(root: HTMLElement, host: PluginHost): PluginView {
 	};
 	const views = createViews({ paper, sheet, routes, page, toolbar, store: host.store, live, notify });
 	const undo = createUndo(page, parts.toast, root);
+	const offFocus = trackFocusSource(root);
 	const { unsaved, leave } = createLeave(page, (ask) => host.confirm(ask), live);
 
 	/** Ticking a to-do outside the editor saves at once, read back from the page like any edit. */
@@ -111,6 +114,11 @@ export function mountJournal(root: HTMLElement, host: PluginHost): PluginView {
 			return openPicker(gap.querySelector<HTMLInputElement>('input.picker')!, { value: to, min: from, max: to });
 		}
 		if (t.closest('.feed-more') !== null) return void views.readOlder();
+		// In Day, a day with no page is a blank page: a press anywhere on it starts writing.
+		if (views.place.view === 'day' && t.closest('button, a, input') === null) {
+			const blank = sheet.querySelector<HTMLElement>('.day.gap:not(.drafting)');
+			if (blank !== null && (t === sheet || blank.contains(t))) return void entryDraft(blank, page);
+		}
 		// A page that breaks the rules is read only: the engine would refuse every write to it.
 		if (t.closest('.day.broken') !== null) return;
 		const add = t.closest('.add-entry');
@@ -169,6 +177,7 @@ export function mountJournal(root: HTMLElement, host: PluginHost): PluginView {
 			offEvents();
 			undo.dispose();
 			views.dispose();
+			offFocus();
 			paper.removeEventListener('scroll', onScroll);
 			root.replaceChildren();
 			root.classList.remove('journal');

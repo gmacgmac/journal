@@ -271,11 +271,15 @@ const fakeSelection = {
 	getRangeAt(): FakeRange { return new FakeRange(); },
 };
 
-class FakeDocument {
+/** The document: a node, so a listener can be added to it and counted. */
+class FakeDocument extends FakeNode {
 	documentElement = new FakeElement('html');
 	body = new FakeElement('body');
 	activeElement: FakeElement | null = null;
-	constructor() { this.documentElement.append(this.body); }
+	constructor() {
+		super();
+		this.documentElement.append(this.body);
+	}
 	createElement(tag: string): FakeElement { return new FakeElement(tag); }
 	createTextNode(t: string): FakeText { return new FakeText(t); }
 	createRange(): FakeRange { return new FakeRange(); }

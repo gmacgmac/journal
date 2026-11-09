@@ -28,7 +28,7 @@ export function createToolbar(actions: ToolbarActions): Toolbar {
 		class: 'views', role: 'group', 'aria-label': say('journal.view.views.label'),
 	});
 	const dayLabel = el('span');
-	const pick = el('button', [dayLabel], { type: 'button', 'data-nav': 'pick', title: say('journal.view.nav.pick'), 'aria-haspopup': 'dialog' });
+	const pick = el('button', [dayLabel], { type: 'button', class: 'day-pick', 'data-nav': 'pick', title: say('journal.view.nav.pick'), 'aria-haspopup': 'dialog' });
 	const pickField = dateField(say('journal.view.nav.pick'));
 	const toToday = button(say('journal.view.today'), { 'data-nav': 'today' });
 	const dayNav = el('div', [
@@ -76,7 +76,11 @@ export function createToolbar(actions: ToolbarActions): Toolbar {
 			dayNav.hidden = p.view !== 'day';
 			const date = p.date ?? t;
 			dayLabel.textContent = date === t ? say('journal.view.today') : shortDate(date);
-			toToday.hidden = date === t;
+			// Kept in its place when it is not needed, so nothing in the bar moves as the days change.
+			toToday.classList.toggle('away', date === t);
+			if (date === t) toToday.setAttribute('aria-hidden', 'true');
+			else toToday.removeAttribute('aria-hidden');
+			toToday.tabIndex = date === t ? -1 : 0;
 		},
 	};
 }

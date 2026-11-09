@@ -69,18 +69,30 @@ describe('mount', () => {
 		await settle();
 		assert.deepEqual(dates(m.root), [today]);
 		assert.ok(!q(m.root, '.day-nav').hidden);
-		assert.ok(q(m.root, '[data-nav="today"]').hidden, 'on today already');
+		const toToday = q(m.root, '[data-nav="today"]');
+		assert.ok(toToday.classList.contains('away'), 'on today already: kept in its place, out of sight');
+		assert.equal(toToday.getAttribute('aria-hidden'), 'true');
 		fire(q(m.root, '[data-nav="prev"]'), 'click');
 		await settle();
 		assert.deepEqual(dates(m.root), [addDays(today, -1)]);
 		assert.deepEqual(m.view.pageChip()?.ref, { from: addDays(today, -1), to: addDays(today, -1) });
-		assert.ok(!q(m.root, '[data-nav="today"]').hidden);
+		assert.ok(!toToday.classList.contains('away'));
+		assert.equal(toToday.getAttribute('aria-hidden'), null);
 		fire(q(m.root, '[data-nav="today"]'), 'click');
 		await settle();
 		assert.deepEqual(dates(m.root), [today]);
 		fire(q(m.root, '[data-view="journal"]'), 'click');
 		await settle();
 		assert.equal(dates(m.root).length, 7);
+		m.view.unmount();
+	});
+
+	it('in Day, a day with no page is a blank page: a press anywhere on it starts writing', async () => {
+		const m = await mounted();
+		fire(q(m.root, '[data-view="day"]'), 'click');
+		await settle();
+		fire(q(m.root, '.sheet'), 'click');
+		assert.ok(q(m.root, '.day.gap').querySelector('.entry-draft'));
 		m.view.unmount();
 	});
 
@@ -268,6 +280,7 @@ describe('mount', () => {
 		assert.ok(!m.root.classList.contains('journal'));
 		assert.equal(m.listeners.size, 0);
 		assert.equal((m.root as unknown as FakeElement).listenerCount(), 0);
+		assert.equal((document as unknown as FakeElement).listenerCount(), 0, 'nor on the document');
 		const gets = m.calls.gets.length;
 		m.emit({ date: from });
 		await settle();
