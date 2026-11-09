@@ -41,7 +41,6 @@ const PAIRS: [text: string, grounds: string[], lc: number][] = [
 	['--journal-on-fill', ['--journal-fill', '--journal-fill-hover'], 60],
 	['--journal-page', ['--journal-ink'], 60],
 	['--journal-app-ink', ['--journal-app-bg', '--journal-app-field'], 60],
-	['--journal-app-accent', ['--journal-app-field', '--journal-app-raised'], 45],
 	['--journal-focus', ['--journal-page', '--journal-field'], 30],
 ];
 
