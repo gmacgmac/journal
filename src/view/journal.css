@@ -313,6 +313,13 @@
 		.sheet { max-width: none; padding: 24px 16px 16px; box-shadow: none; border-radius: 0; }
 		.journal-tools { padding: 8px 12px; }
 		.entries { grid-template-columns: var(--journal-time-w) minmax(0, 1fr); }
+		/* The writing has the page's whole width (GM, 2026-11-09): under an entry it runs from the left edge, under its
+		   time; a title stays beside its time, and one with no time starts at the edge, as the writing does. */
+		.entries > .block:not(.entry-head) { grid-column: 1 / -1; }
+		.entries > .entry-head:not(.has-title):not(:first-child) + .block { margin-top: 0.3em; }
+		.block.entry-head.no-time .title, .entry-draft .entry-column { grid-column: 1 / -1; }
+		.entry-draft .entry-column { margin-top: 0.3em; }
+		.add-entry { margin-left: -8px; }
 		/* A finger's reach: every control of the two bars, and Add an entry, at least --journal-tap high. */
 		.range button, .range input, .bar button, .bar-link input, .add-entry, .gap-add, .feed-more { min-height: var(--journal-tap); }
 		/* One row in a narrow pane: the toggle shows only the view it is on, Add a page is its +, and the day is narrower. */
