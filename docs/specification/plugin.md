@@ -423,7 +423,8 @@ door".
 `skill/SKILL.md`, written to `skill.md`, at most `SKILL_BYTES` (contract: 8,192 bytes), aiming at half that, since it rides
 every turn on a host that sends it whole. It opens with front matter, which a host that discloses skills progressively
 (nclite, GM 2026-11-07) lists while the rest is read when needed: `name`, the plugin's id, and `description`, one line that
-says what the Journal is and when to read the skill. Then, in this order:
+says what the Journal is and when to read the skill, and `label`, the few plain words nclite's Skills page names it by
+("Keeps your journal"). Then, in this order:
 
 1. What the Journal is: the person's journal, one page a day, entries by time, kept in `.journal/` in the workspace. Change
    it with the tools, never by writing the files, so the person sees each change and nothing is half-written.

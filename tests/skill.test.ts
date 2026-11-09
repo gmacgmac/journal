@@ -20,13 +20,15 @@ describe('the skill', () => {
 	});
 
 	// nclite lists a plugin's skill by its front matter and opens the rest when the bot needs it (progressive disclosure,
-	// GM 2026-11-07): `name` is the plugin's id, `description` one line that says when to read it.
-	it('the skill opens with front matter naming the plugin and saying when to read it', () => {
-		const m = /^---\nname: (.+)\ndescription: (.+)\n---\n\n# /.exec(skill);
-		assert.ok(m, 'front matter with name and description, then the title');
+	// GM 2026-11-07): `name` is the plugin's id, `label` the few plain words Bot › Skills names it by (nclite handover,
+	// 2026-11-09), `description` one line that says when to read it. Simple `key: value` lines, as nclite reads them.
+	it('the skill opens with front matter naming the plugin, labelling it, and saying when to read it', () => {
+		const m = /^---\nname: (.+)\nlabel: (.+)\ndescription: (.+)\n---\n\n# /.exec(skill);
+		assert.ok(m, 'front matter with name, label and description, then the title');
 		assert.equal(m[1], manifestOf('0.0.0').id);
-		assert.ok(m[2]!.length <= 1000, `${m[2]!.length} characters`);
-		assert.match(m[2]!, /^The person's journal.*Read this before/);
+		assert.ok(m[2]!.split(' ').length <= 5, `a few words: ${m[2]}`);
+		assert.ok(m[3]!.length <= 1000, `${m[3]!.length} characters`);
+		assert.match(m[3]!, /^The person's journal.*Read this before/);
 	});
 
 	it('every tool the skill names is a tool of the manifest', () => {
