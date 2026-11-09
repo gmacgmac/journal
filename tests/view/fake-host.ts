@@ -25,6 +25,8 @@ export function fakeHost() {
 	const calls = {
 		gets: [] as string[], edits: [] as Edit[], chips: [] as Chip[], attached: [] as unknown[],
 		notes: [] as [string, string | undefined][], asks: [] as ConfirmAsk[],
+		/** How many times the view said `pageChanged`. */
+		pageChanged: 0,
 	};
 	const listeners = new Set<(e: PluginEvent) => void>();
 	const knobs = {
@@ -94,6 +96,7 @@ export function fakeHost() {
 		confirm: (ask) => (calls.asks.push(ask), knobs.confirm(ask)),
 		store: { get: (key) => store.get(key) ?? null, set: (key, value) => void store.set(key, value) },
 		imageRoute: '/image',
+		pageChanged: () => void (calls.pageChanged += 1),
 	};
 	const emit = (ref: Ref) => { for (const fn of listeners) fn({ plugin: 'journal', ref }); };
 	return { host, files, problems, calls, listeners, knobs, emit, dayOf, useStore: (m: Map<string, string>) => void (store = m) };

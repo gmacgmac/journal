@@ -30,6 +30,8 @@ export interface ViewsDeps {
 	store: PluginStore;
 	live: { on: boolean };
 	notify(text: string, tone?: 'info' | 'error'): void;
+	/** What is on show may have changed: the view, its days, or what they hold. Said often; the mount works out the rest. */
+	onShow(): void;
 }
 
 export function createViews(d: ViewsDeps) {
@@ -50,12 +52,15 @@ export function createViews(d: ViewsDeps) {
 		const today = localToday();
 		keepPlace(d.store, p, today);
 		toolbar.show(p, today);
+		d.onShow();
 	}
 
-	/** In the running journal: the layout again, and the days it took off forgotten. */
+	/** In the running journal: the layout again, and the days it took off forgotten. Said as a change to what is on show. */
 	function relayout(): void {
-		if (place.view !== 'journal') return;
-		for (const date of layout(sheet, { recentFrom: feed.recentFrom, more: feed.next !== null })) shown.delete(date);
+		if (place.view === 'journal') {
+			for (const date of layout(sheet, { recentFrom: feed.recentFrom, more: feed.next !== null })) shown.delete(date);
+		}
+		d.onShow();
 	}
 
 	/** Saves what is open first; false when it could not be, and the sheet must stay. */

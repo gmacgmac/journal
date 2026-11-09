@@ -179,6 +179,12 @@ export interface PluginHost {
 	store: PluginStore;
 	/** The address a picture's path goes after (the engine's `image`). */
 	imageRoute: string;
+	/**
+	 * Says that what `pageChip()` would answer may have changed: something else is on show, it emptied, or it filled.
+	 * The host asks `pageChip()` again soon after and reads nothing from this call. Call it on every such change: the host
+	 * coalesces calls. Never call it from `unmount` or after it.
+	 */
+	pageChanged(): void;
 }
 
 /**

@@ -7,6 +7,7 @@
 //   host.chat.add   a block, as a chip, from the writing bar's Add to chat
 //   host.notify     a refused save, tick or undo, and a reveal it cannot show
 //   host.confirm    only from `leave()` (`leave.ts`)
+//   host.pageChanged  once the first draw settles, then each time `pageChip()` would answer something else
 // Inside, the pieces are:
 //   views.ts    what is on the sheet: the running journal (feed.ts) or one day, and the place kept (place.ts)
 //   toolbar.ts  the view, the day, and Add a page
@@ -77,7 +78,25 @@ export function mountJournal(root: HTMLElement, host: PluginHost): PluginView {
 		sessions: { current: null },
 		hintId,
 	};
-	const views = createViews({ paper, sheet, routes, page, toolbar, store: host.store, live, notify });
+	/** The chip for the days on show: the recent days or the one day, never counting an older page below them. */
+	function pageChip() {
+		const { range } = views;
+		return daysChip(range, [...views.shown.values()].filter((d) => d.date >= range.from && d.date <= range.to));
+	}
+	/**
+	 * What `pageChip()` answered when the host was last told, as JSON; undefined until the first draw settles. Views say a
+	 * change to what is on show often (every patch, every scroll that moves the place); the host is told only when the
+	 * chip is not what it was, so its Add to chat follows the chip and nothing else.
+	 */
+	let toldChip: string | undefined;
+	function chipMayHaveChanged(): void {
+		if (!live.on || toldChip === undefined) return;
+		const now = JSON.stringify(pageChip());
+		if (now === toldChip) return;
+		toldChip = now;
+		host.pageChanged();
+	}
+	const views = createViews({ paper, sheet, routes, page, toolbar, store: host.store, live, notify, onShow: chipMayHaveChanged });
 	const undo = createUndo(page, parts.toast, root);
 	const offFocus = trackFocusSource(root);
 	const { unsaved, leave } = createLeave(page, (ask) => host.confirm(ask), live);
@@ -167,7 +186,12 @@ export function mountJournal(root: HTMLElement, host: PluginHost): PluginView {
 		target.classList.add('fresh');
 	}
 
-	void views.open();
+	// The host is told once the first draw settles, read or refused, and from then on whenever the chip changes.
+	void views.open().finally(() => {
+		if (!live.on) return;
+		toldChip = JSON.stringify(pageChip());
+		host.pageChanged();
+	});
 
 	return {
 		unmount() {
@@ -184,10 +208,7 @@ export function mountJournal(root: HTMLElement, host: PluginHost): PluginView {
 		},
 		unsaved,
 		leave,
-		pageChip() {
-			const { range } = views;
-			return daysChip(range, [...views.shown.values()].filter((d) => d.date >= range.from && d.date <= range.to));
-		},
+		pageChip,
 		reveal: (ref) => void reveal(ref),
 	};
 }

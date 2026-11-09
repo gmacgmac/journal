@@ -131,7 +131,19 @@ const host: PluginHost = {
 		},
 	},
 	imageRoute: '/api/journal-images/',
+	// As nclite's pane does: the chip read again in a microtask, so a run of calls logs once with what it now is.
+	pageChanged() {
+		if (rechip) return;
+		rechip = true;
+		queueMicrotask(() => {
+			rechip = false;
+			const c = view.pageChip();
+			log('pageChanged', c === null ? 'nothing to add' : chip(c));
+		});
+	},
 };
+let rechip = false;
 
 // The view, on `window.journal` for the console: `journal.pageChip()`, `journal.reveal({ date })`, `journal.leave()`.
-Object.assign(window, { journal: mount(root, host) });
+const view = mount(root, host);
+Object.assign(window, { journal: view });
