@@ -5,6 +5,7 @@
 // the selection put back before it acts. One bar per mount: `createBar` keeps everything it knows inside.
 import type { Block } from './wire.ts';
 import { keepSelection } from './caret.ts';
+import { icon } from './icons.ts';
 import { el, renderMarkdown } from './render.ts';
 import type { Session } from './session.ts';
 import { say } from './words.ts';
@@ -32,6 +33,17 @@ export function createBar(bar: HTMLElement): Bar {
 	let session: Session | null = null;
 	let restore = () => {};
 
+	/** Delete, on the corner of the block being written in, where the eye already is (GM, 2026-11-09), not in the bar. */
+	const bin = el('button', [icon('trash')], {
+		type: 'button', class: 'block-bin', 'data-act': 'remove', 'aria-label': say('journal.view.bar.remove'), title: say('journal.view.bar.remove'),
+	});
+	/** Puts the bin on the top right of `node`, in its day's coordinates (the day is the bin's positioned parent). */
+	function placeBin(node: HTMLElement): void {
+		const day = node.closest<HTMLElement>('.day');
+		if (day === null) return bin.remove();
+		day.append(bin);
+		bin.style.top = `${node.getBoundingClientRect().top - day.getBoundingClientRect().top}px`;
+	}
 	const strip = bar.querySelector<HTMLElement>('.bar-scroll')!;
 	/** Marks the tools' strip while more of it lies past its right edge, so the edge fades and says there is more. */
 	const more = () => strip.classList.toggle('more', strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 1);
@@ -43,7 +55,7 @@ export function createBar(bar: HTMLElement): Bar {
 	};
 
 	const api: Bar = {
-		inBar: (node) => node instanceof Node && bar.contains(node),
+		inBar: (node) => node instanceof Node && (bar.contains(node) || bin.contains(node)),
 		showBar(s) {
 			session = s;
 			bar.hidden = false;
@@ -54,12 +66,14 @@ export function createBar(bar: HTMLElement): Bar {
 			bar.querySelector<HTMLElement>('[data-act=addtime]')!.hidden = timed !== false;
 			linkForm.hidden = true;
 			strip.scrollLeft = 0;
+			placeBin(s.node);
 			api.say();
 		},
 		hideBar(s) {
 			if (s !== undefined && s !== session) return;
 			session = null;
 			bar.hidden = true;
+			bin.remove();
 			room();
 		},
 		say(...parts) {
@@ -89,6 +103,12 @@ export function createBar(bar: HTMLElement): Bar {
 		},
 	};
 
+	// The bin keeps the writing's focus and selection as the bar's buttons do, and acts the same way.
+	bin.addEventListener('mousedown', (e) => e.preventDefault());
+	bin.addEventListener('focusin', (e) => {
+		if (session !== null && !(e.relatedTarget instanceof Node && bin.contains(e.relatedTarget))) restore = keepSelection();
+	});
+	bin.addEventListener('click', () => session?.act('remove', restore));
 	bar.addEventListener('mousedown', (e) => {
 		const t = e.target as Element;
 		if (t.closest('button') !== null && t.closest('.bar-link') === null) e.preventDefault();

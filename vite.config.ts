@@ -3,6 +3,7 @@
 // Same input, same bytes: no sourcemap, no timestamp, no path of this machine.
 import path from 'node:path';
 import type { InlineConfig } from 'vite';
+import { scopeCss } from './bin/scope-css.ts';
 
 const here = (rel: string) => path.resolve(import.meta.dirname, rel);
 
@@ -19,6 +20,8 @@ export const viewBuild = (outDir: string): InlineConfig => {
 	const base = common(path.join(outDir, 'view'));
 	return {
 		...base,
+		// The reusable packages under src/ui/ write plain classes; the sheet nests them under the Journal's scope.
+		plugins: [scopeCss(here('src/ui'), '.journal')],
 		build: {
 			...base.build, target: 'es2022', cssTarget: CSS_TARGET, cssCodeSplit: false,
 			lib: { entry: here('src/view/view.ts'), formats: ['es'], fileName: () => 'journal.js', cssFileName: 'journal' },

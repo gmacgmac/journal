@@ -8,7 +8,7 @@ import { addDays, CHIP_TEXT_CHARS, localToday } from '../../src/format/index.ts'
 import { PAGE_BATCH } from '../../src/view/feed.ts';
 import { recentDays } from '../../src/view/dates.ts';
 import { fire, installDom, newRoot, settle, type FakeElement } from './fake-dom.ts';
-import { fakeHost, fileOf, mounted, recent } from './fake-host.ts';
+import { fakeHost, fileOf, mounted, pickDay, recent } from './fake-host.ts';
 import { mountJournal } from '../../src/view/journal.ts';
 
 const q = (root: HTMLElement, sel: string) => root.querySelector(sel) as unknown as FakeElement;
@@ -46,15 +46,11 @@ describe('pageChanged', () => {
 		fire(q(m.root, '[data-nav="prev"]'), 'click');
 		await settle();
 		said(3, one(addDays(today, -1)), 'a day back');
-		const pick = q(m.root, '.day-nav').querySelector('input.picker')!;
-		pick.value = addDays(today, -9);
-		fire(pick, 'change');
-		await settle();
+		fire(q(m.root, '[data-nav="pick"]'), 'click');
+		await pickDay(m.root, addDays(today, -9));
 		said(4, one(addDays(today, -9)), 'a day picked');
-		const add = q(m.root, '.add-anchor').querySelector('input.picker')!;
-		add.value = addDays(today, -3);
-		fire(add, 'change');
-		await settle();
+		fire(q(m.root, '[data-add]'), 'click');
+		await pickDay(m.root, addDays(today, -3));
 		said(5, one(addDays(today, -3)), 'Add a page jumps to its day');
 		fire(q(m.root, '[data-nav="today"]'), 'click');
 		await settle();

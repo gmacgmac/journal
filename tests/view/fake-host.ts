@@ -7,7 +7,7 @@ import type { Day, Edit, RangeEdit } from '../../src/seam-types.ts';
 import type { Chip, ConfirmAsk, PluginEvent, PluginHost, Ref } from '../../src/vendor/plugin-host/plugin-host.ts';
 import { recentDays } from '../../src/view/dates.ts';
 import { mountJournal } from '../../src/view/journal.ts';
-import { newRoot, settle } from './fake-dom.ts';
+import { fire, newRoot, settle, type FakeElement } from './fake-dom.ts';
 
 /** The recent days the running journal opens on: today and the six before it. */
 export const recent = () => recentDays(localToday());
@@ -110,4 +110,12 @@ export async function mounted(setup: (h: ReturnType<typeof fakeHost>) => void = 
 	const view = mountJournal(root, h.host);
 	await settle();
 	return { root, view, ...h };
+}
+
+/** In the open calendar: steps back a month at a time until `date` shows, then picks it. */
+export async function pickDay(root: HTMLElement, date: string): Promise<void> {
+	const day = () => root.querySelector(`.dp-day[data-date="${date}"]`) as unknown as FakeElement | null;
+	for (let i = 0; i < 24 && day() === null; i += 1) fire(root.querySelector('.dp-step[data-step="-1"]') as unknown as FakeElement, 'click');
+	fire(day()!, 'click');
+	await settle();
 }

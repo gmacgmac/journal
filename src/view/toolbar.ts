@@ -2,10 +2,8 @@
 // switches to the other, and on a wide bar a press on the other's name goes there); in Day, the day shown, the days either
 // side and the way back to today; and Add a page (a plus and "Page"), which asks which day. Drawn once per mount; `show` brings it in line with the
 // place. It says what the person asked for through `actions` and decides nothing itself.
-import { isDate } from '../format/index.ts';
 import { shortDate } from './dates.ts';
 import { icon } from './icons.ts';
-import { dateField, openPicker } from './picker.ts';
 import type { Place, View } from './place.ts';
 import { el } from './render.ts';
 import { say, type ViewWord } from './words.ts';
@@ -15,6 +13,8 @@ export interface ToolbarActions {
 	step(days: -1 | 1): void;
 	go(date: string): void;
 	add(date: string): void;
+	/** Asks for a day under `anchor` (the day's date, or Add a page), then does `then` with it. */
+	pick(anchor: HTMLElement, ask: { value: string; max?: string; align: 'start' | 'end' }, then: (date: string) => void): void;
 }
 
 export interface Toolbar {
@@ -31,19 +31,17 @@ export function createToolbar(actions: ToolbarActions): Toolbar {
 	const views = el('button', [option('journal'), option('day')], { type: 'button', class: 'views' });
 	const dayLabel = el('span');
 	const pick = el('button', [dayLabel], { type: 'button', class: 'day-pick', 'data-nav': 'pick', title: say('journal.view.nav.pick'), 'aria-haspopup': 'dialog' });
-	const pickField = dateField(say('journal.view.nav.pick'));
 	const toToday = button(say('journal.view.today'), { 'data-nav': 'today' });
 	const dayNav = el('div', [
 		button('‹', { 'data-nav': 'prev', 'aria-label': say('journal.view.nav.before') }),
-		el('span', [pick, pickField], { class: 'picker-anchor' }),
+		pick,
 		button('›', { 'data-nav': 'next', 'aria-label': say('journal.view.nav.after') }),
 		toToday,
 	], { class: 'day-nav' });
 	const add = el('button', [icon('plus'), el('span', [say('journal.view.add.short')], { class: 'add-words' })], {
 		type: 'button', 'data-add': '', class: 'add-page', 'aria-label': say('journal.view.add.page'), title: say('journal.view.add.page'), 'aria-haspopup': 'dialog',
 	});
-	const addField = dateField(say('journal.view.add.pick'));
-	const bar = el('nav', [views, dayNav, el('span', [add, addField], { class: 'picker-anchor add-anchor' })], {
+	const bar = el('nav', [views, dayNav, add], {
 		class: 'toolbar', 'aria-label': say('journal.view.toolbar.label'),
 	});
 
@@ -62,17 +60,11 @@ export function createToolbar(actions: ToolbarActions): Toolbar {
 			case 'prev': return actions.step(-1);
 			case 'next': return actions.step(1);
 			case 'today': return actions.go(today);
-			case 'pick': return openPicker(pickField, { value: place.date ?? today });
+			case 'pick': return actions.pick(t, { value: place.date ?? today, align: 'start' }, (date) => actions.go(date));
 		}
-		if (t.hasAttribute('data-add')) openPicker(addField, { value: today });
+		// A page is added on a day up to today: the bot may write ahead, the person's Add a page does not.
+		if (t.hasAttribute('data-add')) actions.pick(t, { value: today, max: today, align: 'end' }, (date) => actions.add(date));
 	});
-	/** A picked day, once: the field goes back out of sight. */
-	const picked = (field: HTMLInputElement, then: (date: string) => void) => field.addEventListener('change', () => {
-		field.classList.remove('shown');
-		if (isDate(field.value)) then(field.value);
-	});
-	picked(pickField, (date) => actions.go(date));
-	picked(addField, (date) => actions.add(date));
 
 	return {
 		el: bar,

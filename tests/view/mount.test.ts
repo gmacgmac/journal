@@ -8,7 +8,7 @@ import { addDays, localToday } from '../../src/format/index.ts';
 import { PAGE_BATCH } from '../../src/view/feed.ts';
 import { say } from '../../src/view/words.ts';
 import { FakeEvent, fire, installDom, newRoot, settle, type FakeElement } from './fake-dom.ts';
-import { fakeHost, fileOf, mounted, recent } from './fake-host.ts';
+import { fakeHost, fileOf, mounted, pickDay, recent } from './fake-host.ts';
 import { mountJournal } from '../../src/view/journal.ts';
 
 const q = (root: HTMLElement, sel: string) => root.querySelector(sel) as unknown as FakeElement;
@@ -149,13 +149,14 @@ describe('mount', () => {
 		const { from } = recent();
 		const far = addDays(from, -20);
 		const m = await mounted((h) => h.files.set(addDays(from, -40), fileOf(addDays(from, -40), '## 08:00', 'Long ago.')));
-		fire(q(m.root, '[data-add]'), 'click');
-		const field = q(m.root, '.add-anchor').querySelector('input.picker')!;
-		assert.ok(field.classList.contains('shown'), 'no picker in the fake: the field is shown instead');
-		assert.equal(field.value, localToday());
-		field.value = far;
-		fire(field, 'change');
-		await settle();
+		const add = q(m.root, '[data-add]');
+		fire(add, 'click');
+		const cal = q(m.root, '.dp-calendar');
+		assert.equal(add.getAttribute('aria-expanded'), 'true');
+		assert.equal(cal.querySelector('[aria-current="date"]')!.getAttribute('data-date'), localToday(), 'it opens on today');
+		assert.equal(cal.querySelector(`[data-date="${addDays(localToday(), 1)}"]`)?.getAttribute('aria-disabled') ?? 'true', 'true', 'no later day is taken');
+		await pickDay(m.root, far);
+		assert.equal(m.root.querySelector('.dp-popover'), null, 'a pick closes it');
 		assert.deepEqual(dates(m.root).slice(1), [far, addDays(from, -40)], 'in date order');
 		const day = q(m.root, `.day[data-date="${far}"]`);
 		assert.ok(day.classList.contains('placed'));
@@ -181,7 +182,7 @@ describe('mount', () => {
 		m.view.unmount();
 	});
 
-	it('a gap of one day adds a page there at once; a longer gap holds the picker to its days', async () => {
+	it('a gap of one day adds a page there at once; a longer gap offers its days, newest first', async () => {
 		const { from } = recent();
 		const m = await mounted((h) => {
 			for (const d of [addDays(from, -2), addDays(from, -4), addDays(from, -9)]) h.files.set(d, fileOf(d, '## 08:00', 'Then.'));
@@ -192,12 +193,13 @@ describe('mount', () => {
 		assert.ok(q(m.root, `.day[data-date="${addDays(from, -3)}"]`).querySelector('.entry-draft'));
 		const four = marker(addDays(from, -8));
 		fire(four.querySelector('.gap-add'), 'click');
-		const field = four.querySelector('input.picker')!;
-		assert.deepEqual([field.getAttribute('min'), field.getAttribute('max'), field.value], [addDays(from, -8), addDays(from, -5), addDays(from, -5)]);
-		field.value = addDays(from, -30);
-		fire(field, 'change');
+		const chips = [...m.root.querySelectorAll('.dp-chip')].map((c) => c.getAttribute('data-date'));
+		assert.deepEqual(chips, [-5, -6, -7, -8].map((n) => addDays(from, n)), 'the days between, newest first');
+		assert.equal(m.root.querySelector('.dp-more'), null, 'no other day for a gap of a week or less');
+		fire(q(m.root, `.dp-chip[data-date="${addDays(from, -7)}"]`), 'click');
 		await settle();
-		assert.equal(m.root.querySelector(`.day[data-date="${addDays(from, -30)}"]`), null, 'a day outside the gap is not taken');
+		assert.ok(q(m.root, `.day[data-date="${addDays(from, -7)}"]`).querySelector('.entry-draft'));
+		assert.equal(m.root.querySelector('.dp-popover'), null);
 		m.view.unmount();
 	});
 
@@ -242,20 +244,27 @@ describe('mount', () => {
 		m.view.unmount();
 	});
 
-	it('the writing bar is one row: its tools in a strip that scrolls, Done outside it, every icon named', async () => {
+	it('the writing bar is one row: its tools in a strip that scrolls, Done outside it, every icon named; Delete is a bin on the block', async () => {
 		const { from } = recent();
 		const m = await mounted((h) => h.files.set(from, fileOf(from, '## 08:00', 'Morning.')));
 		fire(q(m.root, '.block[data-kind="paragraph"]'), 'click');
 		const tools = q(m.root, '.bar-tools');
 		const done = q(m.root, '[data-act="done"]');
 		assert.equal(done.parentElement, tools as unknown as HTMLElement, 'Done is never in the strip that scrolls');
-		for (const [act, word] of [['link', 'journal.view.bar.link'], ['todo', 'journal.view.bar.todo'], ['ask', 'journal.view.bar.ask'], ['remove', 'journal.view.bar.remove']] as const) {
+		for (const [act, word] of [['link', 'journal.view.bar.link'], ['todo', 'journal.view.bar.todo'], ['ask', 'journal.view.bar.ask']] as const) {
 			const button = q(m.root, `[data-act="${act}"]`);
 			assert.equal(button.parentElement, q(m.root, '.bar-scroll') as unknown as HTMLElement);
 			assert.equal(button.getAttribute('aria-label'), say(word));
 			assert.ok(button.querySelector('svg.icon'), `${act} has its icon`);
 		}
 		assert.equal(q(m.root, '[data-act="ask"]').textContent, say('journal.view.bar.askShort'));
+		const bin = q(m.root, '.block-bin');
+		assert.equal(bin.parentElement, q(m.root, `.day[data-date="${from}"]`) as unknown as HTMLElement, 'Delete sits on the block being written in, not in the bar');
+		assert.equal(bin.getAttribute('aria-label'), say('journal.view.bar.remove'));
+		assert.equal(q(m.root, '.bar').querySelector('[data-act="remove"]'), null);
+		fire(done, 'click');
+		await settle();
+		assert.equal(m.root.querySelector('.block-bin'), null, 'and goes when the writing closes');
 		const add = q(m.root, '[data-add]');
 		assert.equal(add.getAttribute('aria-label'), say('journal.view.add.page'));
 		assert.equal(add.textContent, say('journal.view.add.short'));

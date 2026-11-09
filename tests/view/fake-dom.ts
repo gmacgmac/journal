@@ -133,6 +133,14 @@ export class FakeElement extends FakeNode {
 	style = { textAlign: '', props: new Map<string, string>(), setProperty(k: string, v: string) { this.props.set(k, v); } };
 	value = '';
 	offsetHeight = 0;
+	offsetWidth = 0;
+	scrollLeft = 0;
+	tabIndex = 0;
+	/** No layout in the fake: every box is at the origin, with no size. */
+	getBoundingClientRect() { return { top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0 }; }
+	get ownerDocument(): FakeDocument { return doc; }
+	get disabled(): boolean { return this.attrs.has('disabled'); }
+	set disabled(on: boolean) { if (on) this.setAttribute('disabled', ''); else this.removeAttribute('disabled'); }
 	onsubmit: ((e: FakeEvent) => void) | null = null;
 	private checkedState: boolean | null = null;
 	dataset: Record<string, string | undefined>;

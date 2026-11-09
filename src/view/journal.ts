@@ -21,6 +21,7 @@ import { addDays, isDate, localToday } from '../format/index.ts';
 import { blocksMarkdown } from '../vendor/markdown/index.ts';
 import type { PluginHost, PluginView } from '../vendor/plugin-host/plugin-host.ts';
 import { createBar } from './bar.ts';
+import { createDayPicker } from './day-picker.ts';
 import { blockChip, daysChip } from './chips.ts';
 import { readBlocks } from './dom-tree.ts';
 import { draftAfter, entryDraft } from './drafts.ts';
@@ -28,7 +29,6 @@ import { drawView } from './draw.ts';
 import { trackFocusSource } from './focus.ts';
 import { isEditing, startSession } from './editor.ts';
 import { createLeave } from './leave.ts';
-import { openPicker } from './picker.ts';
 import { readReveal } from './reveal.ts';
 import type { BlockNode, Page } from './session.ts';
 import { bodySpec, headingSpec } from './specs.ts';
@@ -44,10 +44,12 @@ export function mountJournal(root: HTMLElement, host: PluginHost): PluginView {
 		step: (n) => void views.showDay(addDays(views.place.date ?? localToday(), n)),
 		go: (date) => void views.showDay(date),
 		add: (date) => void addPage(date),
+		pick: (anchor, ask, then) => picker.calendar(anchor, { ...ask, onPick: then }),
 	});
 	const parts = drawView(root, toolbar.el);
 	const { paper, sheet, hintId } = parts;
 	const routes = createRoutes(host.api);
+	const picker = createDayPicker(root, paper, routes, localToday);
 	const live = { on: true };
 	const notify = (text: string, tone: 'info' | 'error' = 'error') => void (live.on && host.notify(text, tone));
 
@@ -130,9 +132,9 @@ export function mountJournal(root: HTMLElement, host: PluginHost): PluginView {
 		const gap = t.closest<HTMLElement>('.gap-marker');
 		if (gap !== null && t.closest('.gap-add') !== null) {
 			const { from, to } = gap.dataset as { from: string; to: string };
-			// One day between: that is the day. More: the picker, held to the days between.
+			// One day between: that is the day. More: the days between, to pick one.
 			if (from === to) return void addPage(from);
-			return openPicker(gap.querySelector<HTMLInputElement>('input.picker')!, { value: to, min: from, max: to });
+			return picker.strip(t.closest<HTMLElement>('.gap-add')!, from, to, (date) => void addPage(date));
 		}
 		if (t.closest('.feed-more') !== null) return void views.readOlder();
 		// In Day, a day with no page is a blank page: a press anywhere on it starts writing.
@@ -148,14 +150,6 @@ export function mountJournal(root: HTMLElement, host: PluginHost): PluginView {
 		if (node === null || isEditing(node) || t.closest('a') !== null) return;
 		if (t.matches('input.todo')) return void tick(t as HTMLInputElement);
 		page.open(node, { x: e.clientX, y: e.clientY });
-	});
-	sheet.addEventListener('change', (e) => {
-		const field = e.target as HTMLInputElement;
-		const gap = field.closest<HTMLElement>('.gap-marker');
-		if (gap === null || !field.matches('input.picker')) return;
-		field.classList.remove('shown');
-		const { from, to } = gap.dataset as { from: string; to: string };
-		if (field.value >= from && field.value <= to) void addPage(field.value);
 	});
 	sheet.addEventListener('keydown', (e) => {
 		const t = e.target as BlockNode;
@@ -199,6 +193,7 @@ export function mountJournal(root: HTMLElement, host: PluginHost): PluginView {
 		unmount() {
 			// Never asks and never saves (the host called `leave()` first): open writing is closed as it was.
 			live.on = false;
+			picker.close();
 			page.sessions.current?.discard();
 			offEvents();
 			undo.dispose();

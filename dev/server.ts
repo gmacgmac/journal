@@ -9,6 +9,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { dirname, join } from 'node:path';
 import { createServer } from 'vite';
+import { scopeCss } from '../bin/scope-css.ts';
 import { createEngine } from '../src/engine/engine.ts';
 import { addDays, dateOfPath, dateTitle, dayPath, localToday } from '../src/format/index.ts';
 
@@ -79,7 +80,7 @@ const server = await createServer({
 	root: HERE,
 	logLevel: 'info',
 	server: { host: HOST, port: PORT, strictPort: true, fs: { allow: [join(HERE, '..')] } },
-	plugins: [{
+	plugins: [scopeCss(join(HERE, '..', 'src', 'ui'), '.journal'), {
 		name: 'journal-dev-host',
 		configureServer(vite) {
 			vite.middlewares.use((req, res, next) => {

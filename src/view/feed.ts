@@ -7,7 +7,6 @@
 import { addDays, daysBetween } from '../format/index.ts';
 import { dayMonth } from './dates.ts';
 import { icon } from './icons.ts';
-import { dateField } from './picker.ts';
 import { el } from './render.ts';
 import { say } from './words.ts';
 
@@ -30,12 +29,10 @@ export function gapMarker(newer: string, older: string): HTMLElement | null {
 	const count = from <= to ? daysBetween(from, to) : 0;
 	if (count < 1) return null;
 	const add = el('button', [icon('plus'), say('journal.view.add.page')], {
-		type: 'button', class: 'gap-add', 'aria-label': say('journal.view.gap.add', { from: dayMonth(from), to: dayMonth(to) }),
+		type: 'button', class: 'gap-add', 'aria-haspopup': 'dialog', 'aria-label': say('journal.view.gap.add', { from: dayMonth(from), to: dayMonth(to) }),
 	});
 	// Only the way to add a page: how many days lie between is not worth a line of its own (GM, 2026-11-09).
-	return el('div', [el('span', [add, dateField(say('journal.view.add.pick'))], { class: 'picker-anchor' })], {
-		class: 'gap-marker', 'data-from': from, 'data-to': to,
-	});
+	return el('div', [add], { class: 'gap-marker', 'data-from': from, 'data-to': to });
 }
 
 /**

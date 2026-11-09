@@ -25,7 +25,6 @@ function bar(): HTMLElement {
 				act('addtime', [say('journal.view.bar.addTime')], { hidden: '' }),
 				el('span', [], { class: 'gap' }),
 				act('ask', [icon('send'), el('span', [say('journal.view.bar.askShort')], { class: 'word' })], { 'aria-label': say('journal.view.bar.ask'), title: say('journal.view.bar.ask') }),
-				act('remove', [icon('trash')], { 'aria-label': say('journal.view.bar.remove'), title: say('journal.view.bar.remove') }),
 			], { class: 'bar-scroll' }),
 			act('done', [say('journal.view.bar.done')], { class: 'primary', title: say('journal.view.bar.doneHint') }),
 		], { class: 'bar-tools' }),

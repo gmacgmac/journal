@@ -83,14 +83,15 @@ describe('the Journal’s colours', () => {
 		assert.deepEqual(short, []);
 	});
 
-	it('the stylesheet reads only host properties of the contract’s list, and its own', () => {
+	it('the stylesheet reads only host properties of the contract’s list, and its own (the date-pick package’s tokens among them)', () => {
 		const reads = [...CSS.matchAll(/var\((--[\w-]+)/g)].map((m) => m[1]!);
 		const host = new Set<string>(HOST_PROPERTIES);
-		const strangers = reads.filter((p) => !p.startsWith('--journal-') && !host.has(p));
+		const own = (p: string) => p.startsWith('--journal-') || p.startsWith('--dp-');
+		const strangers = reads.filter((p) => !own(p) && !host.has(p));
 		assert.deepEqual(strangers, []);
 		const unset = reads.filter((p) => p.startsWith('--journal-') && !TOKENS.has(p) && p !== '--journal-bar-h');
 		assert.deepEqual(unset, [], 'every own property it reads is one it declares (the bar height is set by the view)');
-		const declaresHost = [...TOKENS.keys()].filter((p) => !p.startsWith('--journal-'));
+		const declaresHost = [...TOKENS.keys()].filter((p) => !own(p));
 		assert.deepEqual(declaresHost, [], 'it declares no host property');
 	});
 

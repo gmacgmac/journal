@@ -40,10 +40,10 @@ describe('the built view', () => {
 		for (const p of top) assert.match(p, /^(\.journal|@keyframes journal-[\w-]+)$/, p);
 	});
 
-	it('sets only its own custom properties', () => {
+	it('sets only its own custom properties: the Journal’s, and the date-pick package’s tokens it sets for it', () => {
 		const set = [...css.matchAll(/(?:^|[{;])\s*(--[\w-]+)\s*:/g)].map((m) => m[1]!);
 		assert.ok(set.length > 0);
-		for (const name of set) assert.match(name, /^--journal-/, name);
+		for (const name of set) assert.match(name, /^--(journal|dp)-/, name);
 	});
 
 	it('imports nothing and fetches nothing', () => {

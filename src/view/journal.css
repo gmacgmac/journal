@@ -69,6 +69,18 @@
 	--journal-fill-hover: var(--host-accent-fill-hover, var(--host-accent-strong, light-dark(#ac461b, #b95429)));
 	--journal-on-fill: var(--host-on-accent, #fff);
 	--journal-focus: var(--host-focus, var(--host-accent, light-dark(#c4501f, #ff8a4f)));
+	/* The date-pick package's tokens (src/ui/date-pick/README.md), from the Journal's own: its panel is the toolbar's. */
+	--dp-surface: var(--journal-app-field);
+	--dp-ink: var(--journal-app-ink);
+	--dp-muted: var(--journal-app-muted);
+	--dp-line: var(--journal-app-line-strong);
+	--dp-hover: var(--journal-app-raised);
+	--dp-accent: var(--journal-date-ink);
+	--dp-fill: var(--journal-fill);
+	--dp-on-fill: var(--journal-on-fill);
+	--dp-ring: var(--journal-ring);
+	--dp-radius: 7px;
+	--dp-font: var(--journal-font);
 	/* The ring a focused control draws: the focus colour, but none on what a pointer press focused (focus.ts), so the ring
 	   shows only for Tab. */
 	--journal-ring: var(--journal-focus);
@@ -111,17 +123,9 @@
 	/* The day, one width for every day ("Wed 30 Sep" the widest), so the arrows either side never move. */
 	.toolbar .day-pick { width: 7.5em; padding: 4px 6px; text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
 	.toolbar .away { visibility: hidden; }
-	.add-anchor { margin-left: auto; }
 	/* An icon is a flat stroke in its text's colour, as tall as a capital and a little more. */
 	.icon { width: 1.15em; height: 1.15em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-	.add-page { display: inline-flex; align-items: center; gap: 5px; }
-	/* A date field laid over the button that opens its picker: not seen, not tabbed to (picker.ts). */
-	.picker-anchor { position: relative; display: inline-flex; }
-	input.picker { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; opacity: 0; pointer-events: none; }
-	/* Add a page sits at the bar's right end, and the browser opens its calendar from the field's left edge: the field there
-	   reaches left from the button, so the calendar opens inside the pane rather than off its edge (GM, 2026-11-09). */
-	.add-anchor input.picker:not(.shown) { left: auto; right: 0; width: 16rem; }
-	input.picker.shown { position: static; width: auto; height: auto; padding: 4px 8px; opacity: 1; pointer-events: auto; font: inherit; color: var(--journal-app-ink); background: var(--journal-app-field); border: 1px solid var(--journal-app-line); border-radius: 8px; }
+	.add-page { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; }
 
 	/* ─── The open journal ──────────────────────────────────────────────────── */
 	/* The desk, and past the last day only the room the writing bar needs while it is up (161: a fixed room once left an
@@ -134,7 +138,7 @@
 		box-shadow: 0 1px 2px var(--journal-shadow), 0 14px 36px var(--journal-shadow);
 	}
 
-	.day { margin: 0 0 32px; }
+	.day { position: relative; margin: 0 0 32px; }
 	.day:last-child { margin-bottom: 0; }
 	.day h2 {
 		margin: 0 0 16px; padding-bottom: 8px;
@@ -292,6 +296,17 @@
 	.bar button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap; }
 	.bar button:has(> .icon:only-child) { padding: 5px 8px; }
 	.bar button[hidden] { display: none; }
+	/* Delete, on the top right corner of the block being written in (bar.ts places it in its day's coordinates). */
+	.block-bin {
+		position: absolute; right: 0; z-index: 3; transform: translate(45%, -45%);
+		display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0;
+		color: var(--journal-ink-soft); background: var(--journal-page); border: 1px solid var(--journal-field-line); border-radius: 50%; cursor: pointer;
+	}
+	.block-bin:hover { color: var(--journal-warn); border-color: currentColor; }
+	.block-bin:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 2px; }
+	.block-bin .icon { width: 16px; height: 16px; }
+	/* Seen at 30px, pressed anywhere in 44 (the tap size). */
+	.block-bin::before { content: ''; position: absolute; inset: -7px; }
 	.bar-link { margin-top: 8px; }
 	.bar-link label { display: flex; flex: 1; align-items: center; gap: 8px; }
 	.bar-link input { flex: 1; min-height: 34px; padding: 4px 8px; font: inherit; color: var(--journal-ink); background: var(--journal-field); border: 1px solid var(--journal-field-line); border-radius: 7px; }

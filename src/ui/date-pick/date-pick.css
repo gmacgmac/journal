@@ -1,0 +1,39 @@
+/* THE DATE-PICK PACKAGE'S LOOK. Plain rules on its own `dp-` classes, written to be nested inside the app's scope (the
+   Journal's build wraps this file in `.journal { … }`). Every colour, the corner and the face are tokens the app sets:
+   --dp-surface (the panel), --dp-ink, --dp-muted, --dp-line, --dp-hover, --dp-accent (today's ring, the dots),
+   --dp-fill and --dp-on-fill (the chosen day), --dp-ring (keyboard focus), --dp-radius, --dp-font. */
+.dp-popover {
+	position: absolute; z-index: 20; padding: 10px;
+	font: 14px/1.3 var(--dp-font, system-ui, sans-serif); color: var(--dp-ink, CanvasText);
+	background: var(--dp-surface, Canvas); border: 1px solid var(--dp-line, GrayText); border-radius: calc(var(--dp-radius, 8px) + 4px);
+	box-shadow: 0 6px 24px rgb(0 0 0 / 0.18);
+}
+.dp-popover :focus-visible { outline: 2px solid var(--dp-ring, Highlight); outline-offset: 1px; }
+.dp-popover button { font: inherit; color: inherit; background: none; border: 0; border-radius: var(--dp-radius, 8px); cursor: pointer; }
+.dp-popover button:hover:not(:disabled, [aria-disabled='true']) { background: var(--dp-hover, transparent); }
+
+.dp-calendar { width: 15.5em; }
+.dp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.dp-title { font-weight: 600; }
+.dp-step { width: 2em; height: 2em; font-size: 1.1em; }
+.dp-step:disabled { opacity: 0.35; cursor: default; }
+.dp-grid { width: 100%; border-collapse: collapse; table-layout: fixed; text-align: center; }
+.dp-grid th { padding: 2px 0 6px; font-size: 0.8em; font-weight: 500; color: var(--dp-muted, GrayText); }
+.dp-grid td { padding: 1px; }
+.dp-day { position: relative; width: 100%; height: 2.2em; font-variant-numeric: tabular-nums; }
+.dp-day[aria-current='date'] { box-shadow: inset 0 0 0 1.5px var(--dp-accent, Highlight); }
+.dp-day[aria-pressed='true'] { color: var(--dp-on-fill, HighlightText); background: var(--dp-fill, Highlight); }
+.dp-day[aria-disabled='true'] { color: var(--dp-muted, GrayText); opacity: 0.45; cursor: default; }
+.dp-day.dp-marked::after {
+	content: ''; position: absolute; left: 50%; bottom: 3px; width: 4px; height: 4px; margin-left: -2px;
+	border-radius: 50%; background: var(--dp-accent, Highlight);
+}
+
+.dp-strip { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: 22em; }
+.dp-popover .dp-chip { padding: 5px 11px; border: 1px solid var(--dp-line, GrayText); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dp-more { color: var(--dp-muted, GrayText); }
+
+@media (pointer: coarse) {
+	.dp-day { height: 2.75em; }
+	.dp-step, .dp-chip { min-height: 44px; }
+}

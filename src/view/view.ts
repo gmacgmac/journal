@@ -3,5 +3,7 @@
 import type * as Seam from '../seam-types.ts';
 import { mountJournal } from './journal.ts';
 import './journal.css';
+// The date-pick package's sheet: the build nests it under `.journal` (bin/scope-css.ts).
+import '../ui/date-pick/date-pick.css';
 
 export const mount: typeof Seam.mount = (root, host) => mountJournal(root, host);
