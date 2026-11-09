@@ -46,7 +46,8 @@
 	--journal-app-muted: var(--host-ink-muted, light-dark(#63523d, #dcd6d2));
 	--journal-app-line-strong: var(--host-line-strong, light-dark(#d8c8b0, #463f3a));
 	/* The paper. */
-	--journal-desk: color-mix(in oklab, var(--host-canvas, light-dark(#e6dccb, #13100f)) 92%, var(--host-accent, var(--host-canvas, light-dark(#e6dccb, #13100f))) 8%);
+	/* The desk is the app's own ground, the chat's beside it, untinted: the accent is for what is chosen, never a surface (GM). */
+	--journal-desk: var(--host-canvas, light-dark(#e6dccb, #13100f));
 	--journal-page: color-mix(in oklab, var(--host-surface, light-dark(#fbf6ec, #1c1916)) 95%, var(--host-accent, var(--host-surface, light-dark(#fbf6ec, #1c1916))) 5%);
 	--journal-field: var(--host-surface, light-dark(#fffdf8, #25211e));
 	--journal-hover: var(--host-surface-sunken, light-dark(#f4ecdf, #25211e));

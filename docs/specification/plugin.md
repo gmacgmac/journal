@@ -553,7 +553,7 @@ paper as its own look when the host sets none.
 
 | Token | Is | Without the host |
 |---|---|---|
-| `--journal-desk` | `color-mix(in oklab, var(--host-canvas) 92%, var(--host-accent) 8%)` | `light-dark(#e6dccb, #13100f)` |
+| `--journal-desk` | `var(--host-canvas)`, untinted: the chat's own ground beside it; the accent marks what is chosen, never a surface (GM, 2026-11-09) | `light-dark(#e6dccb, #13100f)` |
 | `--journal-page` | `color-mix(in oklab, var(--host-surface) 95%, var(--host-accent) 5%)` | `light-dark(#fbf6ec, #1c1916)` |
 | `--journal-field` | `var(--host-surface)`: the ground of a block open for writing | `light-dark(#fffdf8, #25211e)` |
 | `--journal-hover` | `var(--host-surface-sunken)` | `light-dark(#f4ecdf, #25211e)` |
