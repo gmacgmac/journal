@@ -2,7 +2,7 @@
 // read in whole days up to a budget of characters and of answer bytes.
 import { checkDay, dateTitle, daysBetween, isDate, keyedBlocks, addDays } from '../format/index.ts';
 import type { Day } from '../seam-types.ts';
-import { REPLY_BUDGET, TOO_BIG_VARS, jsonBytes, readDayFile, version, type DayFile } from '../store/index.ts';
+import { REPLY_BUDGET, TOO_BIG_VARS, datesWithPages, jsonBytes, readDayFile, version, type DayFile } from '../store/index.ts';
 import { problemText, word } from './words.ts';
 
 /** The most days one `GET days` may ask for. */
@@ -10,6 +10,9 @@ export const MAX_RANGE_DAYS = 93;
 /** What one `GET days` answer may hold: characters of day text, and bytes as JSON; always at least one day. */
 export const DAYS_MAX_CHARS = 300000;
 export const DAYS_BUDGET: ReadBudget = { chars: DAYS_MAX_CHARS, bytes: REPLY_BUDGET };
+/** The most pages one `GET pages` may ask for, and how many it gives when it is not told. */
+export const MAX_PAGES = 31;
+export const PAGES_DEFAULT = 10;
 
 /** `date`'s day as the routes answer it, from what is at its path. */
 export function dayOf(date: string, file: DayFile): Day {
@@ -55,4 +58,29 @@ export function readDays<T>(
 		days.push(day);
 	}
 	return { days };
+}
+
+/**
+ * The pages before `before` (not included), newest first: at most `count` days that have a file, each as `shape` makes it,
+ * whole, under the same budget as a range (always at least one). `next` is the date to read on before, when older pages
+ * are left: the oldest day given.
+ */
+export function readPages<T extends { date: string }>(
+	dir: string, before: string, count: number, budget: ReadBudget, shape: (date: string, file: DayFile) => T, size: (day: T) => number = jsonBytes,
+): { days: T[]; next?: string } {
+	const dates = datesWithPages(dir, before, count + 1);
+	const days: T[] = [];
+	let chars = 0;
+	let bytes = 0;
+	for (const date of dates.slice(0, count)) {
+		const file = readDayFile(dir, date);
+		// A file that went between the listing and the read is not a page.
+		if (file.state === 'none') continue;
+		const day = shape(date, file);
+		chars += charsOf(file);
+		bytes += size(day) + 1;
+		if (days.length > 0 && (chars > budget.chars || bytes > budget.bytes)) return { days, next: days.at(-1)!.date };
+		days.push(day);
+	}
+	return dates.length > count && days.length > 0 ? { days, next: days.at(-1)!.date } : { days };
 }

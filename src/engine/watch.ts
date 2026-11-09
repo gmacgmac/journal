@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { Ref } from '../vendor/plugin-host/plugin-host.ts';
 import { addDays, dateOfPath, localToday } from '../format/index.ts';
+import { monthFolders } from '../store/index.ts';
 
 export const WATCH_POLL_MS = 1000;
 export const WATCH_SWEEP_MS = 30000;
@@ -30,16 +31,6 @@ const DEFAULTS: WatchOptions = { pollMs: WATCH_POLL_MS, sweepMs: WATCH_SWEEP_MS,
 const idOf = (s: fs.Stats): string => `${s.mtimeMs}:${s.size}:${s.ino}`;
 const monthOf = (date: string): string => `${date.slice(0, 4)}/${date.slice(5, 7)}`;
 const gone = (e: unknown): boolean => ['ENOENT', 'ENOTDIR'].includes((e as NodeJS.ErrnoException).code ?? '');
-
-/** The folders under `dir` that hold names matching `re` (links are not followed). */
-function folders(dir: string, re: RegExp): string[] {
-	try {
-		return fs.readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory() && re.test(d.name)).map((d) => d.name).sort();
-	} catch (e) {
-		if (gone(e)) return [];
-		throw e;
-	}
-}
 
 /** What the folder `dir` holds, compared with what it held at the last pass. */
 export function createScanner(dir: string, options: Pick<WatchOptions, 'maxFiles' | 'today'>) {
@@ -99,7 +90,7 @@ export function createScanner(dir: string, options: Pick<WatchOptions, 'maxFiles
 			const always = new Set([monthOf(today), monthOf(addDays(`${today.slice(0, 7)}-01`, -1))]);
 			const listed: string[] = [];
 			try {
-				for (const year of folders(dir, /^\d{4}$/)) for (const m of folders(path.join(dir, year), /^\d{2}$/)) listed.push(`${year}/${m}`);
+				listed.push(...monthFolders(dir));
 			} catch (e) {
 				return { changed: [], error: e };
 			}

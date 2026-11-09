@@ -1,15 +1,16 @@
 // A host as nclite gives one to `mount` (the contract's `PluginHost`), with a small Journal engine behind its `api`: day
-// files held as text, answered the way the spec's routes answer (a `Response`, whole days and `next`, problems with a
-// status), with real keys and offsets from `src/format/`. Every call is recorded, and each answer can be changed.
+// files held as text, answered the way the spec's routes answer (a `Response`, whole days and `next`, older pages newest
+// first, problems with a status), with real keys and offsets from `src/format/`, and a store held in a map. Every call is
+// recorded, and each answer can be changed.
 import { dateTitle, daysBetween, keyedBlocks, localToday } from '../../src/format/index.ts';
 import type { Day, Edit, RangeEdit } from '../../src/seam-types.ts';
 import type { Chip, ConfirmAsk, PluginEvent, PluginHost, Ref } from '../../src/vendor/plugin-host/plugin-host.ts';
-import { weekOf } from '../../src/view/dates.ts';
+import { recentDays } from '../../src/view/dates.ts';
 import { mountJournal } from '../../src/view/journal.ts';
 import { newRoot, settle } from './fake-dom.ts';
 
-/** The Monday that starts the week the view opens on. */
-export const thisWeek = () => weekOf(localToday());
+/** The recent days the running journal opens on: today and the six before it. */
+export const recent = () => recentDays(localToday());
 
 /** A day file: its date line, then the texts given, a blank line apart. */
 export const fileOf = (date: string, ...texts: string[]) => `${[`# ${dateTitle(date)}`, ...texts].join('\n\n')}\n`;
@@ -18,6 +19,8 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 
 export function fakeHost() {
 	const files = new Map<string, string>();
+	/** The host's store for this bot and plugin; a test may share one between mounts. */
+	let store = new Map<string, string>();
 	const problems = new Map<string, string[]>();
 	const calls = {
 		gets: [] as string[], edits: [] as Edit[], chips: [] as Chip[], attached: [] as unknown[],
@@ -62,6 +65,13 @@ export function fakeHost() {
 			}
 			calls.gets.push(path);
 			const q = new URLSearchParams(path.split('?')[1]);
+			if (path.startsWith('pages?')) {
+				const before = q.get('before')!;
+				const limit = Number(q.get('limit'));
+				const dates = [...files.keys()].filter((d) => d < before).sort().reverse();
+				const days = dates.slice(0, limit).map(dayOf);
+				return json(dates.length > limit ? { days, next: days.at(-1)!.date } : { days });
+			}
 			const from = q.get('from')!;
 			const to = q.get('to')!;
 			const days: Day[] = [];
@@ -82,11 +92,11 @@ export function fakeHost() {
 		settings: { get: () => undefined, on: () => () => {} },
 		notify: (text, tone) => void calls.notes.push([text, tone]),
 		confirm: (ask) => (calls.asks.push(ask), knobs.confirm(ask)),
-		store: { get: () => null, set: () => {} },
+		store: { get: (key) => store.get(key) ?? null, set: (key, value) => void store.set(key, value) },
 		imageRoute: '/image',
 	};
 	const emit = (ref: Ref) => { for (const fn of listeners) fn({ plugin: 'journal', ref }); };
-	return { host, files, problems, calls, listeners, knobs, emit, dayOf };
+	return { host, files, problems, calls, listeners, knobs, emit, dayOf, useStore: (m: Map<string, string>) => void (store = m) };
 }
 
 /** A journal mounted on a fake host, its first read drawn. */

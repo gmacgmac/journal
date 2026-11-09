@@ -19,6 +19,10 @@
 	--journal-gutter: 20px;
 	/* The least a control is high on the phone layout, for a finger. */
 	--journal-tap: 44px;
+	/* The sheet: its widest, its inset, and the desk left under it past the last day (more while the writing bar is up). */
+	--journal-sheet-w: 760px;
+	--journal-sheet-pad: 56px 64px 64px;
+	--journal-end: 40px;
 	--journal-font: var(--host-font, system-ui, -apple-system, 'Segoe UI', sans-serif);
 	--journal-mono: var(--host-font-mono, ui-monospace, Menlo, monospace);
 	--journal-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, ui-serif, serif;
@@ -27,6 +31,9 @@
 	--journal-app-ink: var(--host-ink, light-dark(#141414, #fafafa));
 	--journal-app-line: var(--host-line, light-dark(#e9ddcc, #332d29));
 	--journal-app-field: var(--host-surface, light-dark(#fffdfa, #1c1916));
+	--journal-app-raised: var(--host-surface-sunken, light-dark(#f5eee3, #25211e));
+	--journal-app-muted: var(--host-ink-muted, light-dark(#63523d, #dcd6d2));
+	--journal-app-line-strong: var(--host-line-strong, light-dark(#d8c8b0, #463f3a));
 	/* The paper. */
 	--journal-desk: color-mix(in oklab, var(--host-canvas, light-dark(#e6dccb, #13100f)) 92%, var(--host-accent, var(--host-canvas, light-dark(#e6dccb, #13100f))) 8%);
 	--journal-page: color-mix(in oklab, var(--host-surface, light-dark(#fbf6ec, #1c1916)) 95%, var(--host-accent, var(--host-surface, light-dark(#fbf6ec, #1c1916))) 5%);
@@ -59,27 +66,37 @@
 		display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 8px 16px;
 		font: calc(14px * var(--journal-scale))/1.3 var(--journal-font); background: var(--journal-app-bg); color: var(--journal-app-ink); border-bottom: 1px solid var(--journal-app-line);
 	}
-	.range { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-	.range button, .range input {
-		min-height: 32px; padding: 4px 10px;
+	.range { display: flex; flex: 1; flex-wrap: wrap; align-items: center; gap: 8px; }
+	.range button {
+		min-height: 32px; padding: 4px 12px;
 		font: inherit; color: var(--journal-app-ink); background: var(--journal-app-field);
-		border: 1px solid var(--journal-app-line); border-radius: 8px;
+		border: 1px solid var(--journal-app-line); border-radius: 8px; cursor: pointer;
 	}
-	.range button:hover { border-color: var(--journal-app-ink); }
-	.range label { display: inline-flex; align-items: center; gap: 6px; }
+	.range button:hover { border-color: var(--journal-app-line-strong); background: var(--journal-app-raised); }
 	.range :focus-visible { outline: 2px solid var(--journal-focus); outline-offset: 2px; }
+	.range [hidden] { display: none; }
+	/* Which view: one segmented group, as the host's own (the pressed one lifted on the raised ground with a ring). */
+	.views { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--journal-app-line); border-radius: 9px; background: var(--journal-app-field); }
+	.range .views button { min-height: 26px; padding: 2px 12px; border: 0; border-radius: 6px; background: none; color: var(--journal-app-muted); }
+	.range .views button:hover { color: var(--journal-app-ink); background: var(--journal-app-raised); }
+	.range .views button[aria-pressed='true'] { color: var(--journal-app-ink); background: var(--journal-app-raised); box-shadow: inset 0 0 0 1px var(--journal-app-line-strong); }
+	.day-nav { display: inline-flex; align-items: center; gap: 4px; }
+	.day-nav [data-nav='prev'], .day-nav [data-nav='next'] { min-width: 32px; padding: 4px 8px; }
+	.add-anchor { margin-left: auto; }
+	/* A date field laid over the button that opens its picker: not seen, not tabbed to (picker.ts). */
+	.picker-anchor { position: relative; display: inline-flex; }
+	input.picker { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; opacity: 0; pointer-events: none; }
+	input.picker.shown { position: static; width: auto; height: auto; padding: 4px 8px; opacity: 1; pointer-events: auto; font: inherit; color: var(--journal-app-ink); background: var(--journal-app-field); border: 1px solid var(--journal-app-line); border-radius: 8px; }
 
 	/* ─── The open journal ──────────────────────────────────────────────────── */
-	.paper { flex: 1; min-height: 0; overflow: auto; scroll-padding-bottom: calc(var(--journal-bar-h, 0px) + 32px); padding: 36px 24px 168px; background: var(--journal-desk); color: var(--journal-ink); font: calc(17px * var(--journal-scale))/1.62 var(--journal-serif); }
-	.spread {
-		display: grid; grid-template-columns: 1fr 1fr;
-		max-width: 1240px; margin: 0 auto;
-		border-radius: 4px;
+	/* The desk, and past the last day only the room the writing bar needs while it is up (161: a fixed room once left an
+	   empty stretch under the last day). */
+	.paper { flex: 1; min-height: 0; overflow: auto; scroll-padding-bottom: calc(var(--journal-bar-h, 0px) + 32px); padding: 32px 24px calc(var(--journal-bar-h, 0px) + var(--journal-end)); background: var(--journal-desk); color: var(--journal-ink); font: calc(17px * var(--journal-scale))/1.62 var(--journal-serif); }
+	.sheet {
+		min-width: 0; max-width: var(--journal-sheet-w); margin: 0 auto; padding: var(--journal-sheet-pad);
+		background-color: var(--journal-page); border-radius: 4px;
 		box-shadow: 0 1px 2px var(--journal-shadow), 0 14px 36px var(--journal-shadow);
 	}
-	.page { min-width: 0; padding: 56px 56px 72px; background-color: var(--journal-page); }
-	.page.left { border-radius: 4px 0 0 4px; background-image: linear-gradient(to left, var(--journal-fold), transparent 56px); }
-	.page.right { border-radius: 0 4px 4px 0; background-image: linear-gradient(to right, var(--journal-fold), transparent 56px); }
 
 	.day { margin: 0 0 44px; }
 	.day:last-child { margin-bottom: 0; }
@@ -88,7 +105,46 @@
 		font: 600 calc(1.3 * var(--journal-rem))/1.25 var(--journal-serif); letter-spacing: 0.005em;
 		color: var(--journal-date-ink); border-bottom: 1px solid var(--journal-rule);
 	}
-	.day.gap h2 { color: var(--journal-ink-soft); font-weight: 400; border-bottom-style: dashed; }
+	/* Today: named above its date. */
+	.today-mark { display: block; margin-bottom: 4px; font: 600 calc(0.72 * var(--journal-rem))/1.2 var(--journal-font); letter-spacing: 0.08em; text-transform: uppercase; color: var(--journal-date-ink); }
+	/* A day with no page is one line: the date, quiet, and the way to start it at the end of the line. */
+	.day.gap { margin-bottom: 12px; }
+	.day.gap header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+	.day.gap .today-mark { flex-basis: 100%; }
+	.day.gap h2 { flex: 1; margin: 0; padding: 0; border: 0; font-size: var(--journal-rem); font-weight: 400; color: var(--journal-ink-soft); }
+	.day.gap.today { margin-bottom: 36px; }
+	.day.gap.today h2 { font-size: calc(1.3 * var(--journal-rem)); font-weight: 600; color: var(--journal-date-ink); }
+	/* Alone in Day, or being started: a day with no page wears the full date heading. */
+	.sheet[data-view='day'] .day.gap h2, .day.gap.drafting h2 {
+		padding-bottom: 8px; border-bottom: 1px solid var(--journal-rule);
+		font-size: calc(1.3 * var(--journal-rem)); font-weight: 600; color: var(--journal-date-ink);
+	}
+	.day.gap .add-entry { margin: 0; }
+	.day.gap.drafting { margin-bottom: 44px; }
+	.day.gap.drafting .entries { margin-top: 12px; }
+
+	/* Between two days that are not next to each other: how many days lie between, and a page to add in them. */
+	.gap-marker {
+		display: flex; align-items: center; gap: 12px; margin: -12px 0 32px;
+		font: calc(0.8 * var(--journal-rem))/1.3 var(--journal-font); color: var(--journal-ink-soft);
+	}
+	.gap-marker::before, .gap-marker::after { content: ''; flex: 1; border-top: 1px dashed var(--journal-rule); }
+	.gap-add {
+		padding: 2px 8px; font: inherit; color: var(--journal-ink-soft); background: none; border: 0; border-radius: 6px; cursor: pointer;
+		text-decoration: underline dotted; text-underline-offset: 3px;
+	}
+	.gap-add:hover { color: var(--journal-ink); background: var(--journal-hover); }
+	.gap-add:focus-visible { outline: 2px solid var(--journal-focus); outline-offset: 1px; }
+	.gap-marker + .day.gap { margin-top: 0; }
+
+	/* The foot of the running journal, while older pages are left to read. */
+	.feed-end { display: flex; justify-content: center; padding-top: 8px; }
+	.feed-more {
+		padding: 6px 14px; font: calc(0.85 * var(--journal-rem)) var(--journal-font); color: var(--journal-ink-soft);
+		background: none; border: 1px solid var(--journal-rule); border-radius: 999px; cursor: pointer;
+	}
+	.feed-more:hover { color: var(--journal-ink); background: var(--journal-hover); }
+	.feed-more:focus-visible { outline: 2px solid var(--journal-focus); outline-offset: 2px; }
 	.quiet { margin: 0; font-style: italic; color: var(--journal-ink-soft); }
 	.day:not(.blank) .empty { display: none; }
 	.day.fresh { border-radius: 4px; animation: journal-fresh 2.4s ease-out; }
@@ -209,13 +265,14 @@
 
 	/* ─── Phone: one page, one day under another ────────────────────────────── */
 	@container journal (max-width: 899px) {
-		.paper { padding: 0 0 168px; --journal-time-w: calc(2.9 * var(--journal-rem)); --journal-gutter: 12px; }
-		.spread { grid-template-columns: minmax(0, 1fr); box-shadow: none; border-radius: 0; }
-		.page.left, .page.right { padding: 28px 16px 8px; border-radius: 0; background-image: none; }
-		.page.right { padding: 36px 16px 48px; }
+		/* The sheet is the whole pane: no desk round it, and past the last day only the end's room, on the page's own ground. */
+		.paper { padding: 0 0 calc(var(--journal-bar-h, 0px) + var(--journal-end)); background: var(--journal-page); --journal-time-w: calc(2.9 * var(--journal-rem)); --journal-gutter: 12px; --journal-end: 24px; }
+		.sheet { max-width: none; padding: 24px 16px 16px; box-shadow: none; border-radius: 0; }
+		.journal-tools { padding: 8px 12px; }
 		.entries { grid-template-columns: var(--journal-time-w) minmax(0, 1fr); }
 		/* A finger's reach: every control of the two bars, and Add an entry, at least --journal-tap high. */
-		.range button, .range input, .bar button, .bar-link input, .add-entry { min-height: var(--journal-tap); }
+		.range button, .range input, .bar button, .bar-link input, .add-entry, .gap-add, .feed-more { min-height: var(--journal-tap); }
+		.range .views button { min-height: calc(var(--journal-tap) - 6px); }
 		.bar button { min-width: var(--journal-tap); }
 	}
 }

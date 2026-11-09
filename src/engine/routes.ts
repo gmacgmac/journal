@@ -1,10 +1,11 @@
-// The person's routes (docs/specification/plugin.md § Routes), through nclite's pass-through: `GET days` and `POST edit`.
+// The person's routes (docs/specification/plugin.md § Routes), through nclite's pass-through: `GET days`, `GET pages` and
+// `POST edit`.
 // Any other path is null (nclite's 404); any caller but the person is 403. A problem is `{ title, status, code, day? }`.
 import type { EngineContext, EngineReply, EngineRequest } from '../vendor/plugin-host/plugin-host.ts';
 import { isDate } from '../format/index.ts';
 import type { DaysAnswer, EditAnswer, RouteProblem } from '../seam-types.ts';
 import { REPLY_BUDGET, isEdit, jsonBytes, planEdit, writeDay } from '../store/index.ts';
-import { DAYS_BUDGET, MAX_RANGE_DAYS, dayOf, rangeProblem, readDays } from './days.ts';
+import { DAYS_BUDGET, MAX_PAGES, MAX_RANGE_DAYS, PAGES_DEFAULT, dayOf, rangeProblem, readDays, readPages } from './days.ts';
 import { problemText, word } from './words.ts';
 
 export type Route = (req: EngineRequest, ctx: EngineContext) => Promise<EngineReply | null>;
@@ -22,6 +23,18 @@ function days(dir: string, query: URLSearchParams): EngineReply {
 	const bad = rangeProblem(from, to, MAX_RANGE_DAYS);
 	if (bad !== null || from === null || to === null) return problem(400, 'dates', word(bad ?? 'journal.problem.dates-form', { max: MAX_RANGE_DAYS }));
 	const read = readDays(dir, from, to, DAYS_BUDGET, dayOf);
+	const answer: DaysAnswer = { days: read.days };
+	if (read.next !== undefined) answer.next = read.next;
+	return ok(answer);
+}
+
+/** `pages?before=YYYY-MM-DD&limit=N`: the days that have a page before `before`, newest first (the view's running journal). */
+function pages(dir: string, query: URLSearchParams): EngineReply {
+	const before = query.get('before');
+	const limit = query.has('limit') ? Number(query.get('limit')) : PAGES_DEFAULT;
+	if (!isDate(before)) return problem(400, 'dates', word('journal.problem.dates-form'));
+	if (!Number.isInteger(limit) || limit < 1 || limit > MAX_PAGES) return problem(400, 'limit', word('journal.problem.pages-limit', { max: MAX_PAGES }));
+	const read = readPages(dir, before, limit, DAYS_BUDGET, dayOf);
 	const answer: DaysAnswer = { days: read.days };
 	if (read.next !== undefined) answer.next = read.next;
 	return ok(answer);
@@ -54,6 +67,7 @@ function edit(dir: string, body: unknown, wrote: (date: string) => void): Engine
 export function createRoutes(dir: string, wrote: (date: string) => void, warn: (message: string) => void): Route {
 	const routes: Record<string, { method: string; run: (req: EngineRequest, query: URLSearchParams) => EngineReply }> = {
 		days: { method: 'GET', run: (_req, query) => days(dir, query) },
+		pages: { method: 'GET', run: (_req, query) => pages(dir, query) },
 		edit: { method: 'POST', run: (req) => edit(dir, req.body, wrote) },
 	};
 	return async (req, ctx) => {

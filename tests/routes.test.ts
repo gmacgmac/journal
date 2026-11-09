@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { createEngine } from '../src/engine/engine.ts';
-import { DAYS_MAX_CHARS, MAX_RANGE_DAYS, dayOf, readDays } from '../src/engine/days.ts';
+import { DAYS_MAX_CHARS, MAX_PAGES, MAX_RANGE_DAYS, PAGES_DEFAULT, dayOf, readDays, readPages } from '../src/engine/days.ts';
 import { MAX_DAY_BYTES, addDays, blocksOf, dateHeading, datesBetween, keyedBlocks } from '../src/format/index.ts';
 import type { DaysAnswer, Edit, EditAnswer, RouteProblem } from '../src/seam-types.ts';
 import { dayFile, version, writeDay } from '../src/store/index.ts';
 import type { Caller, EngineReply } from '../src/vendor/plugin-host/plugin-host.ts';
-import { scratch } from './fixtures/days.ts';
+import { sampleDays, scratch } from './fixtures/days.ts';
 
 const DATE = '2026-10-01';
 const PERSON: Caller = { by: 'person' };
@@ -30,6 +30,43 @@ const replaceAt = (text: string, index: number, after: string): Extract<Edit, { 
 	const b = blocksOf(text)[index]!;
 	return { op: 'replace', date: DATE, start: b.start, end: b.end, before: b.text, after };
 };
+
+describe('GET pages', () => {
+	it('pages answers only the days that have a page, newest first, before a date, and says where to read on', async (t) => {
+		const { call } = engineOn(t);
+		const sample = sampleDays().map(([date]) => date).reverse();
+		const r = (await call('GET', `pages?before=2026-10-05&limit=3`))!;
+		assert.equal(r.status, 200);
+		const { days, next } = r.body as DaysAnswer;
+		const expected = sample.filter((d) => d < '2026-10-05').slice(0, 3);
+		assert.deepEqual(days.map((d) => d.date), expected);
+		assert.ok(days.every((d) => d.exists));
+		assert.equal(next, expected.at(-1));
+		const rest = (await call('GET', `pages?before=${next}&limit=${MAX_PAGES}`))!.body as DaysAnswer;
+		assert.deepEqual(rest.days.map((d) => d.date), sample.filter((d) => d < next!));
+		assert.equal(rest.next, undefined, 'the oldest page ends the list');
+	});
+
+	it('pages gives PAGES_DEFAULT when not told how many, none for an empty journal, and refuses a bad date or limit', async (t) => {
+		const { call } = engineOn(t);
+		const all = (await call('GET', 'pages?before=2030-01-01'))!.body as DaysAnswer;
+		assert.equal(all.days.length, Math.min(PAGES_DEFAULT, sampleDays().length));
+		for (const bad of ['pages', 'pages?before=2026-13-01', 'pages?before=2026-10-05&limit=0', `pages?before=2026-10-05&limit=${MAX_PAGES + 1}`, 'pages?before=2026-10-05&limit=two']) {
+			const r = (await call('GET', bad))!;
+			assert.equal(r.status, 400, bad);
+			assert.ok(['dates', 'limit'].includes((r.body as RouteProblem).code), bad);
+		}
+		const empty = engineOn(t, true);
+		assert.deepEqual((await empty.call('GET', 'pages?before=2030-01-01'))!.body, { days: [] });
+	});
+
+	it('pages stops at the budget, always gives one day, and says next', (t) => {
+		const { dir } = engineOn(t);
+		const r = readPages(dir, '2030-01-01', MAX_PAGES, { chars: 1, bytes: Infinity }, dayOf);
+		assert.equal(r.days.length, 1);
+		assert.equal(r.next, r.days[0]!.date);
+	});
+});
 
 describe('GET days', () => {
 	it('days answers every day in the range, gaps included, and refuses a bad range', async (t) => {

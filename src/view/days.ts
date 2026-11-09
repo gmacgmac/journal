@@ -4,7 +4,7 @@
 // whose block changed stays (marked stale), and a draft stays where it was put.
 // A day whose file breaks the rules (spec § The data) is drawn as it is, read only, with its problems over it: no block
 // opens, no box ticks, and no entry is added, since the engine refuses every write to it.
-import { ENTRY_RE } from '../format/index.ts';
+import { ENTRY_RE, localToday } from '../format/index.ts';
 import type { Block, Day } from './wire.ts';
 import { el, parseMarkdown, renderMarkdown } from './render.ts';
 import { isEditing, type BlockNode } from './session.ts';
@@ -40,10 +40,15 @@ export function blockElement(date: string, b: Block, hintId: string): BlockNode 
 	return node;
 }
 
-export function daySection(day: Day, hintId: string): HTMLElement {
+export function daySection(day: Day, hintId: string, today = localToday()): HTMLElement {
 	const head = el('header', [el('h2', [day.title])]);
 	const section = el('section', [head], { class: 'day', 'data-date': day.date });
-	const add = el('button', [say(day.exists ? 'journal.view.day.add' : 'journal.view.day.start')], { type: 'button', class: 'add-entry' });
+	if (day.date === today) {
+		section.classList.add('today');
+		head.prepend(el('span', [say('journal.view.today')], { class: 'today-mark' }));
+	}
+	const start = day.date === today ? 'journal.view.day.startToday' : 'journal.view.day.start';
+	const add = el('button', [say(day.exists ? 'journal.view.day.add' : start)], { type: 'button', class: 'add-entry' });
 	if (isBroken(day)) {
 		section.classList.add('broken');
 		const problems = el('ul', day.problems.map((p) => el('li', [p])));
@@ -53,8 +58,9 @@ export function daySection(day: Day, hintId: string): HTMLElement {
 		return section;
 	}
 	if (!day.exists) {
+		// A day with no page is one line: its date, and the way to start it.
 		section.classList.add('gap');
-		section.append(el('p', [say('journal.view.day.none')], { class: 'quiet' }), add);
+		head.append(add);
 		return section;
 	}
 	section.append(el('div', [], { class: 'entries' }), el('p', [say('journal.view.day.empty')], { class: 'quiet empty' }), add);

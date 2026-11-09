@@ -4,11 +4,11 @@ import assert from 'node:assert/strict';
 import { before, describe, it } from 'node:test';
 import { addDays } from '../../src/format/index.ts';
 import type { Ref } from '../../src/vendor/plugin-host/plugin-host.ts';
-import { weekOf } from '../../src/view/dates.ts';
 import { readReveal } from '../../src/view/reveal.ts';
 import { say } from '../../src/view/words.ts';
-import { installDom, settle } from './fake-dom.ts';
-import { fileOf, mounted, thisWeek } from './fake-host.ts';
+import { PAGE_BATCH } from '../../src/view/feed.ts';
+import { fire, installDom, settle, type FakeElement } from './fake-dom.ts';
+import { fileOf, mounted, recent } from './fake-host.ts';
 
 describe('reveal', () => {
 	before(() => installDom());
@@ -25,32 +25,43 @@ describe('reveal', () => {
 	});
 
 	it('a reveal of each ref shape the Journal has made is understood, and any other is said through notify', async () => {
-		const later = addDays(thisWeek().from, 10);
-		const m = await mounted((h) => h.files.set(later, fileOf(later, '## 08:00', 'Morning.')));
-		const key = m.dayOf(later).blocks[2]!.key;
+		const { from } = recent();
+		const older = Array.from({ length: PAGE_BATCH + 1 }, (_, i) => addDays(from, -1 - 2 * i));
+		const oldest = older.at(-1)!;
+		const m = await mounted((h) => { for (const d of older) h.files.set(d, fileOf(d, '## 08:00', 'Morning.')); });
+		assert.equal(m.root.querySelector(`.day[data-date="${oldest}"]`), null, 'past the first batch');
+		const key = m.dayOf(oldest).blocks[2]!.key;
 
-		// { date, key }: the week holding the date, the block marked.
-		m.view.reveal({ date: later, key });
+		// { date, key }: the day brought onto the journal, in its place, and the block marked.
+		m.view.reveal({ date: oldest, key });
 		await settle();
-		assert.deepEqual(m.view.pageChip()?.ref, weekOf(later));
-		assert.ok(m.root.querySelector(`.block[data-key="${key}"]`)!.classList.contains('fresh'));
+		assert.ok(m.root.querySelector(`.block[data-date="${oldest}"][data-key="${key}"]`)!.classList.contains('fresh'));
+		assert.equal([...m.root.querySelectorAll('.day')].at(-1)!.getAttribute('data-date'), oldest);
 
 		// { date, key } whose block went: the day is marked instead.
-		m.view.reveal({ date: later, key: '00000000-0' });
+		m.view.reveal({ date: oldest, key: '00000000-0' });
 		await settle();
-		assert.ok(m.root.querySelector(`.day[data-date="${later}"]`)!.classList.contains('fresh'));
+		assert.ok(m.root.querySelector(`.day[data-date="${oldest}"]`)!.classList.contains('fresh'));
 
-		// { date }: the week holding it.
-		const back = thisWeek().from;
-		m.view.reveal({ date: back });
+		// { date }: a recent day, marked.
+		m.view.reveal({ date: from });
 		await settle();
-		assert.deepEqual(m.view.pageChip()?.ref, thisWeek());
+		assert.ok(m.root.querySelector(`.day[data-date="${from}"]`)!.classList.contains('fresh'));
 
-		// { from, to }: exactly that range.
-		const range = { from: addDays(back, 2), to: addDays(back, 4) };
+		// { from, to }: the newest page in it, marked.
+		const range = { from: older[3]!, to: older[1]! };
 		m.view.reveal(range);
 		await settle();
-		assert.deepEqual(m.view.pageChip()?.ref, range);
+		assert.ok(m.root.querySelector(`.day[data-date="${older[1]}"]`)!.classList.contains('fresh'));
+		assert.deepEqual(m.view.pageChip()?.ref, recent(), 'the journal stays the journal');
+
+		// In Day: the day named, alone.
+		const q = (sel: string) => m.root.querySelector(sel) as unknown as FakeElement;
+		fire(q('[data-view="day"]'), 'click');
+		await settle();
+		m.view.reveal({ date: older[2]! });
+		await settle();
+		assert.deepEqual(m.view.pageChip()?.ref, { from: older[2], to: older[2] });
 		assert.deepEqual(m.calls.notes, []);
 
 		// Anything else: said, and nothing moves.
@@ -59,7 +70,7 @@ describe('reveal', () => {
 		await settle();
 		assert.deepEqual(m.calls.notes, [0, 1, 2].map(() => [say('journal.view.reveal.unknown'), 'info']));
 		assert.equal(m.calls.gets.length, gets);
-		assert.deepEqual(m.view.pageChip()?.ref, range);
+		assert.deepEqual(m.view.pageChip()?.ref, { from: older[2], to: older[2] });
 		m.view.unmount();
 	});
 });

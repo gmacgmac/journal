@@ -1,8 +1,8 @@
-// The view's own range math, on top of the day file's dates (`src/format/`).
+// The view's own date names and ranges, on top of the day file's dates (`src/format/`).
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { addDays, daysBetween } from '../../src/format/index.ts';
-import { dayMonth, shift, shortDate, snippet, SNIPPET, startOfWeek, WEEK_START, weekOf } from '../../src/view/dates.ts';
+import { dayMonth, RECENT_DAYS, recentDays, shortDate, snippet, SNIPPET } from '../../src/view/dates.ts';
 
 describe('view dates and ranges', () => {
 	it('names a day short, the way a chip shows it', () => {
@@ -19,21 +19,14 @@ describe('view dates and ranges', () => {
 		assert.ok(cut.endsWith('…'));
 	});
 
-	it('starts a week on Monday, and on another day when asked', () => {
-		assert.equal(WEEK_START, 1);
-		// Thursday 1 October 2026.
-		assert.equal(startOfWeek('2026-10-01', 1), '2026-09-28');
-		assert.equal(startOfWeek('2026-10-01', 0), '2026-09-27');
-		assert.equal(startOfWeek('2026-09-28', 1), '2026-09-28');
-		assert.deepEqual(weekOf('2026-10-01'), { from: '2026-09-28', to: addDays('2026-09-28', 6) });
-		assert.deepEqual(weekOf('2026-10-04'), weekOf('2026-09-28'), 'Sunday ends the week Monday starts');
-	});
-
-	it('moves a range by its own length', () => {
-		const week = { from: '2026-09-28', to: '2026-10-04' };
-		const n = daysBetween(week.from, week.to);
-		assert.deepEqual(shift(week, 1), { from: addDays(week.from, n), to: addDays(week.to, n) });
-		assert.deepEqual(shift(week, -1), { from: addDays(week.from, -n), to: addDays(week.to, -n) });
-		assert.deepEqual(shift(shift(week, 1), -1), week);
+	it('the recent days are the last seven, ending on today, across a month and a year', () => {
+		assert.equal(RECENT_DAYS, 7);
+		for (const today of ['2026-11-09', '2026-11-03', '2027-01-02']) {
+			const r = recentDays(today);
+			assert.equal(r.to, today);
+			assert.equal(r.from, addDays(today, -(RECENT_DAYS - 1)));
+			assert.equal(daysBetween(r.from, r.to), RECENT_DAYS);
+		}
+		assert.deepEqual(recentDays('2026-11-09', 1), { from: '2026-11-09', to: '2026-11-09' });
 	});
 });

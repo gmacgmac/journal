@@ -37,7 +37,7 @@ const valuesOf = (block: string, selector: string, property: string) =>
 const narrow = inside(CSS, CSS.indexOf(NARROW));
 const wide = CSS.replace(narrow, '');
 const TAP = 'var(--journal-tap)';
-const CONTROLS = ['.range button', '.range input', '.bar button', '.bar-link input', '.add-entry'];
+const CONTROLS = ['.range button', '.range input', '.bar button', '.bar-link input', '.add-entry', '.gap-add', '.feed-more'];
 
 describe('the phone layout', () => {
 	it('every control of the range bar and the writing bar, and Add an entry, is at least --journal-tap high', () => {

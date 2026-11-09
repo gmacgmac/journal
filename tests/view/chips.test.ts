@@ -4,10 +4,11 @@ import assert from 'node:assert/strict';
 import { before, describe, it } from 'node:test';
 import { addDays, CHIP_DAYS, CHIP_TEXT_CHARS } from '../../src/format/index.ts';
 import { CHIP_LIMITS, type Chip } from '../../src/vendor/plugin-host/plugin-host.ts';
+import { daysChip } from '../../src/view/chips.ts';
 import { dayMonth, shortDate, snippet } from '../../src/view/dates.ts';
 import { say } from '../../src/view/words.ts';
 import { fire, installDom, settle, type FakeElement } from './fake-dom.ts';
-import { fileOf, mounted, thisWeek } from './fake-host.ts';
+import { fileOf, mounted, recent } from './fake-host.ts';
 
 const q = (root: HTMLElement, sel: string) => root.querySelector(sel) as unknown as FakeElement;
 
@@ -19,19 +20,11 @@ function assertInLimits(chip: Chip): void {
 	assert.ok(JSON.stringify(chip.ref).length <= CHIP_LIMITS.refChars);
 }
 
-/** Moves the range's end to `to`, as the person does with the To field. */
-async function rangeTo(root: HTMLElement, to: string): Promise<void> {
-	const field = q(root, '[data-range="to"]');
-	field.value = to;
-	fire(field, 'change');
-	await settle();
-}
-
 describe('chips', () => {
 	before(() => installDom());
 
 	it('a block’s Add to chat calls chat.add with a chip inside CHIP_LIMITS', async () => {
-		const { from } = thisWeek();
+		const { from } = recent();
 		const words = 'Walked to the river and back. '.repeat(6).trim();
 		const m = await mounted((h) => h.files.set(from, fileOf(from, '## 21:30 · Walk', words)));
 		const block = q(m.root, '.block[data-kind="paragraph"]');
@@ -52,7 +45,7 @@ describe('chips', () => {
 	});
 
 	it('a block under a very long title still makes a chip inside the limits', async () => {
-		const { from } = thisWeek();
+		const { from } = recent();
 		const m = await mounted((h) => h.files.set(from, fileOf(from, `## 07:00 · ${'Long '.repeat(80).trim()}`, 'Words.')));
 		fire(q(m.root, '.block[data-kind="paragraph"]'), 'click');
 		fire(q(m.root, '[data-act="ask"]'), 'click');
@@ -71,7 +64,7 @@ describe('chips', () => {
 
 	it('pageChip is the days shown', async () => {
 		const m = await mounted();
-		const week = thisWeek();
+		const week = recent();
 		const chip = m.view.pageChip()!;
 		assert.deepEqual(chip, {
 			plugin: 'journal',
@@ -84,19 +77,22 @@ describe('chips', () => {
 		m.view.unmount();
 	});
 
-	it('pageChip is null for a range longer than CHIP_DAYS', async () => {
-		const m = await mounted();
-		const { from } = thisWeek();
-		await rangeTo(m.root, addDays(from, CHIP_DAYS));
-		assert.equal(m.root.querySelectorAll('.day').length, CHIP_DAYS + 1);
-		assert.equal(m.view.pageChip(), null);
-		await rangeTo(m.root, addDays(from, CHIP_DAYS - 1));
-		assert.deepEqual(m.view.pageChip()?.ref, { from, to: addDays(from, CHIP_DAYS - 1) });
+	it('a days chip is null for a range longer than CHIP_DAYS, so the header never offers one resolve would refuse', () => {
+		const from = '2026-11-01';
+		assert.equal(daysChip({ from, to: addDays(from, CHIP_DAYS) }, []), null);
+		assert.deepEqual(daysChip({ from, to: addDays(from, CHIP_DAYS - 1) }, [])?.ref, { from, to: addDays(from, CHIP_DAYS - 1) });
+	});
+
+	it('pageChip counts only the days of its range: an older page shown below does not make it too long', async () => {
+		const { from } = recent();
+		const older = addDays(from, -3);
+		const m = await mounted((h) => h.files.set(older, fileOf(older, '## 08:00', 'x'.repeat(CHIP_TEXT_CHARS))));
+		assert.deepEqual(m.view.pageChip()?.ref, recent());
 		m.view.unmount();
 	});
 
 	it('pageChip is null for days holding more than CHIP_TEXT_CHARS', async () => {
-		const { from } = thisWeek();
+		const { from } = recent();
 		const m = await mounted((h) => h.files.set(from, fileOf(from, '## 08:00', 'x'.repeat(CHIP_TEXT_CHARS))));
 		assert.equal(m.view.pageChip(), null);
 		m.view.unmount();
@@ -106,7 +102,7 @@ describe('chips', () => {
 	});
 
 	it('pageChip is null when a day shown is too big to read', async () => {
-		const { from } = thisWeek();
+		const { from } = recent();
 		const m = await mounted((h) => {
 			h.files.set(from, '');
 			h.problems.set(from, ['This page is too big to show.']);

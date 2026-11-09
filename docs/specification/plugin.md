@@ -95,8 +95,8 @@ words key. The `input` of each tool is that tool's JSON Schema exactly as `tools
 }
 ```
 
-- **No `settings`.** nclite draws none yet, so the week starts on Monday (ISO) and there is no paper switch: the page
-  follows the bot's light or dark (nclite PLAN O5).
+- **No `settings`.** nclite draws none yet, so there is no paper switch: the page follows the bot's light or dark
+  (nclite PLAN O5).
 - **`icon` `journal`** is a name nclite adds to its icon list when it vendors the Journal; until then nclite draws its plugin
   glyph.
 - **`seam`** is `SEAM` (`src/seam.ts`), raised by one with every breaking change to `plugin.d.ts`, the contract's included.
@@ -195,6 +195,13 @@ host's wrapping, `src/store/size.ts`, measured with `jsonBytes` as the host meas
 the first day left out, and the view reads on from it. A day that is not too big (§ The data) answers well inside
 `REPLY_BUDGET` alone, so the first day always fits; the host answers anything over `REPLY_LIMITS` as too large.
 
+**`GET pages?before=YYYY-MM-DD&limit=N`**: the days that have a page before `before` (not included), newest first, at
+most `limit` (1 to `MAX_PAGES`, 31; `PAGES_DEFAULT`, 10, when left out), for the view's running journal. The day files are
+found by walking the year and month folders (`datesWithPages`, `src/store/folders.ts`), never through a link. `200`
+`{ "days": Day[], "next"?: "YYYY-MM-DD" }`, each day whole, under the same budget as `days` (always at least one); `next`
+is the oldest day given when older pages are left, so the view reads on with `before=next`. `400` `dates` (not a date) or
+`limit`.
+
 **`POST edit`**, body one `Edit`, JSON (the proof's four edits, `src/store/edits.ts` `plan`), each anchored to bytes the view
 saw and refused, never merged, when they changed:
 
@@ -224,6 +231,9 @@ it; the person's offsets are now stale. For `replace` and `insert`, when the blo
 exactly one top-level block of the day's text now equals `before`, the engine anchors to that block instead; when none, or
 more than one, does, the edit is refused `changed` with the day as it is. `range` (an undo) is never moved: it is exact
 bytes. The answer's `day` gives the view the block's new offsets.
+Proven by `tests/routes.test.ts`: "pages answers only the days that have a page, newest first, before a date, and says
+where to read on", "pages gives PAGES_DEFAULT when not told how many, none for an empty journal, and refuses a bad date or
+limit", "pages stops at the budget, always gives one day, and says next".
 Proven by FIX_01b `tests/budget.test.ts`: "a legal day of tiny blocks lets its week be read, and an edit to it answers
 within the limit", the same for "U+0001 text", "an edit that lands never answers as if it failed, even with a large undo", "a
 day at every limit at once still answers alone within the limit, by the route and the tool"; and JR_02 `tests/routes.test.ts`:
@@ -434,22 +444,35 @@ mount(root: HTMLElement, host: PluginHost): PluginView   // src/view/view.ts
 world only through `host`. **Every piece of state belongs to one mount**, made by `mount` and dropped by `unmount`: no
 module-level variable holds a day, a session, a listener or a timer, so two mounts in one page share nothing.
 
-It opens on **the current week**, Monday to Sunday, around the person's local today; the range bar moves by the span shown
-(Previous, This week, Next) or to any dates (from, to). It draws the days as facing pages, patches only the days that changed,
-and writes in place: a click or Enter on a block opens it for writing; leaving it saves; a to-do ticks and saves at once;
-Undo is a toast inside `root`.
+**Two views of one journal**, on one sheet of paper (`src/view/views.ts`):
+
+- **Journal**, the running journal, newest first: the recent days, today and the six before it (`RECENT_DAYS`,
+  `recentDays`), every one of them; then only the days that have a page, `PAGE_BATCH` (10) at a time from `GET pages`, read on
+  as the person nears the foot, or with Earlier pages (`src/view/feed.ts`). A recent day with no page is one line: its date
+  and Start this page (today: Start today's page, and named Today). Between two days that are not next to each other, a gap
+  marker says how many days lie between and offers Add a page, held to those days (one day: that day at once).
+- **Day**, one day alone, for a long day: `‹` and `›` step a day, the date opens the date picker, and Today comes back.
+
+**Add a page** asks which day (the browser's date picker, `src/view/picker.ts`) and opens a new entry on it, in its place:
+on the running journal a day not shown is drawn where it falls; in Day, that day is shown. **The place is kept** per bot on
+this device through `store` (`src/view/place.ts`): the view, and the day in it (the day at the top of the running
+journal's scroll, or the day shown in Day). The same day, the pane opens where it was left; on another day only the view
+is kept, on today. The first open is the running journal, at today.
+
+It patches only the days that changed, and writes in place: a click or Enter on a block opens it for writing; leaving it
+saves; a to-do ticks and saves at once; Undo is a toast inside `root`.
 
 **What it uses of the host:**
 
 | Member | The Journal's use |
 |---|---|
-| `api` | `days?from=…&to=…` (GET, followed by `next` until the range is read) and `edit` (POST, `content-type: application/json`), paths with no leading `/`; a reply with status 400 or more is a problem (§ Routes) |
-| `events` | `{ date }` within the range shown reads that day again; `{}` reads every day shown again; any other ref is ignored |
+| `api` | `days?from=…&to=…` (GET, followed by `next` until the range is read), `pages?before=…&limit=…` (GET, one batch at a time) and `edit` (POST, `content-type: application/json`), paths with no leading `/`; a reply with status 400 or more is a problem (§ Routes) |
+| `events` | `{ date }` of a day shown reads that day again; of an older day the running journal reaches but does not show, draws its new page in; `{}` reads every day shown again; any other ref is ignored |
 | `chat` | `add(chip)` for a block's Add to chat in the writing bar (a `block` chip); nothing is staged by `attach`; no `send` |
 | `settings` | Nothing |
 | `notify` | A refused save or tick (`error`), and a reveal it cannot show. A refused save that is a clash stays in the writing bar with its two choices instead |
 | `confirm` | Only from `leave()`, when writing could not be saved |
-| `store` | Nothing |
+| `store` | The place, under `place`: `{ view, date, on }` (§ above). It may lose anything: a lost or unreadable place is the first-time one |
 | `imageRoute` | Nothing |
 
 **What it gives back** (`PluginView`):
@@ -459,8 +482,8 @@ Undo is a toast inside `root`.
 | `unmount()` | Removes every listener and timer it added, empties `root` and takes its class off. Never asks and never saves: the host calls `leave()` first |
 | `unsaved()` | True while a block open for writing holds text other than what was saved |
 | `leave()` | Nothing unsaved: true at once. Else saves it: saved, true. Refused, or not answered within half the contract's `VIEW_ANSWER_MS` (`LEAVE_SAVE_MS = VIEW_ANSWER_MS / 2`, from the contract copy, never a number of its own): asks through `confirm` ("Your writing wasn't saved", the reason, "Discard it"), true when discarded, false to keep writing, focus back in the block. So it always answers, or opens the pane's confirm, within the host's wait. A call while one is asking gets the same answer. If the host gave up and closed it anyway, nothing after `unmount` acts |
-| `pageChip()` | A `days` chip for the range shown: label "2 Nov – 8 Nov", detail "7 days" (§ Words). Never more than `resolve` takes: null when the range is longer than `CHIP_DAYS` or the days shown hold more than `CHIP_TEXT_CHARS` of text, so the header's Add to chat has nothing to add rather than a chip that would be refused |
-| `reveal(ref)` | `{ date }` or `{ date, key }`: shows the week holding `date` and marks the block with `key`, or the day when the key is gone; `{ from, to }`: shows that range. A ref of another shape, or a date that is not one, is said through `notify`, and nothing moves |
+| `pageChip()` | A `days` chip for the recent days on the running journal, or the one day in Day: label "3 Nov – 9 Nov", detail "7 days" (§ Words). Never more than `resolve` takes: null when the days in it hold more than `CHIP_TEXT_CHARS` of text (an older page shown below does not count), so the header's Add to chat has nothing to add rather than a chip that would be refused |
+| `reveal(ref)` | `{ date }` or `{ date, key }`: brings the day onto the sheet (in its place on the running journal, or alone in Day) and marks the block with `key`, or the day when the key is gone; `{ from, to }`: brings the pages of that range onto the running journal and marks the newest. A ref of another shape, or a date that is not one, is said through `notify`, and nothing moves |
 
 A chip is `{ kind: 'block', ref: { date, key }, label: "Sat 7 Nov · 21:30 · Walk", detail: <the block's first 72
 characters, flattened> }`, inside the contract's `CHIP_LIMITS`. A block not yet saved cannot go to the chat (the view says so).
@@ -469,12 +492,21 @@ characters, flattened> }`, inside the contract's `CHIP_LIMITS`. A block not yet 
 document. Undo is `Cmd/Ctrl+Z` only while focus is in `root`.
 
 Proven by `tests/view/` (pure parts, and the whole mount on its fake DOM, `tests/view/fake-dom.ts`): JR_03
-`tests/view/mount.test.ts` (two journals in one page share nothing, and unmount leaves nothing behind); JR_04 "the range opens
-on the current week, Monday to Sunday", "a block's Add to chat calls chat.add with a chip inside CHIP_LIMITS", "pageChip is
-null for a range longer than CHIP_DAYS or holding more than CHIP_TEXT_CHARS", "a range is read in parts, following next", "a reveal of
-each ref shape the Journal has made is understood, and any other is said through notify", "leave saves, and asks through
-confirm only when the save is refused or slower than VIEW_ANSWER_MS / 2", "an event of {} reads every day shown again". In a real browser, by nclite's smoke rows for the Journal (INT_01): opens on
-the current week, writes in place, two bots' Journals open at once without sharing, closing with unsaved writing saves it.
+`tests/view/mount.test.ts` (two journals in one page share nothing, and unmount leaves nothing behind); the views (GM,
+2026-11-09): "opens on the running journal: today and the six days before it, newest first", "a recent day with no page is
+one line, and today says so", "before the recent days, only days with a page, a gap marker between two apart, and Earlier
+pages while more are left", "Day shows one day, steps a day at a time and comes back to today", "the place is kept per bot:
+the next mount opens where the last one was, and on today once the date moves on", "Add a page asks which day and opens a new
+entry on it, in its place", "a gap of one day adds a page there at once; a longer gap holds the picker to its days", "an event
+of { date } reads a day shown again, draws a new older page in, and ignores the rest"; `tests/view/place.test.ts`;
+`tests/view/dates.test.ts` "the recent days are the last seven, ending on today, across a month and a year"; JR_04 "a block's
+Add to chat calls chat.add with a chip inside CHIP_LIMITS", "a days chip is null for a range longer than CHIP_DAYS, so the
+header never offers one resolve would refuse", "pageChip counts only the days of its range: an older page shown below does
+not make it too long", "a reveal of each ref shape the Journal has made is understood, and any other is said through notify",
+"leave saves, and asks through confirm only when the save is refused or slower than VIEW_ANSWER_MS / 2", "an event of {}
+reads every day shown again, in place". In a real browser, by nclite's smoke rows for the Journal (INT_01): opens on the
+running journal, writes in place, two bots' Journals open at once without sharing, closing with unsaved writing saves it; and
+by hand in `npm run dev` (README).
 
 ## The look
 
@@ -512,8 +544,12 @@ enough that the host's own pairs carry over. Proven by JR_04 `tests/view/colours
 helper): "every pair meets its tier with the host's values and without them, light and dark", "the stylesheet reads only host
 properties of the contract's list", "every rule is under .journal".
 
-- **The phone layout** (the container query `journal (max-width: 899px)`): one page, one day under another, and a finger's
-  reach: every control of the range bar and the writing bar, and Add an entry / Start this page, is at least `--journal-tap`
+- **The sheet**: one sheet of paper on the desk, at most `--journal-sheet-w` wide, its inset `--journal-sheet-pad`. Past the
+  last day the desk leaves only `--journal-end`, and the writing bar's height while it is up (`--journal-bar-h`, measured
+  by the bar), so the page never scrolls on into an empty stretch (GM's 161: a fixed 168px once did).
+- **The phone layout** (the container query `journal (max-width: 899px)`): the sheet is the whole pane, and a finger's
+  reach: every control of the toolbar and the writing bar, Add an entry / Start this page, a gap's Add a page and Earlier
+  pages, is at least `--journal-tap`
   (44px, the Journal's own: it cannot read nclite's `--tap-min`) high, the writing bar's one-letter buttons as wide. The desktop
   layout is unchanged by it.
 - **The entry column**: `--journal-time-w` (the times' margin) and `--journal-gutter` place both the entries' grid and Add an
@@ -535,7 +571,7 @@ a value filled in. Nothing the person or the bot reads is written in the code. T
 | `journal.change.entry`, `.replace`, `.delete`, `.insert` | "Added an entry to {subject}", "Changed writing on {subject}", "Removed writing from {subject}", "Added writing to {subject}" | nclite's change line |
 | `journal.chip.*` | A chip's `where` ("Journal, {title}, {entry}"; "Journal, {from} to {to}") and each refusal's reason | The bot; the person, under a refused chip |
 | `journal.problem.*` | Each rule a day breaks (`checkDay`), each route problem | The person, the bot |
-| `journal.view.*` | The range bar, the writing bar, Undo and its toast, a block's and the range's chip labels, the leave question, a reveal it cannot show, a page that breaks the rules | The person |
+| `journal.view.*` | The toolbar (the views, the day, Add a page), the gap markers and Earlier pages, the writing bar, Undo and its toast, a block's and the range's chip labels, the leave question, a reveal it cannot show, a page that breaks the rules | The person |
 
 `words/words.ts` is the one home of `WORDS` and `fill`; the engine's `word()` and the view's `say()` both read it. The engine
 bundles `words.json` at build, the view bundle carries the whole file, and the folder ships the same file, so they cannot

@@ -1,10 +1,10 @@
-// Dates and ranges as the view needs them: pure, `YYYY-MM-DD` strings throughout, worked out in UTC so a time zone
-// never moves a day. The day file's own rules and names (`addDays`, `WEEKDAYS`, `MONTHS`, `daysBetween`, `localToday`)
-// are `src/format/`'s; this file holds only what the view adds on top.
-import { addDays, daysBetween, MONTHS, WEEKDAYS } from '../format/index.ts';
+// Dates as the view needs them: pure, `YYYY-MM-DD` strings throughout, worked out in UTC so a time zone never moves a day.
+// The day file's own rules and names (`addDays`, `WEEKDAYS`, `MONTHS`, `localToday`) are `src/format/`'s; this file holds
+// only what the view adds on top.
+import { addDays, MONTHS, WEEKDAYS } from '../format/index.ts';
 
-/** The week starts on Monday (ISO): the Journal has no setting for it (spec § The manifest). */
-export const WEEK_START = 1;
+/** How many days the running journal always shows, those with no page included: today and the six before it. */
+export const RECENT_DAYS = 7;
 
 /** How long a chip's detail may run before it is cut with an ellipsis. */
 export const SNIPPET = 72;
@@ -29,23 +29,10 @@ export function snippet(text: string): string {
 	return flat.length <= SNIPPET ? flat : `${flat.slice(0, SNIPPET - 1)}…`;
 }
 
-/** The first day of `date`'s week; `weekStart` is 0 for Sunday, 1 for Monday. */
-export const startOfWeek = (date: string, weekStart: number): string =>
-	addDays(date, -((utc(date).getUTCDay() - weekStart + 7) % 7));
-
 export interface Range {
 	from: string;
 	to: string;
 }
 
-/** The week round `date`. */
-export function weekOf(date: string, weekStart = WEEK_START): Range {
-	const from = startOfWeek(date, weekStart);
-	return { from, to: addDays(from, 6) };
-}
-
-/** The same number of days before (`-1`) or after (`1`) `r`. */
-export function shift(r: Range, dir: -1 | 1): Range {
-	const n = dir * daysBetween(r.from, r.to);
-	return { from: addDays(r.from, n), to: addDays(r.to, n) };
-}
+/** The last `n` days, ending on `today`. */
+export const recentDays = (today: string, n = RECENT_DAYS): Range => ({ from: addDays(today, -(n - 1)), to: today });

@@ -6,13 +6,13 @@ import { VIEW_ANSWER_MS } from '../../src/vendor/plugin-host/plugin-host.ts';
 import { LEAVE_SAVE_MS } from '../../src/view/leave.ts';
 import { say } from '../../src/view/words.ts';
 import { fire, installDom, settle, type FakeElement } from './fake-dom.ts';
-import { fileOf, mounted, thisWeek } from './fake-host.ts';
+import { fileOf, mounted, recent } from './fake-host.ts';
 
 const refusal = (title: string) => new Response(JSON.stringify({ title, status: 422, code: 'rules' }), { status: 422 });
 
 /** A journal with one paragraph open for writing and changed. */
 async function writing() {
-	const { from } = thisWeek();
+	const { from } = recent();
 	const m = await mounted((h) => h.files.set(from, fileOf(from, '## 08:00', 'Morning.')));
 	const block = m.root.querySelector('.block[data-kind="paragraph"]') as unknown as FakeElement;
 	fire(block, 'click');
@@ -28,7 +28,7 @@ describe('leave', () => {
 	});
 
 	it('nothing open, or open and unchanged: nothing unsaved, and leave answers true at once', async () => {
-		const m = await mounted((h) => h.files.set(thisWeek().from, fileOf(thisWeek().from, '## 08:00', 'Morning.')));
+		const m = await mounted((h) => h.files.set(recent().from, fileOf(recent().from, '## 08:00', 'Morning.')));
 		assert.equal(m.view.unsaved(), false);
 		assert.equal(await m.view.leave(), true);
 		fire(m.root.querySelector('.block[data-kind="paragraph"]'), 'click');
