@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Journal (dev)</title>
+	<link rel="stylesheet" href="./dev.css">
+</head>
+<body>
+	<header class="dev-bar">
+		<strong>Journal, on its own</strong>
+		<fieldset>
+			<legend>Colours</legend>
+			<label><input type="radio" name="look" value="own" checked> The Journal’s own</label>
+			<label><input type="radio" name="look" value="bot"> The bot’s (nclite)</label>
+			<select name="accent" aria-label="Bot colour">
+				<option value="orange">Orange</option>
+				<option value="cyan">Cyan</option>
+				<option value="green">Green</option>
+				<option value="violet">Violet</option>
+				<option value="pink">Pink</option>
+			</select>
+		</fieldset>
+		<fieldset>
+			<legend>Mode</legend>
+			<label><input type="radio" name="mode" value="light" checked> Light</label>
+			<label><input type="radio" name="mode" value="dark"> Dark</label>
+		</fieldset>
+		<fieldset>
+			<legend>Width</legend>
+			<label><input type="radio" name="width" value="wide" checked> Wide</label>
+			<label><input type="radio" name="width" value="narrow"> Narrow (420px pane)</label>
+		</fieldset>
+	</header>
+	<main class="dev-stage">
+		<section class="dev-pane" id="pane">
+			<div class="dev-root" id="root"></div>
+		</section>
+		<aside class="dev-log" aria-label="What the Journal asked of its host">
+			<h2>Host log</h2>
+			<ol id="log"></ol>
+		</aside>
+	</main>
+	<dialog id="confirm">
+		<form method="dialog">
+			<h2></h2>
+			<p></p>
+			<menu><button value="no">Keep writing</button><button value="yes" class="go"></button></menu>
+		</form>
+	</dialog>
+	<script type="module" src="./host.ts"></script>
+</body>
+</html>

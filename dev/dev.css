@@ -1,0 +1,26 @@
+/* The dev page around the Journal: plain, so the paper is what you look at. Never shipped. */
+:root { color-scheme: light; font: 13px/1.4 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+:root[data-mode='dark'] { color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; height: 100vh; display: flex; flex-direction: column; background: light-dark(#ececec, #0c0c0c); color: light-dark(#222, #ddd); }
+
+.dev-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding: 8px 16px; border-bottom: 1px solid light-dark(#d4d4d4, #2a2a2a); background: light-dark(#f7f7f7, #161616); }
+.dev-bar fieldset { display: flex; align-items: center; gap: 10px; margin: 0; padding: 0; border: 0; }
+.dev-bar legend { float: left; margin-right: 6px; font-weight: 600; color: light-dark(#666, #999); }
+.dev-bar label { display: inline-flex; align-items: center; gap: 4px; }
+
+.dev-stage { flex: 1; min-height: 0; display: flex; gap: 16px; padding: 16px; }
+/* The pane: a definite size, as nclite's `.root` gives one (position absolute, inset 0, in a sized body). */
+.dev-pane { position: relative; flex: 1; min-width: 0; border: 1px solid light-dark(#d4d4d4, #2a2a2a); border-radius: 6px; overflow: hidden; }
+.dev-pane[data-width='narrow'] { flex: 0 0 420px; }
+.dev-root { position: absolute; inset: 0; isolation: isolate; }
+
+.dev-log { flex: 0 0 260px; min-height: 0; overflow: auto; font-size: 12px; }
+.dev-log h2 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: light-dark(#777, #888); }
+.dev-log ol { margin: 0; padding-left: 18px; }
+.dev-log li { margin-bottom: 4px; overflow-wrap: anywhere; }
+.dev-log li[data-kind='notify error'] { color: light-dark(#a3260e, #ff8a70); }
+
+dialog { max-width: 360px; border: 1px solid light-dark(#ccc, #333); border-radius: 10px; }
+dialog h2 { margin: 0 0 8px; font-size: 15px; }
+dialog menu { display: flex; justify-content: flex-end; gap: 8px; margin: 16px 0 0; padding: 0; }

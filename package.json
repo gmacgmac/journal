@@ -6,6 +6,7 @@
 	"description": "A journal plugin for nclite: one note per day, written in place or by the bot.",
 	"engines": { "node": ">=24" },
 	"scripts": {
+		"dev": "node dev/server.ts",
 		"build:plugin": "node bin/build-plugin.ts",
 		"test": "node --test 'tests/**/*.test.ts'",
 		"check": "tsc --noEmit",
