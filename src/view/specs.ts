@@ -1,12 +1,12 @@
 // What a session saves for a block already on the page (see `editor.ts`):
-//   body     paragraphs, lists, to-dos and quotes, saved as a replace
+//   body     paragraphs, lists, to-dos and quotes, saved as a replace; Add title from here gives its entry a title
 //   heading  an entry's time and title, edited in their own places: the time stays in the margin, so the box is
 //            never squeezed into it
 import { inlineMarkdown } from '../vendor/markdown/index.ts';
 import { readInlines } from './dom-tree.ts';
 import { bodyMarkdown } from './editor.ts';
 import { el, renderMarkdown } from './render.ts';
-import { startOf, type BlockNode, type Session, type Spec } from './session.ts';
+import { entryHeadOf, startOf, type BlockNode, type Session, type Spec } from './session.ts';
 import { say } from './words.ts';
 
 const range = (node: BlockNode) => ({ date: node.dataset.date!, start: Number(node.dataset.start), end: Number(node.dataset.end) });
@@ -38,6 +38,19 @@ export function bodySpec(node: BlockNode): Spec {
 			if ('problem' in r) return;
 			const start = Number(prev.dataset.start);
 			void s.save({ op: 'range', date: node.dataset.date!, start, end: Number(node.dataset.end), before: `${prev._text}\n\n${st.before}`, after: r.md }, at, start);
+		},
+		/** An entry with no title takes one from any of its writing: this is saved, then the entry's title opens in place. */
+		canTitle: () => {
+			const head = entryHeadOf(node);
+			return head !== null && !head.classList.contains('has-title');
+		},
+		addTitle() {
+			const head = entryHeadOf(node);
+			const s = node._editor;
+			if (head === null || s == null) return;
+			void s.finish({ then: 'stay' }).then((problem) => {
+				if (problem === null) s.host.open(head)?.act('title');
+			});
 		},
 	};
 }

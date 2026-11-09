@@ -5,7 +5,7 @@ import { CHIP_DAYS, CHIP_TEXT_CHARS, daysBetween } from '../format/index.ts';
 import { PLUGIN_ID } from '../manifest.ts';
 import { CHIP_LIMITS, type Chip } from '../vendor/plugin-host/plugin-host.ts';
 import { dayMonth, shortDate, snippet, type Range } from './dates.ts';
-import type { BlockNode } from './session.ts';
+import { entryHeadOf, type BlockNode } from './session.ts';
 import type { Day } from './wire.ts';
 import { say } from './words.ts';
 
@@ -14,9 +14,8 @@ const clamp = (text: string, max: number) => (text.length <= max ? text : `${tex
 
 /** The entry a block sits under, read from the page: its time and title, or null. */
 export function entryOf(node: BlockNode): string | null {
-	let head: Element | null = node.classList.contains('entry-head') ? node : node.previousElementSibling;
-	while (head !== null && !head.classList.contains('entry-head')) head = head.previousElementSibling;
-	return head === null ? null : ((head as BlockNode)._text ?? '').replace(/^##\s+/, '');
+	const head = entryHeadOf(node);
+	return head === null ? null : (head._text ?? '').replace(/^##\s+/, '');
 }
 
 /** A saved block as a chip: `Sat 7 Nov · 21:30 · Walk`, its first words as the detail. */

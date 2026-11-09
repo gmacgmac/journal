@@ -91,5 +91,12 @@ export interface Page {
 
 export const isEditing = (node: Element): boolean => (node as BlockNode)._editor != null;
 
+/** The heading of the entry `node` sits under (`node` itself when it is one), read from the page; null above the first. */
+export function entryHeadOf(node: BlockNode): BlockNode | null {
+	let head: Element | null = node.classList.contains('entry-head') ? node : node.previousElementSibling;
+	while (head !== null && !head.classList.contains('entry-head')) head = head.previousElementSibling;
+	return head as BlockNode | null;
+}
+
 /** Where an edit that names a place in the file starts, or NaN. */
 export const startOf = (e: Edit): number => ('start' in e ? e.start : NaN);

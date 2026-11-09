@@ -245,6 +245,30 @@ describe('mount', () => {
 		b.view.unmount();
 	});
 
+	it('an entry with no title takes one from its writing: Add title saves it and opens the title in place', async () => {
+		const { from } = recent();
+		const m = await mounted((h) => h.files.set(from, fileOf(from, '## 08:00', 'Morning.')));
+		const titleButton = q(m.root, '[data-act="title"]');
+		fire(q(m.root, '.block[data-kind="paragraph"]'), 'click');
+		assert.ok(!titleButton.hidden, 'offered from the writing of an entry with no title');
+		fire(titleButton, 'click');
+		await settle();
+		const head = q(m.root, '.block.entry-head');
+		assert.ok(head.classList.contains('has-title'));
+		assert.ok(head.classList.contains('editing'), 'the heading is open, its title ready');
+		assert.ok(head.querySelector('.title'));
+		assert.deepEqual(m.calls.edits, [], 'nothing changed, so nothing was saved yet');
+		m.view.unmount();
+	});
+
+	it('an entry that has a title does not offer another from its writing', async () => {
+		const { from } = recent();
+		const m = await mounted((h) => h.files.set(from, fileOf(from, '## 08:00 · Walk', 'Morning.')));
+		fire(q(m.root, '.block[data-kind="paragraph"]'), 'click');
+		assert.ok(q(m.root, '[data-act="title"]').hidden);
+		m.view.unmount();
+	});
+
 	it('a refused tick is said through notify and the box goes back', async () => {
 		const { from } = recent();
 		const m = await mounted((h) => h.files.set(from, fileOf(from, '## 08:00', '- [ ] water the plants')));
