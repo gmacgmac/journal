@@ -55,16 +55,20 @@ export interface InlineScan {
  * to the next encoding trick, and the set of schemes a chat link legitimately
  * uses is three long. A relative or fragment URL resolves against the app's own
  * origin, so it is allowed; a scheme-relative `//host` is not, because the
- * scheme it inherits is not stated in the text.
+ * scheme it inherits is not stated in the text. Any backslash is refused too:
+ * a browser reads `/\host` and `\\host` as `//host`, so an address with a
+ * backslash in it is not a link and is drawn as its plain text, never rewritten.
  */
 export function safeHref(href: string): string | null {
 	const raw = href.trim();
 	if (raw === '' || raw.startsWith('//')) return null;
 	// Control characters are how `java\nscript:` gets past a naive check.
 	if (/[\u0000-\u0020\u007f]/.test(raw)) return null;
+	if (raw.includes('\\')) return null;
 	const scheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.exec(raw);
-	// No scheme at the start means relative or a fragment: it resolves against
-	// the app's own origin and cannot become an executable URL.
+	// No scheme at the start means relative or a fragment: with no `//` and no
+	// backslash (both refused above) it resolves against the app's own origin
+	// and cannot become an executable URL.
 	if (scheme === null) return raw;
 	return SAFE_SCHEMES.includes(scheme[0].toLowerCase()) ? raw : null;
 }
