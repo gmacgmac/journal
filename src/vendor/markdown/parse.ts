@@ -31,6 +31,9 @@ import type {
 /** Blockquote/list nesting past this reads as text. Guards pathological input. */
 const MAX_BLOCK_DEPTH = 12;
 
+/** A table wider than this reads as text: every row is padded to the header's width, so width times rows is the cost. Guards pathological input. */
+export const MAX_TABLE_COLUMNS = 64;
+
 /** What a line opens a fenced block with. */
 export interface FenceOpen {
 	char: string;
@@ -295,6 +298,7 @@ function tableAt(lines: string[], at: number): TableAt | null {
 	if (!header.includes('|') || !separator.includes('-')) return null;
 
 	const headerCells = splitRow(header);
+	if (headerCells.length > MAX_TABLE_COLUMNS) return null;
 	const alignCells = splitRow(separator);
 	if (headerCells.length < 2 && !header.trim().startsWith('|')) return null;
 	if (alignCells.length !== headerCells.length) return null;
