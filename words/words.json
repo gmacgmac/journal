@@ -70,6 +70,7 @@
 	"journal.problem.date-heading": "The date comes from the page itself and can’t be edited.",
 	"journal.problem.heading": "Writing can’t add a heading. To start a new entry, use Add an entry.",
 	"journal.problem.entry-heading-form": "An entry’s heading is a time, a time and a title, or a title alone.",
+	"journal.problem.join": "Only two paragraphs side by side can be joined, into one paragraph.",
 	"journal.problem.entry-order": "That entry has a time: it stays in time order. Change its time to move it.",
 	"journal.problem.entry-exists": "There is already an entry at {time}. Add to that one, or pick another time.",
 	"journal.problem.malformed": "This page breaks the journal’s rules, so it can’t be changed here. Fix the file itself first.",

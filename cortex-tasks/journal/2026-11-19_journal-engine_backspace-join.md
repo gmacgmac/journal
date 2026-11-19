@@ -1,8 +1,8 @@
 ---
 task_name: Backspace Join As An Engine Edit
 created: 2026-11-19
-completed:
-status: pending
+completed: 2026-11-19
+status: completed
 categories: [journal-engine, journal-view]
 type: implementation
 model: strong
@@ -57,4 +57,17 @@ Fixes set).
 
 ## Implementation Notes
 
-**Status**: Pending
+**Status**: Completed
+**Completed**: 2026-11-19
+
+### Changes Made
+- `src/seam-types.ts` `Edit`: `join`. `src/store/edits.ts`: `isEdit`, `planJoin`, `plan`, header comment. `words/words.json`: `journal.problem.join`.
+- `src/view/specs.ts` `bodySpec` `merge` sends `join`; no `op: 'range'` is left in `src/view`.
+- Tests: `tests/store.test.ts` "join: two paragraphs side by side…", `tests/view/join.test.ts` (2), `tests/routes.test.ts` malformed `join` bodies.
+- `docs/specification/plugin.md`: § Routes `join`; § The view; Backspace out of § Not covered.
+
+### Caught Beyond the Brief
+- Done with it, not part of it: on a phone, Remove this day shows only on the day whose date line was pressed (`revealed`, `src/view/journal.ts`; `src/view/css/sheet.css`), at the user's ask; test in `tests/view/remove.test.ts`.
+
+### Deviations from Plan
+- None.

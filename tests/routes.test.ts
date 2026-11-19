@@ -243,7 +243,7 @@ describe('POST edit', () => {
 		assert.equal((order.body as RouteProblem).code, 'order');
 		assert.match((order.body as RouteProblem).title, /stays in time order/);
 		// A malformed one is unreadable.
-		for (const bad of [{ op: 'move', date, entry: one }, { op: 'remove', date }, { op: 'clear', date, version: 1 }, { op: 'move', date, entry: 3, before: null }]) {
+		for (const bad of [{ op: 'move', date, entry: one }, { op: 'remove', date }, { op: 'clear', date, version: 1 }, { op: 'move', date, entry: 3, before: null }, { op: 'join', date, first: 'a', second: 'b' }, { op: 'join', date, first: 'a', second: 2, text: 'x' }]) {
 			assert.equal((await post(bad as unknown as Edit)).status, 400, JSON.stringify(bad));
 		}
 		assert.equal(read(date), text);

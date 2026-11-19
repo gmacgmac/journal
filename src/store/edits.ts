@@ -1,4 +1,4 @@
-// The seven edits a page can ask for, each planned as pure text in, text out (carried from the proof's `store/edits.ts`).
+// The eight edits a page can ask for, each planned as pure text in, text out (carried from the proof's `store/edits.ts`).
 // Every one is anchored to bytes the editor saw and is refused, never merged, when those bytes have changed; every result
 // is checked against the day's rules (`src/format/`).
 //
@@ -10,9 +10,10 @@
 //   move     an entry, named by its id, to before another entry (null: the end of the day)
 //   remove   an entry, named by its id, writing and all
 //   clear    every entry of a day the person saw (named by its version); the date line stays
+//   join     two paragraphs, named by their keys, become the one paragraph given (Backspace at the start of the second)
 //
-// `move`, `remove` and `clear` name what the person saw and are refused when it is gone; the engine then rebuilds the day
-// from its entries, so a file spaced by hand is no obstacle.
+// `move`, `remove`, `clear` and `join` name what the person saw and are refused when it is gone; the engine finds the bytes
+// itself, so a file spaced by hand is no obstacle.
 //
 // A block open for writing survives a write earlier in the day (D29): when `start..end` no longer holds `before` but exactly
 // one top-level block of the day now equals it, a `replace` or an `insert` anchors to that block. A `range` never moves.
@@ -201,6 +202,22 @@ function planRemove(date: string, text: string, e: Extract<Edit, { op: 'remove' 
 	return checked(date, rebuilt(text, spans.filter((s) => s.id !== e.entry)));
 }
 
+/**
+ * Two paragraphs, straight one after the other, become the one paragraph `text` (what the editor holds: the second may
+ * have been changed before Backspace). Whatever blank lines lay between them go with the join.
+ */
+function planJoin(date: string, text: string, e: Extract<Edit, { op: 'join' }>): Plan {
+	const blocks = keyedBlocks(text);
+	const at = blocks.findIndex((b) => b.key === e.first);
+	if (at < 0 || blocks[at + 1]?.key !== e.second) return refuse(409, 'changed', 'journal.problem.changed');
+	const kinds = blocksOf(text);
+	const joined = tidy(e.text);
+	if (kinds[at]!.kind !== 'paragraph' || kinds[at + 1]!.kind !== 'paragraph' || kindsOf(joined).join() !== 'paragraph') {
+		return refuse(400, 'unreadable', 'journal.problem.join');
+	}
+	return checked(date, text.slice(0, blocks[at]!.start) + joined + text.slice(blocks[at + 1]!.end));
+}
+
 function planClear(date: string, text: string, e: Extract<Edit, { op: 'clear' }>): Plan {
 	if (e.version !== version(text)) return refuse(409, 'changed', 'journal.problem.changed');
 	return checked(date, rebuilt(text, []));
@@ -219,6 +236,7 @@ export function plan(date: string, text: string | null, e: Edit): Plan {
 	if (e.op === 'move') return planMove(date, text, e);
 	if (e.op === 'remove') return planRemove(date, text, e);
 	if (e.op === 'clear') return planClear(date, text, e);
+	if (e.op === 'join') return planJoin(date, text, e);
 	return planRange(date, text, e);
 }
 
@@ -244,6 +262,7 @@ export function isEdit(e: unknown): e is Edit {
 		case 'move': return str('entry') && (v.before === null || str('before'));
 		case 'remove': return str('entry');
 		case 'clear': return str('version');
+		case 'join': return str('first') && str('second') && str('text');
 		case 'entry': return (v.time === null || str('time')) && str('text') && (v.title === null || str('title'));
 		default: return false;
 	}

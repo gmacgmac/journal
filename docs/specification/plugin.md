@@ -246,14 +246,21 @@ type Edit =
 	| { op: 'range'; date: string; start: number; end: number; before: string; after: string }     // exact bytes: an undo
 	| { op: 'move'; date: string; entry: string; before: string | null }                          // before: an entry id; null is the end of the day
 	| { op: 'remove'; date: string; entry: string }                                               // the entry, writing and all
-	| { op: 'clear'; date: string; version: string };                                             // every entry; the date line stays
+	| { op: 'clear'; date: string; version: string }                                              // every entry; the date line stays
+	| { op: 'join'; date: string; first: string; second: string; text: string };                  // two paragraphs by key, as one: Backspace
 // 200: { "day": Day, "undo": RangeEdit }
 // 400 "unreadable": not an Edit · 409 "changed": the bytes, entry or version moved (with day) · 422 "rules", "heading",
 //     "date-heading", "entry-exists", "order", "malformed", "too-big" (with day)
 ```
 
-**`move`, `remove` and `clear` name an entry by its id (§ The data) or the day by its `version`**, so the view says what it
-wants and the engine finds the bytes (`planMove`, `planRemove`, `planClear`, `src/store/edits.ts`):
+**`move`, `remove`, `clear` and `join` name an entry or a block by its id (§ The data) or the day by its `version`**, so the
+view says what it wants and the engine finds the bytes (`planMove`, `planRemove`, `planClear`, `planJoin`,
+`src/store/edits.ts`):
+
+- `join` makes paragraphs `first` and `second` (block keys), which must stand one straight after the other, into the one
+  paragraph `text`, whatever blank lines lay between them. A missing key, or a pair not side by side, is `409 changed`; a block
+  that is not a paragraph, or `text` that is not one paragraph, is `400 unreadable` (`journal.problem.join`).
+  `tests/store.test.ts` "join: two paragraphs side by side, named by key, become the one given, however they were spaced".
 
 - `move` puts entry `entry` in front of entry `before`, or at the end of the day when `before` is `null`. A missing `entry` or
   `before` is `409 changed`. A move that would put a timed entry out of time order is `422 order`
@@ -268,7 +275,7 @@ wants and the engine finds the bytes (`planMove`, `planRemove`, `planClear`, `sr
 - Each answers its undo as a `range` over the changed bytes, so Undo stays an ordinary `range` and never moves. The view
   sends all three (§ The view); the bot's tools do not (it keeps `delete_block` and the rest), and a `move` that reached the
   tools' own planner would be refused as a heading (`storeRefusal`, `src/engine/tools/write.ts`).
-- A body that is not one of the seven (a missing id, a `version` that is not a string, `before` neither a string nor `null`)
+- A body that is not one of the eight (a missing id, a `version` that is not a string, `before` neither a string nor `null`)
   is `400 unreadable` (`isEdit`).
 
 Proven by `tests/store.test.ts` "move, remove and clear name an entry or a day, and the engine does the bytes (GM,
@@ -605,16 +612,19 @@ to data:" (no `@page`).
 **Hover controls show at two strengths**: `--journal-faint` (0.3) where a control is offered and `--journal-hint` (0.55) once the
 pointer is in its place, and full only when pointed at itself (the drag handle, Remove this day, the gap's Add a page, the
 foot of a day, Start this page). With no hover (`@media (hover: none)`) each shows without it, in the
-strength its rule gives (the handle faint, Start this page at the hint strength, the rest in full), and Remove this day
-without its words. These are CSS only and held by no test (§ Not covered).
+strength its rule gives (the handle faint, Start this page at the hint strength, the rest in full), except Remove this day:
+it shows, without its words, only on the day whose date line was pressed (`revealed`, `src/view/journal.ts`; one day at a
+time, and a second press puts it away). `tests/view/remove.test.ts` "a press on a date line shows that day’s Remove this day
+where nothing hovers; again puts it away; one day at a time". The strengths themselves are CSS only and held by no test
+(§ Not covered).
 
 **Writing in place, three details.** Typing `> ` straight under a quote carries that quote on, as one bar, and starts one
 otherwise (`convert`, `src/view/editor-keys.ts`). Quotes are set upright, marked by their bar, so an italic on the page is
 only the writer's own emphasis (`.block blockquote`, `src/view/css/sheet.css`). **Backspace at the start of a paragraph joins
-it to the one above by sending a `range` the view builds** from the two blocks' text and one blank line between
-(`merge`, `bodySpec`, `src/view/specs.ts`): it is anchored to bytes the view has just read, so on a file whose blocks are
-spaced otherwise it is refused `changed` and nothing is saved, unlike `move`, `remove` and `clear`, which the engine plans
-from the file. No test drives it (§ Not covered).
+it to the one above** by sending a `join` naming both blocks by key, with the writing as one paragraph (`merge`, `bodySpec`,
+`src/view/specs.ts`); the engine finds the bytes, so a pair spaced by hand joins all the same. `tests/view/join.test.ts`
+"sends a join naming both blocks by key, with the writing as one paragraph", "joins a pair spaced by hand: nothing is
+refused for the blank lines between them".
 
 **Add a page** (`+`) asks which day (the calendar, § Asking for a day) and opens a new entry on it, in its place:
 on the running journal a day not shown is drawn where it falls; in Day, that day is shown. **The place is kept** per bot on
@@ -629,7 +639,7 @@ saves; a to-do ticks and saves at once; Undo is a toast inside `root`.
 
 | Member | The Journal's use |
 |---|---|
-| `api` | `days?from=…&to=…` (GET, followed by `next` until the range is read), `pages?before=…&limit=…` (GET, one batch at a time) and `edit` (POST, the seven edits of § Routes: the view sends `replace`, `insert`, `entry`, `range` (an undo, and Backspace's join, below), `move`, `remove` and `clear`, `content-type: application/json`), paths with no leading `/`; a reply with status 400 or more is a problem (§ Routes) |
+| `api` | `days?from=…&to=…` (GET, followed by `next` until the range is read), `pages?before=…&limit=…` (GET, one batch at a time) and `edit` (POST, the eight edits of § Routes: the view sends `replace`, `insert`, `entry`, `range` (an undo), `move`, `remove`, `clear` and `join` (Backspace's, below), `content-type: application/json`), paths with no leading `/`; a reply with status 400 or more is a problem (§ Routes) |
 | `events` | `{ date }` of a day shown reads that day again; of an older day the running journal reaches but does not show, draws its new page in; `{}` reads every day shown again, after a draw under way (one before the first draw lands reads nothing: "an event of {} that comes before the first draw settles (the host says one as its stream opens) throws nothing and reads nothing twice"); any other ref is ignored |
 | `chat` | `add(chip)` for a block's Add to chat in the writing bar (a `block` chip); nothing is staged by `attach`; no `send` |
 | `settings` | Nothing |
@@ -810,8 +820,6 @@ compiles alone with the DOM types", "a host that gives the contract's PluginHost
   handle, line and glide on a real screen. `tests/view/drag.test.ts` holds what drag sends and says, not how it looks.
 - `> ` carrying a quote on (`convert`, `src/view/editor-keys.ts`): `tests/view/dom-tree.test.ts` holds that `> ` is a marker,
   nothing holds what it does under a quote.
-- Backspace's paragraph join (`merge`, `bodySpec`), which still sends a `range` the view builds, so it is refused `changed` on a
-  hand-spaced file (§ The view). Moving it into the engine as an edit of its own is a code change, and is not made here.
 - A page's print on paper: `tests/view/print.test.ts` holds what is handed to `host.print`; how the host's window sets it
   is the host's (`docs/handover/print-pattern.md`).
 - Moving the notes out of the workspace, a lock, and a journal for more than one person (nclite PLAN, Out of Scope).

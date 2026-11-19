@@ -185,6 +185,15 @@ export function mountJournal(root: HTMLElement, host: PluginHost): PluginView {
 			return picker.strip(t.closest<HTMLElement>('.gap-add')!, from, to, (date) => void addPage(date));
 		}
 		if (t.closest('.feed-more') !== null) return void views.readOlder();
+		// A press on a day's date line shows its Remove this day where nothing can hover (sheet.css); one day at a time.
+		const dateLine = t.closest<HTMLElement>('.day:not(.gap) > header');
+		if (dateLine !== null && t.closest('button') === null) {
+			const day = dateLine.parentElement!;
+			const show = !day.classList.contains('revealed');
+			for (const other of sheet.querySelectorAll('.day.revealed')) other.classList.remove('revealed');
+			day.classList.toggle('revealed', show);
+			return;
+		}
 		const remove = t.closest<HTMLElement>('.day-remove');
 		if (remove !== null) return void removeDay(remove.closest<HTMLElement>('.day')!.dataset.date!);
 		// In Day, a day with no page is a blank page: a press anywhere on it starts writing.

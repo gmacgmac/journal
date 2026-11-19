@@ -46,7 +46,8 @@ export interface Day {
 
 /**
  * The edits `POST edit` takes. `replace`, `insert` and `range` are anchored to bytes the view saw (`range` is how an undo
- * is applied); `move`, `remove` and `clear` name an entry by its id, or the day by its version, and the engine does the bytes.
+ * is applied); `move`, `remove`, `clear` and `join` name an entry or a block by its id, or the day by its version, and the engine does the
+ * bytes.
  */
 export type Edit =
 	| { op: 'replace'; date: string; start: number; end: number; before: string; after: string }
@@ -55,7 +56,8 @@ export type Edit =
 	| { op: 'range'; date: string; start: number; end: number; before: string; after: string }
 	| { op: 'move'; date: string; entry: string; before: string | null }                          // before: an entry id; null is the end of the day
 	| { op: 'remove'; date: string; entry: string }                                               // the entry, writing and all
-	| { op: 'clear'; date: string; version: string };                                             // every entry; the date line stays
+	| { op: 'clear'; date: string; version: string }                                              // every entry; the date line stays
+	| { op: 'join'; date: string; first: string; second: string; text: string };                  // two paragraphs by key, as one: Backspace
 
 /** Exact bytes swapped for others: how an undo is applied. */
 export type RangeEdit = Extract<Edit, { op: 'range' }>;

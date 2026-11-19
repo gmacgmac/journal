@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { MAX_DAY_BLOCKS, MAX_DAY_BYTES, MAX_DAY_JSON_BYTES, blocksOf, dateHeading, dayPath, entriesOf } from '../src/format/index.ts';
+import { MAX_DAY_BLOCKS, MAX_DAY_BYTES, MAX_DAY_JSON_BYTES, blocksOf, dateHeading, dayPath, entriesOf, keyedBlocks as keyedBlocksOf } from '../src/format/index.ts';
 import type { Edit } from '../src/seam-types.ts';
 import { applyEdit, dayFile, plan, readDayFile, undoOf, version, writeDay, type Plan } from '../src/store/index.ts';
 import { DAYS, sampleDays, scratch } from './fixtures/days.ts';
@@ -363,4 +363,26 @@ test('move, remove and clear are applied through the store with an undo that res
 		assert.ok(applyEdit(dir, done.undo).ok);
 		assert.equal(read(dir), before, e.op);
 	}
+});
+
+test('join: two paragraphs side by side, named by key, become the one given, however they were spaced (GM, 2026-11-19)', () => {
+	const date = '2026-11-08';
+	const keyOf = (t: string, words: string) => keyedBlocksOf(t).find((b) => b.text === words)!.key;
+	const join = (t: string, first: string, second: string, text: string) => plan(date, t, { op: 'join', date, first, second, text });
+	const text = `${dateHeading(date)}\n\n## Notes\n\nOne.\n\nTwo.\n\n- a list\n`;
+	const one = keyOf(text, 'One.');
+	const two = keyOf(text, 'Two.');
+	assert.equal(textOf(join(text, one, two, 'One.Two, changed.')), `${dateHeading(date)}\n\n## Notes\n\nOne.Two, changed.\n\n- a list\n`);
+	// A pair spaced by hand joins all the same: the engine finds the bytes.
+	const spaced = text.replace('One.\n\nTwo.', 'One.\n\n\n\nTwo.');
+	assert.equal(textOf(join(spaced, one, two, 'One.Two.')), `${dateHeading(date)}\n\n## Notes\n\nOne.Two.\n\n- a list\n`);
+	// Refused: a key gone, a pair not side by side, a block not a paragraph, writing that is not one paragraph.
+	assert.equal(status(join(text, 'deadbeef-0', two, 'x')), 409);
+	assert.equal(status(join(text, two, one, 'x')), 409);
+	assert.equal(code(join(text, two, keyOf(text, '- a list'), 'Two. a list')), 'unreadable');
+	assert.equal(code(join(text, one, two, 'One.\n\nTwo.')), 'unreadable');
+	// Undone by the range it answers with.
+	const after = textOf(join(spaced, one, two, 'One.Two.'));
+	const undo = undoOf(date, spaced, after);
+	assert.equal(textOf(plan(date, after, undo)), spaced);
 });

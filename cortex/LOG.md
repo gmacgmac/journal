@@ -11,3 +11,5 @@
 [[2026-11-19 14:30]] [journal-contract] DOC_01: spec true to the code (edits move/remove/clear, entry rules, view, print, look) → Task: [[cortex-tasks/journal/2026-11-19_journal-engine_review-fixes/DOC_01_spec.md]]
 [[2026-11-19 14:09]] [journal-engine] Verified Review Fixes: check, 291 tests, build, nclite stylesheet check, planner probe on tricky days, doc audit → Task: [[cortex-tasks/journal/2026-11-19_journal-engine_review-fixes/VERIFY_01_testing.md]]
 [[2026-11-19 15:05]] [journal-engine] Completed set: Review Fixes → Task: [[cortex-tasks/journal/2026-11-19_journal-engine_review-fixes/TASK-STATUS.md]]
+[[2026-11-19 15:40]] [journal-engine] Backspace's paragraph join is an engine edit (`join`, by block keys); no view-built range left outside undo → Task: [[cortex-tasks/journal/2026-11-19_journal-engine_backspace-join.md]]
+[[2026-11-19 15:40]] [journal-view] On a phone, Remove this day shows only on the day whose date line was pressed → Notes: `src/view/journal.ts` (`revealed`), `src/view/css/sheet.css` (`@media (hover: none)`) — user's ask, tested in tests/view/remove.test.ts

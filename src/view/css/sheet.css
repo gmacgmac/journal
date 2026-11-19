@@ -30,7 +30,14 @@
 	.day-remove:hover, .day-remove:focus-visible { opacity: 1; }
 	.day-remove:hover { color: var(--journal-warn); background: var(--journal-hover); }
 	.day-remove:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 1px; }
-	@media (hover: none) { .day-remove { opacity: 1; } .day-remove span { display: none; } }
+	/* With no hover (a phone, a tablet), a tap on the date line shows it (`revealed`, journal.ts), and a tap there again, or
+	   on another day's, puts it away: on every day at once it was too much (GM, 2026-11-19). A finger's sticky :hover must
+	   not show it either. */
+	@media (hover: none) {
+		.day > header .day-remove, .day > header:hover .day-remove { opacity: 0; pointer-events: none; }
+		.day.revealed > header .day-remove { opacity: 1; pointer-events: auto; }
+		.day-remove span { display: none; }
+	}
 	/* Today: named above its date. */
 	.today-mark { display: block; margin-bottom: 4px; font: 600 calc(0.72 * var(--journal-rem))/1.2 var(--journal-font); letter-spacing: 0.08em; text-transform: uppercase; color: var(--journal-date-ink); }
 	/* A day with no page is one line: the date, quiet, and the way to start it at the end of the line. */

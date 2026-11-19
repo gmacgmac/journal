@@ -92,4 +92,22 @@ describe('removing', () => {
 		assert.ok(!dayOf(m.root, from).classList.contains('gap'));
 		m.view.unmount();
 	});
+
+	it('a press on a date line shows that day’s Remove this day where nothing hovers; again puts it away; one day at a time', async () => {
+		const { from, to } = recent();
+		const m = await mounted((h) => {
+			h.files.set(from, fileOf(from, '## 08:00', 'Then.'));
+			h.files.set(to, fileOf(to, '## 09:00', 'Now.'));
+		});
+		const head = (date: string) => dayOf(m.root, date).querySelector('header h2') as unknown as FakeElement;
+		const shown = (date: string) => dayOf(m.root, date).classList.contains('revealed');
+		fire(head(from), 'click');
+		assert.ok(shown(from));
+		fire(head(to), 'click');
+		assert.ok(shown(to) && !shown(from), 'one day at a time');
+		fire(head(to), 'click');
+		assert.ok(!shown(to), 'a second press puts it away');
+		assert.deepEqual(m.calls.edits, [], 'a press shows it; only Remove itself removes');
+		m.view.unmount();
+	});
 });

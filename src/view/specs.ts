@@ -48,8 +48,9 @@ export function bodySpec(node: BlockNode): Spec {
 			joined.firstElementChild!.append(...[...node.querySelector('p')!.childNodes].map((c) => c.cloneNode(true)));
 			const r = bodyMarkdown(joined);
 			if ('problem' in r) return;
+			// Named by the two blocks' keys, as the person saw them; the engine finds their bytes, whatever lies between.
 			const start = Number(prev.dataset.start);
-			void s.save({ op: 'range', date: node.dataset.date!, start, end: Number(node.dataset.end), before: `${prev._text}\n\n${st.before}`, after: r.md }, at, start);
+			void s.save({ op: 'join', date: node.dataset.date!, first: prev.dataset.key!, second: node.dataset.key!, text: r.md }, at, start);
 		},
 		/** An entry with no title takes one from any of its writing: this is saved, then the entry's title opens in place. */
 		canTitle: () => {
