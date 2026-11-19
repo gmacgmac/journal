@@ -9,3 +9,5 @@
 [[2026-11-19 12:00]] [journal-engine] BE_01: engine plans move/remove/clear by entry id; entry rules in src/format/entries.ts; GET pages leaves out date-line-only files; tests added, 272 pass → Task: [[cortex-tasks/journal/2026-11-19_journal-engine_review-fixes/BE_01_engine-edits.md]]
 [[2026-11-19 14:01]] [journal-view] View sends move/remove/clear, removed day stays placed for Undo, drag and removal tests, fake-host runs the engine's plan (BE_01-R1) → Task: [[cortex-tasks/journal/2026-11-19_journal-engine_review-fixes/FE_01_view-edits.md]]
 [[2026-11-19 14:30]] [journal-contract] DOC_01: spec true to the code (edits move/remove/clear, entry rules, view, print, look) → Task: [[cortex-tasks/journal/2026-11-19_journal-engine_review-fixes/DOC_01_spec.md]]
+[[2026-11-19 14:09]] [journal-engine] Verified Review Fixes: check, 291 tests, build, nclite stylesheet check, planner probe on tricky days, doc audit → Task: [[cortex-tasks/journal/2026-11-19_journal-engine_review-fixes/VERIFY_01_testing.md]]
+[[2026-11-19 15:05]] [journal-engine] Completed set: Review Fixes → Task: [[cortex-tasks/journal/2026-11-19_journal-engine_review-fixes/TASK-STATUS.md]]

@@ -1,8 +1,8 @@
 ---
 task_name: Review Fixes
 created: 2026-11-19
-completed:
-status: in-progress
+completed: 2026-11-19
+status: completed
 categories: [journal-engine, journal-format, journal-contract, journal-view]
 tracker:
 ---
@@ -37,7 +37,7 @@ tracker:
 | 2 | FE_02 | 1 | standard | no | — | [Split the stylesheet](./FE_02_stylesheet-split.md) | Completed | Built sheet: same rules, same order; +6 `.journal{` wrapper openers |
 | 3 | FE_01 | 2 | strong | no | Staff front-end engineer — the view states intent and the engine owns the bytes; every interaction has a test that drives it as a person would. | [View on the new edits, drag tests](./FE_01_view-edits.md) | Completed | View sends `move`/`remove`/`clear`; drag has 16 tests; `fake-host` runs the engine's `plan` |
 | 4 | DOC_01 | 3 | strong | no | Technical writer for developer platforms — every sentence about the code names the symbol and the test that keeps it true. | [Spec true to the code](./DOC_01_spec.md) | Completed | `plugin.md` true to the code; untested claims under Not covered; README stylesheet line |
-| 5 | VERIFY_01 | 4 | standard | no | A person who keeps a journal in a notes app they love — expects writing, moving and removing to just work, and nothing to be lost. | [Final verification](./VERIFY_01_testing.md) | Pending | |
+| 5 | VERIFY_01 | 4 | standard | no | A person who keeps a journal in a notes app they love — expects writing, moving and removing to just work, and nothing to be lost. | [Final verification](./VERIFY_01_testing.md) | Completed | check clean; 291 tests pass; build and nclite stylesheet check clean; planner probe loses no text |
 
 **Status Values**: `Pending` | `In Progress` | `Completed` | `Blocked` | `Deferred`
 
@@ -75,6 +75,7 @@ tracker:
 | DOC_01-R1 | DOC_01 | `src/view/specs.ts` — an engine edit for Backspace's paragraph join | follow-up, put to the user at close | Closed |
 | DOC_01-R2 | DOC_01 | `tests/view/` — tests for the claims under the spec's § Not covered | follow-up, put to the user at close | Closed |
 | DOC_01-R3 | DOC_01 | `src/view/css/-c1-40.css` — stray empty partial | orchestrator: deleted at the wave 3 gate | Done |
+| VERIFY_01-R1 | VERIFY_01 | `removeDay` silent when the day has no version | closed: the control is drawn only on a day with writing, read from a file, which always has a version | Closed |
 
 ---
 
@@ -97,17 +98,17 @@ _Status:_ Completed
 _Notes:_ `docs/specification/plugin.md` extended section by section (data, routes, tools, view, look, not covered); Backspace's `range` join described as view-built (FE_01-N1). No tests exist for hover strengths, `> `, quotes upright, the Backspace join: under Not covered. Stray `src/view/css/-c1-40.css` (empty `.journal {}`, not imported) left for the orchestrator. `npm test` 291 pass.
 
 ### VERIFY_01: Final Verification
-_Status:_ Pending  
-_Notes:_ 
+_Status:_ Completed  
+_Notes:_ check clean, `npm test` 291 pass, build ok, `checkPluginStylesheet('journal', bytes)` reports nothing; only `specs.ts` `merge` still sends a view `range`; planner tried on tricky days (no trailing newline, bodiless, same time, list last, hand-spaced): rules kept, no text lost, no merge. Noted: `removeDay` is silent when the day has no version; every move/remove normalises the day's spacing (Undo restores).
 
 ---
 
 ## Completion Checklist
 
-- [ ] All implementation tasks complete
-- [ ] Verification task complete
-- [ ] Every request `Done` or `Closed`
-- [ ] LOG entry created
+- [x] All implementation tasks complete
+- [x] Verification task complete
+- [x] Every request `Done` or `Closed`
+- [x] LOG entry created
 
 ---
 
