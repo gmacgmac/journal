@@ -1,0 +1,48 @@
+.journal {
+	/* ─── For paper (print.ts) ─────────────────────────────────────────────────────
+	   The element the host prints, alone: black on white whatever the app's mode (never the host's colours, which follow its
+	   dark mode), the page's serif, no break inside a paragraph, an item, a quote or a picture, and none straight after a
+	   heading. The page's size and margins are the host's. */
+	&.journal-print {
+		display: block; height: auto; min-height: 0; color-scheme: light; container-type: normal;
+		color: #000; background: #fff; font: 11pt/1.5 var(--journal-serif);
+		/* Days are set apart by a rule closing each one, never opening it: a day that starts a page starts clean. */
+		.print-day:not(:last-child) { margin-bottom: 1.2em; padding-bottom: 1.2em; border-bottom: 0.5pt solid #999; }
+		.print-date { margin: 0 0 0.8em; font: 600 16pt/1.25 var(--journal-serif); color: #000; break-after: avoid; }
+		/* An entry is one piece: it ends on the page it starts on, and the next starts on the next page when it would not
+		   fit (GM, 2026-11-19). One longer than a page breaks between its blocks, its heading never left alone. */
+		.print-item { margin-top: 1.2em; break-inside: avoid; }
+		.print-date + .print-item { margin-top: 0; }
+		.print-entry { display: flex; gap: 0.8em; align-items: baseline; margin: 0 0 0.3em; font: 600 12pt/1.3 var(--journal-serif); break-after: avoid; }
+		.print-time { font: 500 9pt/1 var(--journal-font); color: #444; font-variant-numeric: tabular-nums; }
+		.print-block { margin: 0 0 0.6em; }
+		.print-block :is(p, ul, ol, blockquote, pre) { margin: 0; }
+		.print-block :is(p, li, blockquote, pre, img, tr) { break-inside: avoid; }
+		.print-block :is(ul, ol) { padding-left: 1.3em; }
+		.print-block li.task { list-style: none; }
+		.print-box { margin-left: -1.2em; display: inline-block; width: 1.2em; }
+		.print-block blockquote { padding-left: 12pt; border-left: 1.5pt solid #999; }
+		.print-block code, .print-block pre { font: 0.9em/1.45 var(--journal-mono); }
+		.print-block img { max-width: 100%; height: auto; }
+		.print-block table { border-collapse: collapse; }
+		.print-block :is(th, td) { padding: 2pt 6pt; border: 0.5pt solid #999; }
+	}
+	/* In the theme, light or dark (print.ts copies the host's colours onto the element, with the mode chosen): the page's
+	   own paper, inks and accent, as the Journal shows them. */
+	&.journal-print:is([data-look='light'], [data-look='dark']) {
+		color-scheme: var(--host-color-scheme); color: var(--journal-body); background: var(--journal-page);
+		/* Room inside the coloured paper, on every page it runs over: the padding is drawn again at each page's top and
+		   foot, not only at the very start and end. The host's page margins round it stay the printer's white. */
+		padding: 20pt 24pt; box-decoration-break: clone; -webkit-box-decoration-break: clone;
+		.print-day:not(:last-child) { border-bottom-color: var(--journal-rule); }
+		.print-date, .print-time, .print-block li::marker { color: var(--journal-date-ink); }
+		.print-entry { color: var(--journal-ink); }
+		.print-block blockquote { border-left-color: var(--journal-field-line); }
+		.print-block :is(th, td) { border-color: var(--journal-rule); }
+	}
+	@media print {
+		/* On paper, every colour as written: no background left out, no ink lightened by the browser. */
+		&.journal-print { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+	}
+}
+@keyframes journal-fresh { from { background: var(--journal-fresh); } to { background: transparent; } }

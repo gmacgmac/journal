@@ -1,0 +1,133 @@
+.journal {
+	/* ─── The open journal ──────────────────────────────────────────────────── */
+	/* The desk, and past the last day only the room the writing bar needs while it is up (161: a fixed room once left an
+	   empty stretch under the last day). */
+	.paper { flex: 1; min-height: 0; overflow: auto; scroll-padding-bottom: calc(var(--journal-bar-h, 0px) + 32px); padding: 32px 24px calc(var(--journal-bar-h, 0px) + var(--journal-end)); background: var(--journal-desk); color: var(--journal-body); font: var(--journal-size)/var(--journal-leading) var(--journal-serif); }
+	/* At least the whole paper high: a page with little on it is still a whole page, room to write. */
+	.sheet {
+		min-width: 0; max-width: var(--journal-sheet-w); min-height: 100%; margin: 0 auto; padding: var(--journal-sheet-pad);
+		background-color: var(--journal-page); border-radius: 4px;
+		box-shadow: 0 1px 2px var(--journal-shadow), 0 14px 36px var(--journal-shadow);
+	}
+
+	.day { position: relative; margin: 0 0 32px; }
+	.day:last-child { margin-bottom: 0; }
+	.day h2 {
+		margin: 0 0 16px; padding-bottom: 8px;
+		font: 600 var(--journal-date-size)/1.2 var(--journal-serif); letter-spacing: 0.005em;
+		color: var(--journal-date-ink); border-bottom: 1px solid var(--journal-rule);
+	}
+	/* Remove this day: at the end of the date line, quiet until the day is pointed at; it takes no room, so nothing moves. */
+	.day > header { position: relative; }
+	.day-remove {
+		position: absolute; right: 0; bottom: 12px; display: inline-flex; align-items: center; gap: 4px;
+		padding: 4px 8px; font: calc(0.8 * var(--journal-rem))/1 var(--journal-font); color: var(--journal-chrome-soft);
+		background: var(--journal-page); border: 0; border-radius: 6px; cursor: pointer; opacity: 0; transition: opacity 120ms, color 120ms;
+	}
+	.day-remove .icon { display: block; }
+	/* Only on the date line, and quiet there: it comes up fully only when pointed at itself. */
+	.day > header:hover .day-remove { opacity: var(--journal-hint); }
+	.day-remove:hover, .day-remove:focus-visible { opacity: 1; }
+	.day-remove:hover { color: var(--journal-warn); background: var(--journal-hover); }
+	.day-remove:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 1px; }
+	@media (hover: none) { .day-remove { opacity: 1; } .day-remove span { display: none; } }
+	/* Today: named above its date. */
+	.today-mark { display: block; margin-bottom: 4px; font: 600 calc(0.72 * var(--journal-rem))/1.2 var(--journal-font); letter-spacing: 0.08em; text-transform: uppercase; color: var(--journal-date-ink); }
+	/* A day with no page is one line: the date, quiet, and the way to start it at the end of the line. */
+	.day.gap { margin-bottom: 12px; }
+	.day.gap header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+	.day.gap .today-mark { flex-basis: 100%; }
+	.day.gap h2 { flex: 1; margin: 0; padding: 0; border: 0; font-size: var(--journal-rem); font-weight: 400; color: var(--journal-ink-soft); }
+	/* Room under today, as padding, so pointing anywhere above the divider below it is pointing at today. */
+	.day.gap.today { margin-bottom: 0; padding-bottom: 36px; }
+	.day.gap.today h2 { font-size: var(--journal-date-size); font-weight: 600; color: var(--journal-date-ink); }
+	.sheet[data-view='day']:has(> .day.gap:not(.drafting)) { cursor: text; }
+	/* Alone in Day, or being started: a day with no page wears the full date heading. */
+	.sheet[data-view='day'] .day.gap h2, .day.gap.drafting h2 {
+		padding-bottom: 8px; border-bottom: 1px solid var(--journal-rule);
+		font-size: var(--journal-date-size); font-weight: 600; color: var(--journal-date-ink);
+	}
+	/* Start today's page: unseen until the day's place is pointed at, then faint, full only when pointed at itself, as
+	   every control that shows on hover is. Alone in Day, the page is the place, so it is always faintly there. */
+	.day.gap .add-entry { margin: 0; opacity: 0; }
+	.day.gap:hover .add-entry, .day.gap:focus-within .add-entry, .sheet[data-view='day'] .day.gap .add-entry { opacity: var(--journal-faint); }
+	.day.gap .add-entry:hover, .day.gap .add-entry:focus-visible { opacity: 1; }
+	@media (hover: none) { .day.gap .add-entry { opacity: var(--journal-hint); } }
+	.day.gap.drafting .add-entry { display: none; }
+	.day.gap.drafting { margin-bottom: 44px; }
+	.day.gap.drafting .entries { margin-top: 12px; }
+
+	/* Between two days that are not next to each other: how many days lie between, and a page to add in them. */
+	.gap-marker {
+		display: flex; align-items: center; gap: 12px; margin: -12px 0 32px;
+		font: calc(0.8 * var(--journal-rem))/1.3 var(--journal-font); color: var(--journal-chrome-soft);
+	}
+	.gap-marker::before, .gap-marker::after { content: ''; flex: 1; border-top: 1px dashed var(--journal-rule); }
+	.gap-add {
+		display: inline-flex; align-items: center; gap: 4px;
+		padding: 2px 8px; font: inherit; color: var(--journal-chrome-soft); background: none; border: 0; border-radius: 6px; cursor: pointer;
+	}
+	.gap-add:hover { color: var(--journal-chrome-ink); background: var(--journal-hover); }
+	.gap-add:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 1px; }
+	/* Quiet until pointed at (GM, 2026-11-19): a faint line and a faint plus; its words fade in on hover, already in their
+	   place, so nothing moves. Always shown for a keyboard or a finger. */
+	.gap-marker::before, .gap-marker::after { opacity: 0.4; transition: opacity 120ms; }
+	.gap-add .icon { opacity: var(--journal-faint); transition: opacity 120ms; }
+	.gap-label { opacity: 0; transition: opacity 120ms; }
+	.gap-marker:hover .icon, .gap-marker:hover .gap-label { opacity: var(--journal-hint); }
+	.gap-add:hover .icon, .gap-add:hover .gap-label, .gap-add:focus-visible .icon, .gap-add:focus-visible .gap-label { opacity: 1; }
+	@media (hover: none) { .gap-label, .gap-add .icon { opacity: 1; } }
+
+	/* The foot of the running journal, while older pages are left to read. */
+	.feed-end { display: flex; justify-content: center; padding-top: 8px; }
+	.feed-more {
+		padding: 6px 14px; font: calc(0.85 * var(--journal-rem)) var(--journal-font); color: var(--journal-chrome-soft);
+		background: none; border: 1px solid var(--journal-rule); border-radius: 999px; cursor: pointer;
+	}
+	.feed-more:hover { color: var(--journal-chrome-ink); background: var(--journal-hover); }
+	.feed-more:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 2px; }
+	.day.fresh { border-radius: 4px; animation: journal-fresh 2.4s ease-out; }
+
+	/* A page that breaks the rules: shown as it is, read only, its problems over it. */
+	.problems { margin: 0 0 16px; padding: 8px 12px; border-left: 3px solid var(--journal-warn); border-radius: 0 4px 4px 0; background: var(--journal-hover); font: calc(0.9 * var(--journal-rem))/1.5 var(--journal-font); }
+	.problems p, .problems ul { margin: 0; }
+	.problems ul { padding-left: 1.2em; }
+	.day.broken .block { cursor: default; }
+	.day.broken .block:hover { background: none; }
+
+	/* Times in the margin; writing in the measure beside them. Blocks stay one flat
+	   list so a live update never has to regroup them. */
+	/* Each time is centred on its entry's first line, whatever their sizes: rows start together, and a time's line is as
+	   tall as that first line (`--journal-line`, a title's 1.1 times it), so both sit in the middle of the same height. */
+	.entries { display: grid; grid-template-columns: var(--journal-time-w) minmax(0, 42em); column-gap: var(--journal-gutter); align-items: start; }
+	.block { grid-column: 2; margin: 0 -8px 0.7em; padding: 1px 8px; border-radius: 4px; cursor: text; }
+	.block:hover { background: var(--journal-hover); }
+	.block:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 1px; }
+	.block.entry-head { grid-column: 1; margin: 0; padding: 1px 0; text-align: left; }
+	.block.entry-head.has-title {
+		grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: start;
+		margin-bottom: 0.15em; text-align: left;
+	}
+	/* The rhythm: more room between entries than inside one, and a title close over its writing. */
+	.entry-head:not(:first-child), .entry-head:not(.has-title):not(:first-child) + .block { margin-top: 1.45em; }
+	/* A time is a note in the margin: the interface's face, small and quiet, on its entry's first line. */
+	.time { display: block; color: var(--journal-date-ink); font: calc(0.82 * var(--journal-rem))/var(--journal-line) var(--journal-font); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+	.has-title .time { justify-self: start; text-align: left; line-height: calc(1.1 * var(--journal-line)); }
+	/* An entry with no time: the margin stays empty, and its title sits where every title sits. */
+	.time[hidden] { display: none; }
+	.block.entry-head.has-title .title { grid-column: 2; }
+	/* An entry's title: upright, set a little larger and in the full ink; italics stay for quotes and emphasis. */
+	.title { font-size: 1.1em; font-weight: 600; letter-spacing: 0.003em; color: var(--journal-ink); }
+	.block > :is(p, ul, ol, blockquote, pre, table) { margin: 0; }
+	.block ul, .block ol { padding-left: 1.3em; }
+	/* A list belongs to the page: its bullets small, in the date's colour. */
+	.block li::marker { color: var(--journal-date-ink); font-size: 0.8em; }
+	.block li + li { margin-top: 0.15em; }
+	/* A quote is marked by its bar, and set upright: italics on the page are only the writer's own emphasis, so the bar's
+	   Italic does what it shows: a quote the page set italic could not be made upright (GM, 2026-11-19). */
+	.block blockquote { margin: 0; padding-left: 14px; border-left: 2px solid var(--journal-field-line); }
+	.block a { color: var(--journal-link); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+	.block code, .block pre { font: 0.88em/1.5 var(--journal-mono); }
+	.block.fresh { animation: journal-fresh 2.4s ease-out; }
+	@media (prefers-reduced-motion: reduce) { .block.fresh, .day.fresh { animation: none; } }
+}

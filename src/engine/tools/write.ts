@@ -67,6 +67,8 @@ function storeRefusal(date: string, r: Refusal): ToolResult {
 		case 'too-big': return refused('too-big', r.vars, r.say);
 		case 'malformed': return refused('malformed', { ...about(date), problems: '' });
 		case 'heading': case 'date-heading': return refused(r.code);
+		// The bot cannot send a move; were one to arrive, it is refused as a heading is.
+		case 'order': return refused('heading');
 		case 'changed': return refused('stale');
 		case 'unreadable': return r.say === 'journal.problem.entry-untimed' ? refused('untimed') : refused('input', { field: 'text' });
 	}

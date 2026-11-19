@@ -2,14 +2,12 @@
 // page draws meets its APCA tier, light and dark, both with a host's values and with none (the proof's own paper).
 // The tokens are read from the stylesheet itself, so this holds the CSS, never a copy of it.
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import path from 'node:path';
 import { describe, it } from 'node:test';
 import { HOST_PROPERTIES } from '../../src/vendor/plugin-host/plugin-host.ts';
 import { apcaLc, declared, evaluate, hex, type Host, type Mode } from './colour-math.ts';
-import { topLevel, withoutComments } from './css.ts';
+import { readStylesheet, topLevel, withoutComments } from './css.ts';
 
-const CSS = withoutComments(fs.readFileSync(path.join(import.meta.dirname, '../../src/view/journal.css'), 'utf8'));
+const CSS = withoutComments(readStylesheet());
 const TOKENS = declared(CSS, '.journal');
 
 /**

@@ -3,4 +3,5 @@ export * from './blocks.ts';
 export * from './chips.ts';
 export * from './dates.ts';
 export * from './day.ts';
+export * from './entries.ts';
 export * from './limits.ts';

@@ -2,14 +2,12 @@
 // stylesheet draws no ring on it, so a modifier pressed afterwards lights nothing; focus Tab gave is never marked; writing
 // is never marked; and the mark only ever turns the ring off.
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import path from 'node:path';
 import { before, describe, it } from 'node:test';
 import { trackFocusSource } from '../../src/view/focus.ts';
-import { withoutComments } from './css.ts';
+import { readStylesheet, withoutComments } from './css.ts';
 import { FakeEvent, fire, installDom, newRoot, type FakeElement } from './fake-dom.ts';
 
-const CSS = withoutComments(fs.readFileSync(path.join(import.meta.dirname, '../../src/view/journal.css'), 'utf8'));
+const CSS = withoutComments(readStylesheet());
 const focusIn = (target: FakeElement) => target.dispatchEvent(new FakeEvent('focusin', { relatedTarget: null }));
 
 describe('the focus ring', () => {

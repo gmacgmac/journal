@@ -17,4 +17,5 @@
 **Rules**: PLAN.md House Rules; touch only these files; no git state changes; notes below on completion.
 
 ## Implementation Notes
-**Status**: Pending
+**Status**: Completed
+Seven partials in `src/view/css/` (root 178 lines, sheet 133, writing 61, drag 45, bar 61, phone 46, print 48); `journal.css` is the header plus seven `@import`s. Each partial but root wraps its rules in its own `.journal { }`; root closes its own, so the built sheet has six more `.journal{` openers than before (306 `{` against 300 for the same source built unsplit). Rules and order are identical: the diff of the two built sheets is only those six wrapper boundaries. Note `dist/` held a stale sheet (295 `{`), so the baseline was rebuilt from the unsplit source. `readStylesheet()` in `tests/view/css.ts` inlines the imports; colours, touch and focus tests use it. Dev page: Vite's transform of `journal.css` inlines all parts. Full `npm test`: 260 of 262 pass; the two failures are in `tests/routes.test.ts` (GET pages), BE_01 work in progress.

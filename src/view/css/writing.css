@@ -1,0 +1,61 @@
+.journal {
+	/* ─── Writing in place ─────────────────────────────────────────────────────
+	   Opening an editor changes colour and ring only, never size or position: the
+	   ring is an outline and the field is a background, so not a line moves. */
+	.block.editing, .block.editing:hover { cursor: text; background: var(--journal-field); outline: 2px solid var(--journal-focus); outline-offset: 1px; }
+	[contenteditable='true'] { outline: none; caret-color: var(--journal-focus); }
+	.block > p + p, .block > p + :is(ul, ol, blockquote), .block > :is(ul, ol, blockquote) + * { margin-top: 0.7em; }
+	.block.stale { outline-color: var(--journal-warn); }
+	.busy { opacity: 0.6; pointer-events: none; }
+	/* The prompt, while the writing it sits in is empty (`markBlank`, editor.ts). */
+	/* Laid over the empty line, not in it, so the caret waits at its start and nothing needs deleting; faint, so it never
+	   reads as writing (GM, 2026-11-19). */
+	[data-placeholder][data-blank] { position: relative; }
+	[data-placeholder][data-blank]::before {
+		content: attr(data-placeholder); position: absolute; left: 0; top: 0; white-space: nowrap;
+		color: var(--journal-chrome-soft); opacity: 0.55; font-style: italic; pointer-events: none;
+	}
+
+	/* An entry heading edits its time and title where they stand: the time keeps the margin. */
+	.block.entry-head.editing { background: none; outline: none; }
+	.entry-head.editing :is(.time, .title), .entry-draft .time { border-radius: 3px; background: var(--journal-field); box-shadow: 0 0 0 1px var(--journal-field-line); }
+	.entry-head.editing [contenteditable]:focus, .entry-draft .time:focus { box-shadow: 0 0 0 2px var(--journal-focus); }
+	.entry-draft { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; margin: 1.1em 0 0.7em; padding: 0; }
+	.block.entry-draft.editing { background: none; outline: none; }
+	.entry-draft .time { grid-column: 1; align-self: start; justify-self: start; padding: 0 2px; margin-left: -2px; }
+	.entry-column { grid-column: 2; margin: 0 -8px; padding: 1px 8px; border-radius: 4px; background: var(--journal-field); outline: 2px solid var(--journal-focus); outline-offset: 1px; }
+	/* A new entry's title is written inside the entry's one ring, set as a title is, with no box of its own. */
+	.entry-column .title { display: block; margin-bottom: 0.15em; }
+	.title[data-placeholder][data-blank]::before { font-style: normal; }
+	.entry-body > * { margin: 0; }
+	.entry-body > * + * { margin-top: 0.7em; }
+
+	/* To-dos: the box hangs where a bullet would; a done item goes quiet. */
+	.block li.task { list-style: none; }
+	input.todo { width: 1em; height: 1em; margin: 0 0.45em 0 -1.35em; vertical-align: -0.12em; accent-color: var(--journal-focus); cursor: pointer; }
+	input.todo:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 2px; }
+	li.task:has(> input.todo:checked) { color: var(--journal-ink-soft); }
+
+	/* Add an entry, at the foot of a day (`addZone`, days.ts): the room under the last entry, down into the space before
+	   the next day, so it is easy to reach. A faint + while the day is pointed at; + Entry and Timed entry once the pointer
+	   is in that room, both equally faint; each full only when pointed at itself. Its words start where an entry's writing starts. */
+	.add-zone {
+		display: flex; align-items: center; gap: 2px; margin: 0 0 -24px; padding: 6px 0 22px calc(var(--journal-time-w) + var(--journal-gutter) - 8px);
+	}
+	.add-entry {
+		display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px;
+		font: calc(0.85 * var(--journal-rem))/1.2 var(--journal-font); color: var(--journal-chrome-soft); background: none; border: 0; border-radius: 6px; cursor: pointer;
+		transition: opacity 120ms, color 120ms;
+	}
+	.add-entry .icon { display: block; }
+	.add-zone .add-entry { opacity: 0; }
+	.add-zone .add-label { opacity: 0; transition: opacity 120ms; }
+	/* Both at one faint strength, in the day and in the foot alike; only the one pointed at comes up (GM, 2026-11-19). */
+	.day:hover .add-zone [data-timed='false'], .add-zone:hover .add-entry, .add-zone:focus-within .add-entry { opacity: var(--journal-faint); }
+	.add-zone:hover .add-label, .add-zone:focus-within .add-label { opacity: 1; }
+	.add-zone .add-entry[data-timed]:hover, .add-zone .add-entry[data-timed]:focus-visible { opacity: 1; }
+	.add-entry:hover { color: var(--journal-chrome-ink); background: var(--journal-hover); }
+	.add-entry:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 1px; }
+	.day.drafting .add-zone { visibility: hidden; }
+	@media (hover: none) { .add-zone .add-entry, .add-zone .add-label { opacity: 1; } }
+}

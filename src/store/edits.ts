@@ -1,4 +1,4 @@
-// The four edits a page can ask for, each planned as pure text in, text out (carried from the proof's `store/edits.ts`).
+// The seven edits a page can ask for, each planned as pure text in, text out (carried from the proof's `store/edits.ts`).
 // Every one is anchored to bytes the editor saw and is refused, never merged, when those bytes have changed; every result
 // is checked against the day's rules (`src/format/`).
 //
@@ -7,18 +7,25 @@
 //   entry    a new entry: with a time, placed in time order; with none (a title alone), at the end of the day; the
 //            day's page is made if missing
 //   range    exact bytes swapped for others: how an undo is applied
+//   move     an entry, named by its id, to before another entry (null: the end of the day)
+//   remove   an entry, named by its id, writing and all
+//   clear    every entry of a day the person saw (named by its version); the date line stays
+//
+// `move`, `remove` and `clear` name what the person saw and are refused when it is gone; the engine then rebuilds the day
+// from its entries, so a file spaced by hand is no obstacle.
 //
 // A block open for writing survives a write earlier in the day (D29): when `start..end` no longer holds `before` but exactly
 // one top-level block of the day now equals it, a `replace` or an `insert` anchors to that block. A `range` never moves.
 import {
-	MAX_DAY_BLOCKS, MAX_DAY_BYTES, TIME_RE, blocksOf, checkDay, dateHeading, entryHeading, entryOf, kindsOf,
+	MAX_DAY_BLOCKS, MAX_DAY_BYTES, TIME_RE, blocksOf, checkDay, dateHeading, entryHeading, entryOf, entrySpans, keyedBlocks, kindsOf, placesFor,
 	type Problem, type SpanBlock,
 } from '../format/index.ts';
 import type { WordKey } from '../engine/words.ts';
 import type { Edit, RangeEdit } from '../seam-types.ts';
 import { dayFits } from './size.ts';
+import { version } from './store.ts';
 
-export type RefusalCode = 'unreadable' | 'changed' | 'rules' | 'heading' | 'date-heading' | 'entry-exists' | 'malformed' | 'too-big';
+export type RefusalCode = 'unreadable' | 'changed' | 'rules' | 'heading' | 'date-heading' | 'entry-exists' | 'malformed' | 'too-big' | 'order';
 
 /** Why an edit was not saved: its status and code, the words key that says so, and the rules broken for `rules`. */
 export interface Refusal {
@@ -162,6 +169,43 @@ function planRange(date: string, text: string, e: RangeEdit): Plan {
 	return checked(date, text.slice(0, e.start) + e.after + text.slice(e.end));
 }
 
+/** The day's entries as its blocks group into them; the entry ids are the blocks' keys. */
+const spansOf = (text: string) => entrySpans(keyedBlocks(text));
+
+/**
+ * The day rebuilt from its date line and `spans`' own text, one blank line between: whatever spacing the file had by hand
+ * between its blocks is not carried, and what each entry says inside itself is.
+ */
+function rebuilt(text: string, spans: readonly { blocks: readonly { start: number; end: number }[] }[]): string {
+	const dateLine = blocksOf(text)[0]!.text;
+	const entries = spans.map((e) => text.slice(e.blocks[0]!.start, e.blocks.at(-1)!.end));
+	return `${[dateLine, ...entries].join('\n\n')}\n`;
+}
+
+function planMove(date: string, text: string, e: Extract<Edit, { op: 'move' }>): Plan {
+	const spans = spansOf(text);
+	const from = spans.findIndex((s) => s.id === e.entry);
+	const place = e.before === null ? spans.length : spans.findIndex((s) => s.id === e.before);
+	if (from < 0 || place < 0) return refuse(409, 'changed', 'journal.problem.changed');
+	if (!placesFor(spans, from).includes(place)) return refuse(422, 'order', 'journal.problem.entry-order');
+	// Where it already is: nothing moves, and the file's own spacing is left alone.
+	if (place === from || place === from + 1) return checked(date, text);
+	const moved = spans.filter((_, i) => i !== from);
+	moved.splice(place > from ? place - 1 : place, 0, spans[from]!);
+	return checked(date, rebuilt(text, moved));
+}
+
+function planRemove(date: string, text: string, e: Extract<Edit, { op: 'remove' }>): Plan {
+	const spans = spansOf(text);
+	if (!spans.some((s) => s.id === e.entry)) return refuse(409, 'changed', 'journal.problem.changed');
+	return checked(date, rebuilt(text, spans.filter((s) => s.id !== e.entry)));
+}
+
+function planClear(date: string, text: string, e: Extract<Edit, { op: 'clear' }>): Plan {
+	if (e.version !== version(text)) return refuse(409, 'changed', 'journal.problem.changed');
+	return checked(date, rebuilt(text, []));
+}
+
 /**
  * The file's text after `e`, or why not. `text` is `null` when the day has no page yet. A day that already breaks its rules
  * takes no edit at all: it is refused `malformed`, and is fixed in the file itself.
@@ -172,6 +216,9 @@ export function plan(date: string, text: string | null, e: Edit): Plan {
 	if (text === null) return refuse(409, 'changed', 'journal.problem.no-page');
 	if (e.op === 'replace') return planReplace(date, text, e);
 	if (e.op === 'insert') return planInsert(date, text, e);
+	if (e.op === 'move') return planMove(date, text, e);
+	if (e.op === 'remove') return planRemove(date, text, e);
+	if (e.op === 'clear') return planClear(date, text, e);
 	return planRange(date, text, e);
 }
 
@@ -194,6 +241,9 @@ export function isEdit(e: unknown): e is Edit {
 	switch (v.op) {
 		case 'replace': case 'range': return offsets() && str('before') && str('after');
 		case 'insert': return offsets() && str('before') && str('text');
+		case 'move': return str('entry') && (v.before === null || str('before'));
+		case 'remove': return str('entry');
+		case 'clear': return str('version');
 		case 'entry': return (v.time === null || str('time')) && str('text') && (v.title === null || str('title'));
 		default: return false;
 	}

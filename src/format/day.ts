@@ -7,7 +7,7 @@
 //     with no time (GM, 2026-11-09), whose title does not start like a time;
 //   - an entry's body is paragraphs, lists and quotes; nothing else.
 // No front matter, no IDs, no HTML, lines end with a plain `\n`.
-import { blocksOf, keyedBlocks, type SpanBlock } from './blocks.ts';
+import { blocksOf, type SpanBlock } from './blocks.ts';
 import { dateTitle } from './dates.ts';
 
 /** The most bytes a day file may hold; a larger one is not read, and no write may make one. */
@@ -51,24 +51,6 @@ export function entryOf(text: string): { time: string | null; title: string | nu
 	return u === null ? null : { time: null, title: u[1]! };
 }
 
-/** One entry of a day: its id (its heading's key), its time and title, and where its heading starts. */
-export interface EntryRef {
-	id: string;
-	time: string | null;
-	title: string | null;
-	start: number;
-}
-
-/**
- * The day's entries, in the file's order. An entry's id is its heading block's key (`keyedBlocks`): what the bot names an
- * entry by, apart from its time, so an entry with no time, or two at one time, are named all the same (GM, 2026-11-09).
- */
-export function entriesOf(text: string): EntryRef[] {
-	return keyedBlocks(text).flatMap((b) => {
-		const entry = entryOf(b.text);
-		return entry === null ? [] : [{ id: b.key, ...entry, start: b.start }];
-	});
-}
 
 /** What is wrong with a day, by code; the engine words it (`src/engine/words.ts`). */
 export type Problem =

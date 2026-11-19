@@ -1,0 +1,45 @@
+.journal {
+	/* ─── Moving an entry (drag.ts) ───────────────────────────────────────────────
+	   The handle sits in the margin left of the time, on the heading's first line, out of the writing's way: faint while
+	   the heading is pointed at, full when the handle is. While an entry is lifted its place goes faint, a copy rides
+	   under the pointer, and a line in the accent marks where it will land. */
+	.entry-head { position: relative; }
+	.drag-handle {
+		position: absolute; left: -30px; top: 1px; display: flex; align-items: center; justify-content: center;
+		width: 22px; height: var(--journal-line); padding: 0; color: var(--journal-chrome-soft); background: none; border: 0; border-radius: 5px;
+		cursor: grab; touch-action: none; opacity: 0; transition: opacity 120ms, color 120ms, background-color 120ms;
+	}
+	.has-title .drag-handle { height: calc(1.1 * var(--journal-line)); }
+	.drag-handle .icon { stroke-width: 2.6; }
+	.entry-head:hover .drag-handle { opacity: var(--journal-hint); }
+	.drag-handle:hover, .drag-handle:focus-visible { opacity: 1; color: var(--journal-chrome-ink); background: var(--journal-hover); }
+	.drag-handle:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 1px; }
+	.editing .drag-handle, .day.broken .drag-handle { display: none; }
+	@media (hover: none) { .drag-handle { opacity: var(--journal-faint); } }
+	.dragging, .dragging * { cursor: grabbing !important; user-select: none; -webkit-user-select: none; }
+	.dragging .block:hover { background: none; }
+	.dragging .drag-handle { opacity: 0; }
+	.drag-source { opacity: 0.25; transition: opacity 120ms; }
+	.dragging .drag-source .drag-handle { opacity: 1; color: var(--journal-focus); }
+	.drag-ghost {
+		position: absolute; left: 0; top: 0; z-index: 4; pointer-events: none; will-change: transform;
+		margin: -8px 0 0 -14px; padding: 8px 14px; border-radius: 10px; background: var(--journal-page);
+		box-shadow: 0 1px 2px var(--journal-shadow), 0 12px 32px var(--journal-shadow);
+		font: var(--journal-size)/var(--journal-leading) var(--journal-serif); color: var(--journal-body);
+	}
+	.drag-ghost .entries { margin: 0; }
+	.drag-ghost .block { margin-bottom: 0.5em; }
+	.drag-ghost .block:last-child { margin-bottom: 0; }
+	.drag-ghost .entry-head { margin-top: 0; }
+	.drop-line {
+		position: absolute; left: 0; top: -1px; z-index: 3; height: 2px; pointer-events: none;
+		background: var(--journal-focus); border-radius: 2px; will-change: transform;
+	}
+	.drop-line::before {
+		content: ''; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; box-sizing: border-box;
+		border: 2px solid var(--journal-focus); border-radius: 50%; background: var(--journal-page);
+	}
+	.drop-line[hidden] { display: none; }
+	/* Said to a screen reader, never shown. */
+	.journal-voice { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}

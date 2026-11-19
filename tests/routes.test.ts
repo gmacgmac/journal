@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { createEngine } from '../src/engine/engine.ts';
 import { DAYS_MAX_CHARS, MAX_PAGES, MAX_RANGE_DAYS, PAGES_DEFAULT, dayOf, readDays, readPages } from '../src/engine/days.ts';
-import { MAX_DAY_BYTES, addDays, blocksOf, dateHeading, datesBetween, keyedBlocks } from '../src/format/index.ts';
+import { MAX_DAY_BYTES, addDays, blocksOf, dateHeading, datesBetween, hasWriting, keyedBlocks } from '../src/format/index.ts';
 import type { DaysAnswer, Edit, EditAnswer, RouteProblem } from '../src/seam-types.ts';
 import { dayFile, version, writeDay } from '../src/store/index.ts';
 import type { Caller, EngineReply } from '../src/vendor/plugin-host/plugin-host.ts';
@@ -12,6 +12,8 @@ import { sampleDays, scratch } from './fixtures/days.ts';
 
 const DATE = '2026-10-01';
 const PERSON: Caller = { by: 'person' };
+/** The sample days that have writing, newest first: the pages (the sample holds one file with only its date line). */
+const samplePages = (): string[] => sampleDays().filter(([, text]) => hasWriting(keyedBlocks(text))).map(([date]) => date).reverse();
 
 function engineOn(t: { after: (fn: () => void) => void }, empty = false) {
 	const { dir, done } = scratch(empty);
@@ -34,7 +36,7 @@ const replaceAt = (text: string, index: number, after: string): Extract<Edit, { 
 describe('GET pages', () => {
 	it('pages answers only the days that have a page, newest first, before a date, and says where to read on', async (t) => {
 		const { call } = engineOn(t);
-		const sample = sampleDays().map(([date]) => date).reverse();
+		const sample = samplePages();
 		const r = (await call('GET', `pages?before=2026-10-05&limit=3`))!;
 		assert.equal(r.status, 200);
 		const { days, next } = r.body as DaysAnswer;
@@ -50,7 +52,7 @@ describe('GET pages', () => {
 	it('pages gives PAGES_DEFAULT when not told how many, none for an empty journal, and refuses a bad date or limit', async (t) => {
 		const { call } = engineOn(t);
 		const all = (await call('GET', 'pages?before=2030-01-01'))!.body as DaysAnswer;
-		assert.equal(all.days.length, Math.min(PAGES_DEFAULT, sampleDays().length));
+		assert.equal(all.days.length, Math.min(PAGES_DEFAULT, samplePages().length));
 		for (const bad of ['pages', 'pages?before=2026-13-01', 'pages?before=2026-10-05&limit=0', `pages?before=2026-10-05&limit=${MAX_PAGES + 1}`, 'pages?before=2026-10-05&limit=two']) {
 			const r = (await call('GET', bad))!;
 			assert.equal(r.status, 400, bad);
@@ -65,6 +67,23 @@ describe('GET pages', () => {
 		const r = readPages(dir, '2030-01-01', MAX_PAGES, { chars: 1, bytes: Infinity }, dayOf);
 		assert.equal(r.days.length, 1);
 		assert.equal(r.next, r.days[0]!.date);
+	});
+
+	it('a file holding only its date line is no page, and reading on still reaches the older ones', async (t) => {
+		const { dir, call } = engineOn(t);
+		const bare = samplePages().filter((d) => d < '2026-10-05');
+		// The two newest below the cut lose their writing; they stay as files with the date line (as the sample's 4 October does).
+		for (const d of bare.slice(0, 2)) writeDay(dir, d, `${dateHeading(d)}\n`);
+		const first = (await call('GET', 'pages?before=2026-10-05&limit=1'))!.body as DaysAnswer;
+		assert.deepEqual(first.days.map((d) => d.date), [bare[2]], 'the bare days are skipped, and the page still has its one');
+		assert.ok(first.next !== undefined);
+		const all = (await call('GET', `pages?before=2026-10-05&limit=${MAX_PAGES}`))!.body as DaysAnswer;
+		assert.deepEqual(all.days.map((d) => d.date), bare.slice(2));
+		const rest = (await call('GET', `pages?before=${first.next}&limit=${MAX_PAGES}`))!.body as DaysAnswer;
+		assert.deepEqual(rest.days.map((d) => d.date), bare.slice(3));
+		// The day itself is still a file: GET days says it exists, with no blocks past its date line.
+		const one = (await call('GET', `days?from=${bare[0]}&to=${bare[0]}`))!.body as DaysAnswer;
+		assert.equal(one.days[0]!.exists, true);
 	});
 });
 
@@ -185,6 +204,49 @@ describe('POST edit', () => {
 		const malformed = await edit({ op: 'entry', date: DATE, time: '23:00', title: null, text: 'x' });
 		assert.deepEqual([malformed.status, (malformed.body as RouteProblem).code], [422, 'malformed']);
 		assert.ok((malformed.body as RouteProblem).day!.problems.length > 0);
+	});
+
+	it('takes move, remove and clear by entry id and day version, and answers each with an undo that restores the day', async (t) => {
+		const { call, read, dir } = engineOn(t);
+		const date = '2026-11-08';
+		const text = `${dateHeading(date)}\n\n## One\n\nFirst.\n\n## Two\n\nSecond.\n\n## 09:00\n\nNine.\n\n## 10:00\n\nTen.\n`;
+		writeDay(dir, date, text);
+		const [one, two, nine, ten] = keyedBlocks(text).filter((b) => b.text.startsWith('## ')).map((b) => b.key) as [string, string, string, string];
+		const post = async (e: Edit) => (await call('POST', 'edit', e))!;
+		for (const e of [
+			{ op: 'move', date, entry: one, before: null },
+			{ op: 'remove', date, entry: two },
+			{ op: 'clear', date, version: version(text) },
+		] as Edit[]) {
+			const r = await post(e);
+			assert.equal(r.status, 200, e.op);
+			const { day, undo } = r.body as EditAnswer;
+			assert.equal(day.version, version(read(date)));
+			assert.notEqual(read(date), text);
+			assert.equal((await post(undo)).status, 200);
+			assert.equal(read(date), text, e.op);
+		}
+		assert.equal(read(date), text);
+		// A cleared day is a file with its date line only.
+		await post({ op: 'clear', date, version: version(text) });
+		assert.equal(read(date), `${dateHeading(date)}\n`);
+		writeDay(dir, date, text);
+		// Refusals carry the day as it is.
+		const gone = await post({ op: 'remove', date, entry: 'nope-0' });
+		assert.equal(gone.status, 409);
+		assert.equal((gone.body as RouteProblem).code, 'changed');
+		assert.equal((gone.body as RouteProblem).day?.version, version(text));
+		const stale = await post({ op: 'clear', date, version: 'old' });
+		assert.equal((stale.body as RouteProblem).code, 'changed');
+		const order = await post({ op: 'move', date, entry: ten, before: nine });
+		assert.equal(order.status, 422);
+		assert.equal((order.body as RouteProblem).code, 'order');
+		assert.match((order.body as RouteProblem).title, /stays in time order/);
+		// A malformed one is unreadable.
+		for (const bad of [{ op: 'move', date, entry: one }, { op: 'remove', date }, { op: 'clear', date, version: 1 }, { op: 'move', date, entry: 3, before: null }]) {
+			assert.equal((await post(bad as unknown as Edit)).status, 400, JSON.stringify(bad));
+		}
+		assert.equal(read(date), text);
 	});
 });
 

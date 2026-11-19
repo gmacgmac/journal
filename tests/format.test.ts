@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-	KEY_RE, blocksOf, checkDay, dateHeading, dateOfPath, dateTitle, datesBetween, dayPath, entriesOf, entryHeading, entryOf, hash, isDate,
-	keyedBlocks, rangeParts,
+	KEY_RE, blocksOf, checkDay, dateHeading, dateOfPath, dateTitle, datesBetween, dayPath, entriesOf, entryHeading, entryOf, entrySpans, hasWriting, hash, isDate,
+	keyedBlocks, placesFor, rangeParts,
 } from '../src/format/index.ts';
 import { parseMarkdown } from '../src/vendor/markdown/index.ts';
 import { sampleDays } from './fixtures/days.ts';
@@ -94,5 +94,42 @@ describe('blocks and keys', () => {
 		const after = keyedBlocks(text.replace('## 06:50\n\n', '## 06:50\n\nA new first line.\n\n'));
 		const last = before.at(-1)!;
 		assert.equal(after.find((b) => b.text === last.text)!.key, last.key);
+	});
+});
+
+describe('the entry rules', () => {
+	const DATE = '2026-11-08';
+	const day = (...parts: string[]) => `${dateHeading(DATE)}\n\n${parts.join('\n\n')}\n`;
+	const TEXT = day('## Weekend', 'Leaving early.', '- sleep in\n- the market', '## 16:40', 'Tea.', '## Notes', 'A note.', '## 17:09', 'oh toodles');
+	const spansOf = (text: string) => entrySpans(keyedBlocks(text));
+
+	it('entrySpans groups a day into entries, each heading with the writing under it, and leaves the date line out', () => {
+		const spans = spansOf(TEXT);
+		assert.deepEqual(spans.map((e) => [e.time, e.title, e.blocks.length]), [[null, 'Weekend', 3], ['16:40', null, 2], [null, 'Notes', 2], ['17:09', null, 2]]);
+		assert.deepEqual(spans.map((e) => e.id), keyedBlocks(TEXT).filter((b) => entryOf(b.text) !== null).map((b) => b.key));
+		assert.deepEqual(entrySpans(keyedBlocks(`${dateHeading(DATE)}\n`)), []);
+	});
+
+	it('entriesOf is the same entries, as the day reads them', () => {
+		assert.deepEqual(entriesOf(TEXT).map((e) => e.id), spansOf(TEXT).map((e) => e.id));
+		assert.deepEqual(entriesOf(TEXT).map((e) => e.start), spansOf(TEXT).map((e) => e.blocks[0]!.start));
+	});
+
+	it('an entry with no time may go anywhere; a timed one only between its timed neighbours', () => {
+		assert.deepEqual(placesFor(spansOf(TEXT), 0), [0, 1, 2, 3, 4]);
+		assert.deepEqual(placesFor(spansOf(TEXT), 1), [0, 1, 2, 3], '16:40 never after 17:09');
+		assert.deepEqual(placesFor(spansOf(TEXT), 3), [2, 3, 4], '17:09 never before 16:40');
+	});
+
+	it('where it already is is always a place', () => {
+		const timed = spansOf(day('## 09:00', 'a', '## 10:00', 'b', '## 11:00', 'c'));
+		for (let from = 0; from < timed.length; from += 1) assert.deepEqual(placesFor(timed, from), [from, from + 1]);
+	});
+
+	it('a day has writing when it holds anything but its date line', () => {
+		assert.equal(hasWriting(keyedBlocks(`${dateHeading(DATE)}\n`)), false);
+		assert.equal(hasWriting(keyedBlocks('')), false);
+		assert.equal(hasWriting(keyedBlocks(TEXT)), true);
+		assert.equal(hasWriting(keyedBlocks('Some writing, and no date line.\n')), true);
 	});
 });

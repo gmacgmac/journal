@@ -4,12 +4,10 @@
 // entry's text starts: beside the times on the desktop, from the same measures the entries' grid uses, and at the left
 // edge on the phone, where the entries are one column (GM, 2026-11-09).
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import path from 'node:path';
 import { describe, it } from 'node:test';
-import { withoutComments } from './css.ts';
+import { readStylesheet, withoutComments } from './css.ts';
 
-const CSS = withoutComments(fs.readFileSync(path.join(import.meta.dirname, '../../src/view/journal.css'), 'utf8'));
+const CSS = withoutComments(readStylesheet());
 const NARROW = '@container journal (max-width: 559px)';
 
 /** The text inside the braces that open at `at`. */

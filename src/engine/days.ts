@@ -1,6 +1,6 @@
 // Days as the person's routes and the chips see them: a day file read and worded (`Day`, the spec's § Routes), and a range
 // read in whole days up to a budget of characters and of answer bytes.
-import { MAX_PAGES, MAX_RANGE_DAYS, checkDay, dateTitle, daysBetween, isDate, keyedBlocks, addDays } from '../format/index.ts';
+import { MAX_PAGES, MAX_RANGE_DAYS, checkDay, dateTitle, daysBetween, isDate, hasWriting, keyedBlocks, addDays } from '../format/index.ts';
 
 export { MAX_PAGES, MAX_RANGE_DAYS };
 import type { Day } from '../seam-types.ts';
@@ -67,21 +67,27 @@ export function readDays<T>(
 export function readPages<T extends { date: string }>(
 	dir: string, before: string, count: number, budget: ReadBudget, shape: (date: string, file: DayFile) => T, size: (day: T) => number = jsonBytes,
 ): { days: T[]; next?: string } {
-	const dates = datesWithPages(dir, before, count + 1);
 	const days: T[] = [];
 	let chars = 0;
 	let bytes = 0;
-	for (const date of dates.slice(0, count)) {
-		const file = readDayFile(dir, date);
-		// A file that went between the listing and the read is not a page.
-		if (file.state === 'none') continue;
-		const day = shape(date, file);
-		chars += charsOf(file);
-		bytes += size(day) + 1;
-		if (days.length > 0 && (chars > budget.chars || bytes > budget.bytes)) return { days, next: days.at(-1)!.date };
-		days.push(day);
+	let cursor = before;
+	// Files that are no page are passed over, so a batch of dates may give fewer pages than it lists: list on until `count`
+	// pages are had, or no older file is left. One page more than `count` is looked for, to know whether older pages remain.
+	for (;;) {
+		const dates = datesWithPages(dir, cursor, count + 1);
+		for (const date of dates) {
+			if (days.length === count) return { days, next: days.at(-1)!.date };
+			const file = readDayFile(dir, date);
+			// A file that went between the listing and the read is not a page; nor is one holding only its date line, which
+			// the journal shows as a day with no page.
+			if (file.state === 'none' || (file.state === 'text' && !hasWriting(keyedBlocks(file.text)))) continue;
+			const day = shape(date, file);
+			chars += charsOf(file);
+			bytes += size(day) + 1;
+			if (days.length > 0 && (chars > budget.chars || bytes > budget.bytes)) return { days, next: days.at(-1)!.date };
+			days.push(day);
+		}
+		if (dates.length <= count) return { days };
+		cursor = dates.at(-1)!;
 	}
-	// Older pages are left: read on before the last one given, or, when every one listed went before it was read, before the
-	// last one listed.
-	return dates.length > count ? { days, next: days.at(-1)?.date ?? dates[count - 1]! } : { days };
 }

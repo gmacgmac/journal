@@ -1,0 +1,178 @@
+/* THE JOURNAL'S PAPER, IN THE HOST'S COLOURS (spec § The look). Every colour is a token here. Each reads the contract's
+   `--host-*` properties, and falls back to the proof's warm paper, both modes in one `light-dark()`, when the host sets
+   none. A custom property keeps `light-dark()` unresolved until it is used, so the tokens resolve against the root's
+   `color-scheme`, which the host's `--host-color-scheme` sets: the Journal follows the bot's light or dark, live.
+   Desk and page mix a little of the bot's accent into the host's grounds, so the page reads as paper in the bot's
+   colours; an accent left unset mixes the ground with itself, which is the ground. The fresh mark needs the accent: with
+   none, `--journal-fresh-tint` is invalid and the proof's own mark is used.
+   Everything is under `.journal`: every selector, every custom property it sets (`--journal-*`) and its keyframes. */
+
+/* ─── The view (journal.ts): everything under its root, nothing outside it.
+   A host may have its own `.page`, `.title` or `.bar`; these rules reach only the Journal's. */
+.journal {
+	color-scheme: var(--host-color-scheme, light dark);
+	/* Type: the host's faces and size; the date headings keep the paper's serif. */
+	--journal-scale: var(--host-text-scale, 1);
+	--journal-rem: calc(1rem * var(--journal-scale));
+	/* The writing's size and leading, and one line of it: a time's line is that tall, so it centres on it. */
+	--journal-size: calc(17px * var(--journal-scale));
+	--journal-leading: 1.62;
+	--journal-line: calc(var(--journal-size) * var(--journal-leading));
+	/* On a narrow page, the room over an entry's divider and under it: a time sits nearer its own title; a divider with
+	   no time has as much room under it as over it. */
+	--journal-divider-over: calc(1.13 * var(--journal-size));
+	--journal-divider-under: calc(0.57 * var(--journal-size));
+	/* The times' column beside the writing: as wide as a time, which starts on the date's left edge (GM). The phone layout
+	   has no column: it sets each time on a line of its own. */
+	--journal-time-w: calc(2.75 * var(--journal-rem));
+	--journal-gutter: 18px;
+	/* The least a control is high on the phone layout, for a finger. */
+	--journal-tap: 44px;
+	/* The sheet: its widest, its inset, and the desk left under it past the last day (more while the writing bar is up). */
+	--journal-sheet-w: 880px;
+	--journal-sheet-pad: 44px 52px 56px;
+	/* The date over a day: clearly larger than an entry's title. */
+	--journal-date-size: calc(1.6 * var(--journal-rem));
+	--journal-end: 40px;
+	--journal-font: var(--host-font, system-ui, -apple-system, 'Segoe UI', sans-serif);
+	--journal-mono: var(--host-font-mono, ui-monospace, Menlo, monospace);
+	--journal-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, ui-serif, serif;
+	/* THE WRITING, ONE STEP LIGHTER (GM, 2026-11-19): the inks and accent the writing is set in (dates, times, titles, body,
+	   links) are the host's mixed with 12% white (`88%, #fff 12%` below), so its rich colours read a step lighter on the
+	   page. Everything else, the buttons, toolbar, bar, fills and focus ring (`--journal-chrome-*`, `--journal-app-*`,
+	   `--journal-fill*`, `--journal-focus`), is the host's own colour exactly; so are the grounds. Change the step by
+	   changing every 88% / 12% together. */
+	/* The toolbar: the host's own grounds and ink. */
+	--journal-app-bg: var(--host-canvas, light-dark(#faf6ef, #13100f));
+	--journal-app-ink: var(--host-ink, light-dark(#141414, #fafafa));
+	--journal-app-line: var(--host-line, light-dark(#e9ddcc, #332d29));
+	--journal-app-field: var(--host-surface, light-dark(#fffdfa, #1c1916));
+	--journal-app-raised: var(--host-surface-sunken, light-dark(#f5eee3, #25211e));
+	--journal-app-muted: var(--host-ink-muted, light-dark(#63523d, #dcd6d2));
+	--journal-app-line-strong: var(--host-line-strong, light-dark(#d8c8b0, #463f3a));
+	/* The paper. */
+	/* The desk is the app's own ground, the chat's beside it, untinted: the accent is for what is chosen, never a surface (GM). */
+	--journal-desk: var(--host-canvas, light-dark(#e6dccb, #13100f));
+	/* The paper is the host's own surface, untinted: an accent mixed into a dark ground reads as mud (GM, 2026-11-09). */
+	--journal-page: var(--host-surface, light-dark(#fbf6ec, #1c1916));
+	--journal-field: var(--host-surface, light-dark(#fffdf8, #25211e));
+	--journal-hover: var(--host-surface-sunken, light-dark(#f4ecdf, #25211e));
+	/* 10% of the accent: at 12% the host's muted ink on it already sits at Lc 60 (tests/view/colours.test.ts). */
+	--journal-fresh-tint: color-mix(in oklab, var(--journal-page) 90%, var(--host-accent) 10%);
+	--journal-fresh: var(--journal-fresh-tint, light-dark(#f3dfc1, #3b2d22));
+	--journal-rule: var(--host-line, light-dark(#e4d8c4, #332d29));
+	--journal-field-line: var(--host-line-strong, light-dark(#d8c8b0, #463f3a));
+	--journal-ink: color-mix(in oklab, var(--host-ink, light-dark(#2a241e, #ece5da)) 88%, #fff 12%);
+	/* The muted ink is lifted only in the dark: on light paper a step lighter drops it under Lc 60 (colours.test.ts). */
+	--journal-ink-soft-host: var(--host-ink-muted, light-dark(#6f5f4a, #c6baac));
+	--journal-ink-soft: color-mix(in oklab, var(--journal-ink-soft-host) 88%, light-dark(var(--journal-ink-soft-host), #fff) 12%);
+	/* The controls on the paper (Add an entry, Add a page, Earlier pages, the writing bar): the host's own inks, not lifted. */
+	--journal-chrome-ink: var(--host-ink, light-dark(#2a241e, #ece5da));
+	--journal-chrome-soft: var(--host-ink-muted, light-dark(#6f5f4a, #c6baac));
+	/* The writing itself, one step softer than the ink, so an entry's title (in the ink) stands over its body. */
+	--journal-body: color-mix(in oklab, var(--journal-ink) 82%, var(--journal-page) 18%);
+	--journal-date-ink: color-mix(in oklab, var(--host-accent-strong, light-dark(#8a4320, #f2a77c)) 88%, #fff 12%);
+	--journal-link: color-mix(in oklab, var(--host-accent-strong, light-dark(#9b4519, #ff9a66)) 88%, #fff 12%);
+	/* The fill of the view shown and of Done, white on it: the host's, else nclite's own warm rust and its hover (GM,
+	   2026-11-09: the paper's light terracotta was too pale a button). */
+	--journal-fill: var(--host-accent-fill, var(--host-accent, light-dark(#c4501f, #d2602f)));
+	--journal-fill-hover: var(--host-accent-fill-hover, var(--host-accent-strong, light-dark(#ac461b, #b95429)));
+	--journal-on-fill: var(--host-on-accent, #fff);
+	--journal-focus: var(--host-focus, var(--host-accent, light-dark(#c4501f, #ff8a4f)));
+	/* The date-pick package's tokens (src/ui/date-pick/README.md), from the Journal's own: its panel is the toolbar's. */
+	--dp-surface: var(--journal-app-field);
+	--dp-ink: var(--journal-app-ink);
+	--dp-muted: var(--journal-app-muted);
+	--dp-line: var(--journal-app-line-strong);
+	--dp-hover: var(--journal-app-raised);
+	--dp-accent: var(--journal-date-ink);
+	--dp-fill: var(--journal-fill);
+	--dp-on-fill: var(--journal-on-fill);
+	--dp-ring: var(--journal-ring);
+	--dp-radius: 7px;
+	--dp-font: var(--journal-font);
+	/* The ring a focused control draws: the focus colour, but none on what a pointer press focused (focus.ts), so the ring
+	   shows only for Tab. */
+	--journal-ring: var(--journal-focus);
+	/* The Journal's own, whatever the host sets. */
+	--journal-warn: light-dark(#8a5508, #ffb54d);
+	/* Controls that show only on hover, at two strengths (GM, 2026-11-19): faint where they are offered, a hint once the
+	   pointer is in their place, and full only when pointed at themselves. */
+	--journal-faint: 0.3;
+	--journal-hint: 0.55;
+	--journal-shadow: light-dark(rgb(70 45 20 / 0.16), rgb(0 0 0 / 0.55));
+	position: relative; display: flex; flex-direction: column; height: 100%; min-height: 0;
+	container: journal / inline-size;
+
+	* { box-sizing: border-box; }
+	[data-pointer-focus] { --journal-ring: transparent; }
+	/* A host's own element rules reach in (the app sets every h2 small and in capitals); say ours. */
+	h2 { text-transform: none; }
+	.journal-tools {
+		display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 8px 16px;
+		font: calc(14px * var(--journal-scale))/1.3 var(--journal-font); background: var(--journal-app-bg); color: var(--journal-app-ink); border-bottom: 1px solid var(--journal-app-line);
+	}
+	/* One row at every width: nothing in it wraps or grows. */
+	.toolbar { display: flex; flex: 1; flex-wrap: nowrap; align-items: center; gap: 6px; min-width: 0; }
+	.toolbar > * { flex: none; }
+	.toolbar button {
+		min-height: 32px; padding: 4px 12px;
+		font: inherit; color: var(--journal-app-ink); background: var(--journal-app-field);
+		border: 1px solid var(--journal-app-line); border-radius: 8px; cursor: pointer;
+	}
+	.toolbar button:hover { border-color: var(--journal-app-line-strong); background: var(--journal-app-raised); }
+	.toolbar :focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 2px; }
+	.toolbar [hidden] { display: none; }
+	/* Which view: one toggle, the view shown filled as a primary button is (Done), the other quiet beside it. */
+	.toolbar .views { display: inline-flex; gap: 2px; padding: 2px; }
+	.view-opt {
+		display: inline-flex; align-items: center; justify-content: center; min-width: 5.5em; padding: 3px 12px;
+		border-radius: 6px; color: var(--journal-app-muted);
+	}
+	.views:hover .view-opt:not(.on) { color: var(--journal-app-ink); }
+	.view-opt.on { color: var(--journal-on-fill); background: var(--journal-fill); }
+	.views:hover .view-opt.on { background: var(--journal-fill-hover); }
+	.day-nav { display: inline-flex; align-items: center; gap: 4px; }
+	.day-nav [data-nav='prev'], .day-nav [data-nav='next'] { min-width: 32px; padding: 4px 8px; }
+	/* The day, one width for every day ("Wed 30 Sep" the widest), so the arrows either side never move. */
+	.toolbar .day-pick { width: 7.5em; padding: 4px 6px; text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+	.toolbar .away { visibility: hidden; }
+	/* An icon is a flat stroke in its text's colour, as tall as a capital and a little more. */
+	.icon { width: 1.15em; height: 1.15em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+	.add-page { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; }
+	.toolbar .print { display: inline-flex; align-items: center; gap: 5px; }
+	.toolbar .print:disabled { opacity: 0.5; cursor: progress; }
+	/* The Print panel, in the date panel's own box: two sections, each under a small name. The colours first, three small
+	   pages side by side, each drawn in its own colours, the chosen one ringed; then what to print, one row each, which
+	   prints at once. */
+	.print-menu { display: flex; flex-direction: column; gap: 10px; width: 19em; max-width: 100%; padding: 2px; }
+	.print-menu > div + div { padding-top: 10px; border-top: 1px solid var(--dp-line); }
+	.print-section { margin: 0 6px 6px; font-size: 0.72em; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--dp-muted); }
+	.print-looks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+	.print-menu .print-looks button { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 6px; border-radius: 9px; }
+	.print-swatch {
+		display: flex; flex-direction: column; gap: 4px; height: 44px; padding: 8px 9px;
+		border-radius: 5px; box-shadow: 0 0 0 1px var(--dp-line); transition: box-shadow 120ms;
+	}
+	.print-swatch > span { display: block; height: 3px; border-radius: 2px; }
+	.print-swatch .sw-date { width: 55%; height: 4px; margin-bottom: 2px; }
+	.print-swatch .sw-short { width: 70%; }
+	.print-looks [data-look='plain'] .print-swatch { background: #fff; }
+	.print-looks [data-look='plain'] .sw-date { background: #000; }
+	.print-looks [data-look='plain'] .sw-line { background: #777; }
+	/* The theme's own paper, date and writing, in the mode each shows. */
+	.print-looks [data-look='light'] .print-swatch { color-scheme: light; }
+	.print-looks [data-look='dark'] .print-swatch { color-scheme: dark; }
+	.print-looks :is([data-look='light'], [data-look='dark']) .print-swatch { background: var(--journal-page); }
+	.print-looks :is([data-look='light'], [data-look='dark']) .sw-date { background: var(--journal-date-ink); }
+	.print-looks :is([data-look='light'], [data-look='dark']) .sw-line { background: var(--journal-body); opacity: 0.7; }
+	.print-swatch-name { font-size: 0.85em; text-align: center; color: var(--dp-muted); white-space: nowrap; }
+	.print-looks button:hover .print-swatch { box-shadow: 0 0 0 1px var(--dp-ink); }
+	.print-looks button[aria-checked='true'] .print-swatch { box-shadow: 0 0 0 2px var(--dp-surface), 0 0 0 4px var(--dp-accent); }
+	.print-looks button[aria-checked='true'] .print-swatch-name { color: var(--dp-ink); font-weight: 600; }
+	.print-choices { display: flex; flex-direction: column; gap: 1px; }
+	.print-menu .print-choices button { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 8px 10px; text-align: left; }
+	.print-note { color: var(--dp-muted); font-variant-numeric: tabular-nums; }
+	.print-more { display: flex; }
+	.print-menu .print-choices button:disabled { cursor: default; color: var(--dp-muted); }
+}

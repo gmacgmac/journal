@@ -4,9 +4,9 @@ import assert from 'node:assert/strict';
 import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { MAX_DAY_BLOCKS, MAX_DAY_BYTES, MAX_DAY_JSON_BYTES, blocksOf, dateHeading, dayPath } from '../src/format/index.ts';
+import { MAX_DAY_BLOCKS, MAX_DAY_BYTES, MAX_DAY_JSON_BYTES, blocksOf, dateHeading, dayPath, entriesOf } from '../src/format/index.ts';
 import type { Edit } from '../src/seam-types.ts';
-import { applyEdit, dayFile, plan, readDayFile, writeDay, type Plan } from '../src/store/index.ts';
+import { applyEdit, dayFile, plan, readDayFile, undoOf, version, writeDay, type Plan } from '../src/store/index.ts';
 import { DAYS, sampleDays, scratch } from './fixtures/days.ts';
 
 const DATE = '2026-10-01';
@@ -286,4 +286,81 @@ test('a heading given a new time moves its entry, writing and all, into time ord
 	assert.equal(retime('## 09:00', '## 10:01'), text.replace('## 09:00', '## 10:01'));
 	// Taken off its time: where it was.
 	assert.equal(retime('## 09:00', '## Nine'), text.replace('## 09:00', '## Nine'));
+});
+
+test('move, remove and clear name an entry or a day, and the engine does the bytes (GM, 2026-11-19)', () => {
+	const date = '2026-11-08';
+	const day = (...parts: string[]) => `${dateHeading(date)}\n\n${parts.join('\n\n')}\n`;
+	const text = day('## Weekend', 'Leaving early.', '## 16:40', 'Tea.', '- one\n- two', '## Notes', 'A note.', '## 17:09', 'oh toodles');
+	const [weekend, tea, notes, late] = entriesOf(text).map((e) => e.id) as [string, string, string, string];
+	const move = (t: string, entry: string, before: string | null) => plan(date, t, { op: 'move', date, entry, before });
+	const remove = (t: string, entry: string) => plan(date, t, { op: 'remove', date, entry });
+
+	// Moved to the end, writing and all; an untimed entry between timed ones.
+	assert.equal(textOf(move(text, weekend, null)), day('## 16:40', 'Tea.', '- one\n- two', '## Notes', 'A note.', '## 17:09', 'oh toodles', '## Weekend', 'Leaving early.'));
+	assert.equal(textOf(move(text, notes, weekend)), day('## Notes', 'A note.', '## Weekend', 'Leaving early.', '## 16:40', 'Tea.', '- one\n- two', '## 17:09', 'oh toodles'));
+	// To where it already is: the text as it was, to the byte.
+	assert.equal(textOf(move(text, tea, tea)), text);
+	assert.equal(textOf(move(text, tea, notes)), text);
+	assert.equal(textOf(move(text, late, null)), text);
+	// A timed entry keeps its place in time order.
+	for (const [entry, before] of [[tea, null], [late, weekend], [late, tea]] as const) {
+		const r = move(text, entry, before);
+		assert.deepEqual([status(r), code(r)], [422, 'order']);
+		assert.ok(!r.ok && r.say === 'journal.problem.entry-order');
+	}
+	// An entry that is not there, or a place that is not there, is refused changed.
+	for (const r of [move(text, 'nope-0', null), move(text, tea, 'nope-0'), remove(text, 'nope-0')]) assert.deepEqual([status(r), code(r)], [409, 'changed']);
+
+	assert.equal(textOf(remove(text, tea)), day('## Weekend', 'Leaving early.', '## Notes', 'A note.', '## 17:09', 'oh toodles'));
+	assert.equal(textOf(remove(day('## Only', 'Writing.'), entriesOf(day('## Only', 'Writing.'))[0]!.id)), `${dateHeading(date)}\n`);
+
+	// Clear: the day as it was read, its date line left.
+	assert.equal(textOf(plan(date, text, { op: 'clear', date, version: version(text) })), `${dateHeading(date)}\n`);
+	assert.deepEqual([status(plan(date, text, { op: 'clear', date, version: version(`${text}x`) })), code(plan(date, text, { op: 'clear', date, version: 'x' }))], [409, 'changed']);
+	// No page to move in, or remove from, or clear.
+	for (const e of [{ op: 'move', date, entry: tea, before: null }, { op: 'remove', date, entry: tea }, { op: 'clear', date, version: 'x' }] as const) {
+		assert.deepEqual([status(plan(date, null, e)), code(plan(date, null, e))], [409, 'changed']);
+	}
+});
+
+test('a hand-spaced file is moved and removed all the same, and each edit undoes by a range', () => {
+	const date = '2026-11-08';
+	const text = `${dateHeading(date)}\n\n\n## Weekend\n\n\nLeaving early.\n\n\n\n## Notes\n\nA note.\n\n\n## 16:40\n\nTea.\n`;
+	assert.equal(blocksOf(text).length, 7);
+	const [weekend, notes, tea] = entriesOf(text).map((e) => e.id) as [string, string, string];
+	const edits: Edit[] = [
+		{ op: 'move', date, entry: weekend, before: null },
+		{ op: 'move', date, entry: tea, before: weekend },
+		{ op: 'remove', date, entry: notes },
+		{ op: 'clear', date, version: version(text) },
+	];
+	for (const e of edits) {
+		const after = textOf(plan(date, text, e));
+		assert.ok(after.endsWith('\n') && !after.endsWith('\n\n'), e.op);
+		assert.ok(!after.includes('\n\n\n\n'), `${e.op}: the gap between entries is one blank line`);
+		// Undo: a range planned on the new text puts the old bytes back.
+		assert.equal(textOf(plan(date, after, undoOf(date, text, after))), text, e.op);
+	}
+	assert.equal(textOf(plan(date, text, edits[0]!)), `${dateHeading(date)}\n\n## Notes\n\nA note.\n\n## 16:40\n\nTea.\n\n## Weekend\n\n\nLeaving early.\n`);
+});
+
+test('move, remove and clear are applied through the store with an undo that restores the file', (t) => {
+	const { dir, done } = scratch();
+	t.after(done);
+	// A day whose entries have no time, so any may move.
+	const before = `${dateHeading(DATE)}\n\n## One\n\nFirst.\n\n## Two\n\nSecond.\n\n## Three\n\nThird.\n`;
+	writeDay(dir, DATE, before);
+	const ids = entriesOf(before).map((e) => e.id);
+	for (const e of [
+		{ op: 'move', date: DATE, entry: ids[0]!, before: null },
+		{ op: 'remove', date: DATE, entry: ids[1]! },
+		{ op: 'clear', date: DATE, version: version(before) },
+	] as const satisfies readonly Edit[]) {
+		const done = applyEdit(dir, e);
+		assert.ok(done.ok, e.op);
+		assert.notEqual(read(dir), before);
+		assert.ok(applyEdit(dir, done.undo).ok);
+		assert.equal(read(dir), before, e.op);
+	}
 });

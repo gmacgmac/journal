@@ -1,0 +1,46 @@
+.journal {
+	/* ─── Phone: one page, one day under another ────────────────────────────── */
+	@container journal (max-width: 559px) {
+		/* The sheet is the whole pane: no desk round it, and past the last day only the end's room, on the page's own ground. */
+		.paper { padding: 0 0 calc(var(--journal-bar-h, 0px) + var(--journal-end)); background: var(--journal-page); --journal-end: 24px; }
+		.sheet { max-width: none; padding: 24px 16px 16px; box-shadow: none; border-radius: 0; }
+		.journal-tools { padding: 8px 12px; }
+		/* The writing has the page's whole width (GM, 2026-11-09): titles and writing all start at the left edge, and an
+		   entry's time is a small line of its own in the space between entries, just over its title. The entries are
+		   one column, so nothing lays out beside a time. */
+		.entries, .block.entry-head.has-title, .entry-draft { display: block; }
+		/* Every entry opens with a divider in the space between entries: a short line in the accent either side of its
+		   time, bold and centred, nearer its own title than the entry above; an entry with no time shows the line alone,
+		   with as much room under them as over, so every entry is set apart the same. */
+		.time, .has-title .time, .time[hidden] {
+			display: flex; align-items: center; justify-content: center; gap: 10px; justify-self: stretch;
+			line-height: 1.2; margin-bottom: var(--journal-divider-under); font-weight: 600;
+		}
+		.time::before, .time::after { content: ''; width: 1.6em; border-top: 1px solid var(--journal-date-ink); }
+		/* No time: one line, as long as the two either side of a time. */
+		.time:empty::before { width: 3.2em; }
+		.time:empty::after { content: none; }
+		.no-time .time { margin-bottom: var(--journal-divider-over); }
+		.entry-head:not(:first-child), .entry-draft { margin-top: var(--journal-divider-over); }
+		.entries > .entry-head:not(.has-title):not(:first-child) + .block { margin-top: 0; }
+		/* A time being written is a field of its own size, centred where the time shows, with no lines. */
+		.entry-head.editing .time, .entry-draft .time { display: block; justify-self: center; margin-left: 0; }
+		.entry-head.editing .time::before, .entry-head.editing .time::after, .entry-draft .time::before, .entry-draft .time::after { content: none; }
+		.entry-head.editing .time[hidden], .entry-draft .time[hidden] { display: none; }
+		.add-zone { padding-left: 0; margin-left: -8px; }
+		.drag-handle, .has-title .drag-handle { left: auto; right: -6px; top: 0; height: 1.2em; }
+		/* A finger's reach: every control of the two bars, and Add an entry, at least --journal-tap high. */
+		.toolbar button, .toolbar input, .bar button, .bar-link input, .add-entry, .gap-add, .feed-more { min-height: var(--journal-tap); }
+		/* One row in a narrow pane: the toggle shows only the view it is on, Add a page is its +, and the day is narrower. */
+		.toolbar button { padding: 4px 10px; }
+		.view-opt { min-width: 0; padding: 3px 10px; }
+		.view-opt:not(.on), .add-words { display: none; }
+		.add-page { min-width: var(--journal-tap); justify-content: center; padding: 4px; }
+		.toolbar .print { min-width: var(--journal-tap); justify-content: center; padding: 4px; }
+		.day-nav [data-nav='prev'], .day-nav [data-nav='next'] { min-width: 36px; }
+		.toolbar .day-pick { width: 6.8em; }
+		.bar button { min-width: var(--journal-tap); }
+		/* Narrow: Add to chat is its icon alone, its name on the button for readers. */
+		.bar [data-act='ask'] .word { display: none; }
+	}
+}
