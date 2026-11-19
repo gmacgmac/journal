@@ -1,0 +1,8 @@
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  "skills": { "paths": ["./.kiro/skills"] },
+  "instructions": [
+    ".kiro/steering/*.md",
+    "cortex/PROFILE.md"
+  ]
+}

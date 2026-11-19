@@ -1,0 +1,7 @@
+# This file is written by Copier into the consumer repo and links it back to
+# the Cortex template. Do not edit by hand — it is regenerated on copy/update.
+# Commit it so `copier update` knows the template source and last-applied version.
+_commit: v4.5.0
+_src_path: gh:gmacgmac/cortex
+project_name: journal
+

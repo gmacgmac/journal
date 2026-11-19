@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Word Review</title>
+<style>
+/* Layout: a sticky bar (round, progress, Tick all, Send) over one readable column of cards.
+   Each card reads top to bottom: today's text, the proposal with its changes marked, then actions. */
+:root {
+	--bg: #f4f5f7; --panel: #ffffff; --ink: #18202b; --muted: #5b6676; --line: #e1e5ec; --line-strong: #c9d0db;
+	--accent: #3157d5; --accent-soft: #e8eefc; --ok: #18794e; --ok-soft: #e2f3ea; --edit: #9a5800; --edit-soft: #fcf0dc;
+	--ins: #d7f0e0; --del: #b42318; --shadow: 0 1px 2px rgb(16 24 40 / .05), 0 1px 3px rgb(16 24 40 / .06);
+	--sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+	--mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+	--bg: #11151b; --panel: #1a2029; --ink: #e6eaf0; --muted: #9aa5b5; --line: #2a323e; --line-strong: #3a4452;
+	--accent: #8eaaff; --accent-soft: #1f2a44; --ok: #6fd3a0; --ok-soft: #15301f; --edit: #f0b456; --edit-soft: #3a2c12;
+	--ins: #1d4a30; --del: #ff8a80; --shadow: none; color-scheme: dark } }
+:root[data-theme="dark"] {
+	--bg: #11151b; --panel: #1a2029; --ink: #e6eaf0; --muted: #9aa5b5; --line: #2a323e; --line-strong: #3a4452;
+	--accent: #8eaaff; --accent-soft: #1f2a44; --ok: #6fd3a0; --ok-soft: #15301f; --edit: #f0b456; --edit-soft: #3a2c12;
+	--ins: #1d4a30; --del: #ff8a80; --shadow: none; color-scheme: dark }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--sans); margin: 0; }
+button { font: inherit; color: inherit; }
+textarea:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.gutter { max-width: 880px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+/* The bar */
+.top { position: sticky; top: 0; z-index: 3; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); padding-top: env(safe-area-inset-top, 0px); }
+.top .gutter { display: grid; gap: 10px; padding-block: 14px 12px; }
+.line1 { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; min-width: 0; }
+.brand { font-weight: 650; font-size: 17px; letter-spacing: -.01em; white-space: nowrap; }
+#round { font: inherit; font-size: 14px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--panel); color: var(--ink); flex: 1 1 18em; min-width: 0; max-width: 100%; text-overflow: ellipsis; }
+#round option.quiet { color: var(--muted); }
+#round option.owed { font-weight: 600; }
+.hint { font-size: 13px; color: var(--muted); }
+.meter { height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.meter > span { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--ok); }
+@media (prefers-reduced-motion: no-preference) { .meter > span { transition: width .35s ease; } }
+.line2 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.tally { display: flex; gap: 6px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.pill { font-size: 13px; padding: 2px 10px; border-radius: 999px; background: var(--accent-soft); white-space: nowrap; }
+.pill.ok { background: var(--ok-soft); } .pill.edit { background: var(--edit-soft); }
+.pill b { font-weight: 650; }
+.seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
+.seg button { font-size: 13px; border: 0; background: var(--panel); color: var(--muted); padding: 4px 12px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--ink); font-weight: 550; }
+.spacer { flex: 1 1 0; }
+.status { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 22em; }
+.status.bad { flex-basis: 100%; max-width: none; white-space: normal; color: var(--edit); order: 9; }
+.btn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 550; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--panel); cursor: pointer; white-space: nowrap; }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:disabled { opacity: .55; cursor: default; }
+.btn svg { width: 16px; height: 16px; flex: none; }
+.btn.tick-all { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, var(--line-strong)); }
+.btn.tick-all .count { font-variant-numeric: tabular-nums; opacity: .8; font-weight: 500; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--panel); }
+.btn.icon { padding: 6px 9px; }
+.btn.icon .i-done, .btn.icon[data-state="sent"] .i-plane { display: none; }
+.btn.icon[data-state="sent"] .i-done { display: block; }
+
+/* Cards */
+main { padding-block: 18px 64px; display: grid; gap: 22px; }
+.group { display: grid; gap: 12px; }
+.group h2 { font-size: 12px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 6px 2px 0; font-weight: 650; display: flex; gap: 8px; align-items: baseline; }
+.group h2 .n { font-weight: 500; letter-spacing: 0; text-transform: none; }
+.card { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 16px 18px 14px 22px; display: grid; gap: 12px; min-width: 0; }
+.card::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 4px; border-radius: 0 4px 4px 0; background: var(--line-strong); }
+.card.is-ok::before { background: var(--ok); }
+.card.is-mine::before { background: var(--edit); }
+.card.is-asking::before { background: var(--accent); }
+@media (prefers-reduced-motion: no-preference) { .card::before { transition: background-color .2s; } }
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 12px; color: var(--muted); }
+.id { font: 600 13px var(--mono); color: var(--accent); }
+.badge { font-size: 12px; font-weight: 550; padding: 1px 8px; border-radius: 999px; white-space: nowrap; background: var(--accent-soft); color: var(--accent); }
+.badge.people { background: var(--ok-soft); color: var(--ok); }
+.badge.note, .badge.choose { background: var(--edit-soft); color: var(--edit); }
+.where { font-size: 13px; color: var(--muted); margin-top: -6px; overflow-wrap: anywhere; }
+.label { font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); font-weight: 650; margin-bottom: 4px; display: flex; gap: 8px; align-items: center; }
+.text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.now .text { font-size: 14px; color: var(--muted); }
+.now del { color: var(--del); text-decoration-thickness: 1px; }
+.prop .text { font-size: 16.5px; line-height: 1.6; padding: 8px 10px; margin-inline: -10px; border-radius: 8px; }
+.prop ins { text-decoration: none; background: var(--ins); border-radius: 3px; box-shadow: 0 0 0 1px var(--ins); }
+.card.is-ok .prop .text { background: var(--ok-soft); }
+@media (prefers-reduced-motion: no-preference) { .prop .text { transition: background-color .15s; } }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.accept { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; padding: 7px 14px 7px 10px; border-radius: 999px; border: 1.5px solid var(--line-strong); background: var(--panel); cursor: pointer; }
+.accept .box { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--line-strong); display: grid; place-items: center; }
+.accept .box svg { width: 12px; height: 12px; opacity: 0; }
+.accept:hover { border-color: var(--ok); }
+.accept[aria-pressed="true"] { background: var(--ok); border-color: var(--ok); color: var(--panel); }
+.accept[aria-pressed="true"] .box { border-color: var(--panel); background: var(--panel); color: var(--ok); }
+.accept[aria-pressed="true"] .box svg { opacity: 1; }
+.ghost { font-size: 13px; background: none; border: 0; color: var(--accent); padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+.ghost:hover { background: var(--accent-soft); }
+.tick-wrap { position: relative; display: inline-flex; }
+.spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--ok); }
+@media (prefers-reduced-motion: no-preference) { .spin { animation: spin .7s linear infinite; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+.tip { position: absolute; bottom: calc(100% + 8px); left: 0; white-space: nowrap; font-size: 12px; font-weight: 500; padding: 3px 8px; border-radius: 6px; background: var(--edit); color: var(--panel); pointer-events: none; }
+.field { display: grid; gap: 4px; }
+.tag { font-size: 11px; padding: 0 6px; border-radius: 4px; background: var(--edit-soft); color: var(--edit); text-transform: none; letter-spacing: 0; font-weight: 550; }
+.reset { font-size: 12px; background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; text-transform: none; letter-spacing: 0; font-weight: 500; margin-left: auto; }
+textarea { width: 100%; min-height: 4.5em; resize: vertical; font: 15px/1.55 var(--sans); color: var(--ink); background: var(--bg); border: 1px solid var(--line-strong); border-radius: 8px; padding: 8px 10px; field-sizing: content; }
+textarea.note { min-height: 2.6em; font-size: 14px; }
+.reply { padding: 10px 12px; border-radius: 8px; background: var(--accent-soft); border-left: 3px solid var(--accent); }
+.reply .text { font-size: 14px; }
+.empty { background: var(--panel); border: 1px dashed var(--line-strong); border-radius: 12px; padding: 28px; color: var(--muted); text-align: center; display: grid; gap: 6px; justify-items: center; }
+.empty.done { border-style: solid; border-color: color-mix(in srgb, var(--ok) 40%, var(--line)); }
+.empty .big { width: 44px; height: 44px; border-radius: 50%; background: var(--ok-soft); color: var(--ok); display: grid; place-items: center; }
+.empty .big svg { width: 22px; height: 22px; }
+.empty strong { color: var(--ink); font-size: 16px; }
+@media (max-width: 640px) {
+	.card { padding: 14px 14px 12px 18px; }
+	.status { max-width: 100%; flex-basis: 100%; order: 9; }
+	.spacer { display: none; }
+}
+</style>
+
+<header class="top">
+	<div class="gutter">
+		<div class="line1">
+			<span class="brand">Word review</span>
+			<select id="round" aria-label="Round"></select>
+			<span class="hint">Accept, write your own, or ask a question.</span>
+		</div>
+		<div class="meter" role="progressbar" aria-label="Round progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="meter"></span></div>
+		<div class="line2">
+			<div class="tally" id="tally"></div>
+			<div class="seg" role="group" aria-label="Show">
+				<button type="button" id="show-todo" aria-pressed="true">To do</button>
+				<button type="button" id="show-all" aria-pressed="false">All</button>
+			</div>
+			<span class="spacer"></span>
+			<span class="status" id="status" aria-live="polite">Connecting…</span>
+			<button type="button" class="btn tick-all" id="tick-all"></button>
+			<button type="button" class="btn primary icon" id="send" aria-label="Send to the agent" title="Send to the agent">
+				<svg class="i-plane" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>
+				<svg class="i-done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+			</button>
+		</div>
+	</div>
+</header>
+<main id="list" class="gutter"><div class="empty">The sentences to review appear here once they load.</div></main>
+
+<script>
+(() => {
+	const $ = (id) => document.getElementById(id);
+	const list = $('list'), roundSel = $('round'), tally = $('tally'), meter = $('meter'), status = $('status');
+	const sendBtn = $('send'), tickAllBtn = $('tick-all');
+	const POLL_MS = 4000;
+	const SPINNER_AFTER_MS = 250; // a save that answers sooner shows no spinner
+	let rounds = [];       // [{ slug, round, ... }] from the server
+	let slug = '';         // selected round's file name
+	let rows = [];         // latest snapshot of the selected round
+	let todoOnly = true;   // show only rows still waiting on the user
+	let shown = null;      // ids kept in view this visit, so a row doesn't vanish the moment it's ticked
+	let offline = false;
+	let lastTicked = null; // ids the last Tick all changed, so it can be undone
+	const timers = {};     // debounced writes per row
+	const drafts = {};     // text being typed, so a snapshot never clobbers it
+	const cdrafts = {};    // comments being typed
+	const copen = {};      // comment boxes the user opened
+	const pending = {};    // fields waiting for the next write, per row
+	const inflight = {};   // writes sent and not yet answered, per row
+	const chain = {};      // writes to one row go out in order
+	const failed = {};     // last write per row failed
+	const touched = {};    // row id -> when the user last changed it here
+	const ticking = {};    // row id -> 'saving' | 'failed' while a tick is on its way
+
+	const say = (t, bad = false) => { status.textContent = t; status.title = t; status.classList.toggle('bad', bad); };
+	const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+	const svg = (paths, sw = 2) => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor'); s.setAttribute('stroke-width', sw); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('stroke-linejoin', 'round'); s.setAttribute('aria-hidden', 'true'); s.innerHTML = paths; return s; };
+	const CHECK = '<path d="M20 6 9 17l-5-5"/>';
+	const CHECKS = '<path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/>';
+	const UNDO = '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>';
+	const remember = (v) => { try { localStorage.setItem('word-review:round', v); } catch { /* per-viewer convenience only */ } };
+	const recall = () => { try { return localStorage.getItem('word-review:round') || ''; } catch { return ''; } };
+
+	async function api(method, path, body) {
+		const res = await fetch(path, { method, headers: body ? { 'content-type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
+		if (!res.ok) throw new Error(String(res.status));
+		return res.json();
+	}
+
+	const day = (iso, year = true) => (iso ? new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', ...(year ? { year: 'numeric' } : {}) }) : '');
+
+	// Word-level changes between today's text and the proposal: removed words are struck through in
+	// "Now", added words are marked in "Proposed". Whitespace is kept as its own token, so the text
+	// shown is exactly the text in the file.
+	function diff(a, b) {
+		const x = a.split(/(\s+)/), y = b.split(/(\s+)/);
+		if (x.length * y.length > 250000) return null; // too long to compare quickly: show it plain
+		const n = x.length, m = y.length, L = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+		for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = x[i] === y[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+		const out = { a: [], b: [] };
+		let i = 0, j = 0;
+		while (i < n || j < m) {
+			if (i < n && j < m && x[i] === y[j]) { out.a.push([x[i], 0]); out.b.push([y[j], 0]); i++; j++; }
+			else if (j < m && (i >= n || L[i][j + 1] >= L[i + 1][j])) out.b.push([y[j++], 1]);
+			else out.a.push([x[i++], 1]);
+		}
+		// A full rewrite shares no words: marking every word says nothing, so show both plain.
+		return out.a.some(([t, c]) => !c && /\S/.test(t)) ? out : null;
+	}
+	// Builds the text from tokens. Changed words next to each other form one marked run, spaces
+	// between them included; whitespace at a run's edge stays outside it.
+	function marked(tokens, tag) {
+		const box = el('div', 'text');
+		const word = (k) => /\S/.test(tokens[k][0]);
+		const inRun = (k) => {
+			if (word(k)) return !!tokens[k][1];
+			let p = k - 1, q = k + 1;
+			while (p >= 0 && !word(p)) p--;
+			while (q < tokens.length && !word(q)) q++;
+			return p >= 0 && q < tokens.length && !!tokens[p][1] && !!tokens[q][1];
+		};
+		let run = null;
+		tokens.forEach(([t], k) => {
+			if (inRun(k)) { if (!run) box.append(run = el(tag)); run.textContent += t; }
+			else { run = null; box.append(document.createTextNode(t)); }
+		});
+		return box;
+	}
+
+	const alt = (r, typed) => { const y = typed ?? r.yours ?? ''; return y.trim() && y !== r.proposed ? y : ''; };
+	const isDone = (r) => !!r.ok || !!alt(r, drafts[r.id]);
+	const asking = (r) => !!(r.comment ?? '').trim() && !r.reply;
+	// A row of a pick-one pair says so in `where`: only the user can choose, so Tick all leaves it.
+	const pickOne = (r) => /CHOOSE ONE/.test(r.where ?? '');
+	const tickable = () => rows.filter((r) => !isDone(r) && !pickOne(r));
+
+	// A round's progress: the open round counts from the live rows (so a tick shows at once), the rest from the server.
+	const progress = (r) => (r.slug === slug && rows.length ? { of: rows.length, done: rows.filter(isDone).length } : { of: r.of, done: r.ticked });
+	// The project name is dropped when every round shares it; the full name and date stay in the tooltip.
+	const project = (r) => r.round.split(' · ')[0];
+	const shortName = (r) => (rounds.every((x) => project(x) === project(r)) && r.round.includes(' · ') ? r.round.slice(project(r).length + 3) : r.round);
+
+	function renderRounds() {
+		roundSel.replaceChildren(...rounds.map((r) => {
+			const { of, done } = progress(r), owed = of - done;
+			const o = el('option', owed > 0 ? 'owed' : 'quiet', `${owed > 0 ? '● ' : '✓ '}${shortName(r)} (${done}/${of})`);
+			o.value = r.slug; o.selected = r.slug === slug;
+			o.title = `${r.round} · ${day(r.added)} · ${owed > 0 ? `${owed} still to do` : 'all done'}`;
+			return o;
+		}));
+		roundSel.title = roundSel.selectedOptions[0]?.title ?? '';
+		roundSel.disabled = rounds.length < 2;
+	}
+
+	function renderTally(items) {
+		const done = items.filter(isDone).length;
+		const edited = items.filter((r) => alt(r, drafts[r.id])).length;
+		const notes = items.filter((r) => (cdrafts[r.id] ?? r.comment ?? '').trim()).length;
+		const pill = (cls, n, text) => { const p = el('span', 'pill ' + cls); p.append(el('b', null, n), ` ${text}`); return p; };
+		tally.replaceChildren(
+			pill('ok', `${done}/${items.length}`, 'done'),
+			pill('edit', edited, 'edited'),
+			pill('', notes, notes === 1 ? 'comment' : 'comments'),
+		);
+		const pct = items.length ? Math.round((done / items.length) * 100) : 0;
+		meter.style.width = pct + '%';
+		meter.parentElement.setAttribute('aria-valuenow', String(pct));
+		const left = tickable().length;
+		tickAllBtn.replaceChildren(svg(lastTicked ? UNDO : CHECKS), lastTicked ? 'Undo tick all' : 'Tick all');
+		if (!lastTicked && left) tickAllBtn.append(el('span', 'count', `(${left})`));
+		tickAllBtn.disabled = !lastTicked && !left;
+		tickAllBtn.title = lastTicked ? `Untick the ${lastTicked.length} rows Tick all just ticked` : left ? `Accept the ${left} proposals still to do (pick-one rows are left for you)` : 'Nothing left to tick';
+	}
+
+	const dirty = (id) => !!pending[id] || !!inflight[id];
+
+	function flush(id) {
+		clearTimeout(timers[id]);
+		const body = pending[id]; delete pending[id];
+		if (!body) return chain[id] || Promise.resolve();
+		const target = slug;
+		inflight[id] = (inflight[id] || 0) + 1;
+		say('Saving…');
+		chain[id] = (chain[id] || Promise.resolve()).then(async () => {
+			try { await api('PATCH', `/api/rounds/${target}/items/${encodeURIComponent(id)}`, body); failed[id] = false; say('Saved'); }
+			catch { failed[id] = true; say('Could not save. Check the review server is running, then edit again.', true); }
+			finally { inflight[id] -= 1; }
+		});
+		return chain[id];
+	}
+	const flushAll = () => Promise.all(Object.keys(pending).map(flush).concat(Object.values(chain)));
+
+	function save(id, patch) {
+		touched[id] = Date.now();
+		pending[id] = { ...(pending[id] || {}), ...patch };
+		clearTimeout(timers[id]);
+		timers[id] = setTimeout(() => flush(id), 500);
+	}
+
+	// Leaving a text box redraws the row, but not under a click: the press that left the box would
+	// lose its target (the redraw replaces it). So a redraw caused by a press waits until the press ends.
+	let pressing = false, redrawOwed = false;
+	document.addEventListener('pointerdown', () => { pressing = true; }, true);
+	document.addEventListener('pointerup', () => { pressing = false; if (redrawOwed) { redrawOwed = false; setTimeout(render, 0); } }, true);
+	const renderAfterBlur = () => { if (pressing) redrawOwed = true; else render(); };
+
+	const AUDIENCE = { user: ['Read by people', 'people'], person: ['Read by people', 'people'], agent: ['Read by agents', ''], bot: ['Read by agents', ''] };
+
+	async function toggle(r, want) {
+		const before = { ok: !!r.ok, yours: r.yours ?? '' };
+		r.ok = want;
+		if (want) { delete drafts[r.id]; r.yours = ''; save(r.id, { ok: true, yours: '' }); }
+		else save(r.id, { ok: false });
+		render(); // shows the tick at once; the spinner only appears if the save is slow
+		const slow = setTimeout(() => { ticking[r.id] = 'saving'; render(); }, SPINNER_AFTER_MS);
+		await flush(r.id); // a tick saves at once, no typing pause
+		clearTimeout(slow);
+		if (failed[r.id]) {
+			r.ok = before.ok; r.yours = before.yours; ticking[r.id] = 'failed'; render();
+			setTimeout(() => { if (ticking[r.id] === 'failed') { delete ticking[r.id]; render(); } }, 3000);
+		} else { delete ticking[r.id]; render(); }
+	}
+
+	function focusEnd(id) { const t = $(id); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }
+
+	function cardView(r) {
+		const mine = alt(r, drafts[r.id]);
+		const writing = !!mine || drafts[r.id] !== undefined;
+		const comment = cdrafts[r.id] ?? r.comment ?? '';
+		const commenting = !!comment.trim() || copen[r.id];
+		const card = el('article', 'card' + (mine ? ' is-mine' : r.ok ? ' is-ok' : asking(r) ? ' is-asking' : ''));
+		card.setAttribute('aria-labelledby', `id-${r.id}`);
+
+		const meta = el('div', 'meta');
+		const idEl = el('span', 'id', r.id); idEl.id = `id-${r.id}`; meta.append(idEl);
+		if (r.audience) { const [text, cls] = AUDIENCE[r.audience] ?? [`For: ${r.audience}`, '']; meta.append(el('span', 'badge ' + cls, text)); }
+		if (pickOne(r)) meta.append(el('span', 'badge choose', 'Choose one'));
+		if ((r.comment ?? '').trim()) meta.append(el('span', 'badge note', r.reply ? 'Answered' : 'Waiting for an answer'));
+		if (r.added) meta.append(el('span', null, `Added ${day(r.added, false)}`));
+		card.append(meta);
+		if (r.where) card.append(el('div', 'where', r.where));
+
+		// NOW, then PROPOSED, with the words that change marked in each.
+		const d = r.current ? diff(r.current, r.proposed) : null;
+		if (r.current) { const now = el('div', 'now'); now.append(el('div', 'label', 'Now'), d ? marked(d.a, 'del') : el('div', 'text', r.current)); card.append(now); }
+		const prop = el('div', 'prop');
+		prop.append(el('div', 'label', r.current ? 'Proposed' : 'Proposed (new)'), d ? marked(d.b, 'ins') : el('div', 'text', r.proposed));
+		card.append(prop);
+
+		// The actions: accept, write your own, comment.
+		const actions = el('div', 'actions');
+		const tickWrap = el('span', 'tick-wrap');
+		if (ticking[r.id] === 'saving') {
+			const sp = el('span', 'spin'); sp.setAttribute('role', 'status'); sp.setAttribute('aria-label', 'Saving');
+			const b = el('button', 'accept'); b.type = 'button'; b.disabled = true; b.append(sp, 'Saving…');
+			tickWrap.append(b);
+		} else {
+			const b = el('button', 'accept'); b.type = 'button'; b.setAttribute('aria-pressed', String(!!r.ok));
+			const box = el('span', 'box'); box.append(svg(CHECK, 3));
+			b.append(box, r.ok ? 'Accepted' : 'Accept proposed');
+			b.addEventListener('click', () => toggle(r, !r.ok));
+			tickWrap.append(b);
+			if (ticking[r.id] === 'failed') tickWrap.append(el('span', 'tip', 'Couldn’t save. Try again.'));
+		}
+		actions.append(tickWrap);
+		if (!writing) {
+			const w = el('button', 'ghost', 'Write my own'); w.type = 'button';
+			w.addEventListener('click', () => { drafts[r.id] = r.proposed; render(); focusEnd(`t-${r.id}`); });
+			actions.append(w);
+		}
+		if (!commenting) {
+			const c = el('button', 'ghost', 'Comment or ask'); c.type = 'button';
+			c.addEventListener('click', () => { copen[r.id] = true; render(); focusEnd(`c-${r.id}`); });
+			actions.append(c);
+		}
+		card.append(actions);
+
+		// YOURS: opens on request; writing one counts as done.
+		if (writing) {
+			const f = el('div', 'field');
+			const lab = el('label', 'label'); lab.htmlFor = `t-${r.id}`; lab.append('Your version');
+			if (mine) lab.append(el('span', 'tag', 'counts as done'));
+			const clear = el('button', 'reset', 'Remove'); clear.type = 'button';
+			clear.addEventListener('click', () => { delete drafts[r.id]; r.yours = ''; save(r.id, { yours: '' }); render(); });
+			lab.append(clear);
+			const ta = el('textarea'); ta.id = `t-${r.id}`; ta.value = drafts[r.id] ?? r.yours ?? r.proposed;
+			ta.rows = Math.max(3, ta.value.split('\n').length + 1);
+			ta.addEventListener('input', () => {
+				drafts[r.id] = ta.value;
+				const patch = { yours: ta.value };
+				if (r.ok && alt(r, ta.value)) { r.ok = false; patch.ok = false; }
+				save(r.id, patch); renderTally(rows);
+			});
+			ta.addEventListener('blur', renderAfterBlur);
+			f.append(lab, ta);
+			card.append(f);
+		}
+		if (commenting) {
+			const f = el('div', 'field');
+			const cl = el('label', 'label', 'Comment or question'); cl.htmlFor = `c-${r.id}`;
+			const cm = el('textarea', 'note'); cm.id = `c-${r.id}`; cm.rows = 1;
+			cm.placeholder = 'Ask for context, or leave a note';
+			cm.value = comment;
+			cm.addEventListener('input', () => { cdrafts[r.id] = cm.value; save(r.id, { comment: cm.value }); });
+			cm.addEventListener('blur', () => { if (!cm.value.trim()) delete copen[r.id]; renderAfterBlur(); });
+			f.append(cl, cm);
+			card.append(f);
+		}
+		if (r.reply) { const rp = el('div', 'reply'); rp.append(el('div', 'label', 'The agent’s answer'), el('div', 'text', r.reply)); card.append(rp); }
+		return card;
+	}
+
+	function emptyView(done, title, line) {
+		const box = el('div', 'empty' + (done ? ' done' : ''));
+		if (done) { const big = el('div', 'big'); big.append(svg(CHECK, 2.5)); box.append(big); }
+		box.append(el('strong', null, title));
+		if (line) box.append(el('span', null, line));
+		return box;
+	}
+
+	function render() {
+		if (document.activeElement && document.activeElement.tagName === 'TEXTAREA') return; // keep the caret while typing
+		renderRounds();
+		// Newest at the bottom: by the date added, then the order the agent gave them.
+		const all = rows.slice().sort((a, b) => (a.added ?? '').localeCompare(b.added ?? '') || (a.order ?? 0) - (b.order ?? 0));
+		renderTally(all);
+		const waiting = (r) => !isDone(r) || asking(r);
+		// A row stays in view for the rest of the visit once it has waited, including a row the agent adds
+		// while the page is open; otherwise it vanishes the moment it is ticked.
+		if (todoOnly) { shown ??= new Set(); for (const r of all) if (waiting(r)) shown.add(r.id); }
+		const items = todoOnly ? all.filter((r) => shown.has(r.id)) : all;
+		if (todoOnly && !items.length && all.length) { list.replaceChildren(emptyView(true, 'All done in this round', 'Press Send so the agent picks up your answers. Choose All to see every row.')); return; }
+		if (!items.length) { list.replaceChildren(emptyView(false, 'Nothing to review yet', 'Ask the agent for a round, and it will appear here.')); return; }
+		const groups = [];
+		for (const r of items) { let g = groups.find((x) => x.name === r.group && x.added === r.added); if (!g) groups.push(g = { name: r.group, added: r.added, rows: [] }); g.rows.push(r); }
+		list.replaceChildren(...groups.map((g) => {
+			const s = el('section', 'group');
+			if (g.name) { const h = el('h2', null, g.name); h.append(el('span', 'n', `${g.rows.filter(isDone).length}/${g.rows.length}`)); s.append(h); }
+			s.append(...g.rows.map(cardView));
+			return s;
+		}));
+	}
+
+	// Reading from the server. The agent's fields always come from the file; the user's fields come
+	// from the file too, except on a row with a write still on its way (that one keeps what the user just did).
+	async function load() {
+		const startedAt = Date.now();
+		try {
+			const found = await api('GET', '/api/rounds');
+			if (!found.some((r) => r.slug === slug)) slug = found.some((r) => r.slug === recall()) ? recall() : (found[found.length - 1]?.slug || '');
+			const data = slug ? await api('GET', `/api/rounds/${slug}`) : { items: [] };
+			const key = (rs) => rs.map((r) => `${r.slug}${r.round}${r.of}/${r.ticked}`);
+			const before = JSON.stringify([key(rounds), rows]);
+			rounds = found;
+			// A row the user touched after this read began, or with a write still on its way, keeps what
+			// the user did: the answer may predate the write. Row objects are updated in place, so a
+			// handler on screen always holds the live row.
+			rows = data.items.map((n) => {
+				const old = rows.find((o) => o.id === n.id);
+				if (!old) return n;
+				const keep = dirty(n.id) || (touched[n.id] ?? 0) >= startedAt ? { ok: old.ok, yours: old.yours, comment: old.comment } : {};
+				for (const k of Object.keys(old)) if (!(k in n)) delete old[k];
+				return Object.assign(old, n, keep);
+			});
+			if (offline || status.textContent === 'Connecting…') { offline = false; say('Up to date'); }
+			if (before !== JSON.stringify([key(rounds), rows])) render();
+		} catch {
+			offline = true;
+			say('Lost the connection to the review server. Start it again, then reload this page.', true);
+		}
+	}
+
+	roundSel.addEventListener('change', async () => {
+		await flushAll();
+		slug = roundSel.value; remember(slug); rows = []; shown = null; lastTicked = null;
+		for (const d of [drafts, cdrafts, copen]) for (const k of Object.keys(d)) delete d[k];
+		await load(); render();
+	});
+	const bTodo = $('show-todo'), bAll = $('show-all');
+	const setShow = (todo) => { todoOnly = todo; shown = null; bTodo.setAttribute('aria-pressed', String(todo)); bAll.setAttribute('aria-pressed', String(!todo)); render(); };
+	bTodo.addEventListener('click', () => setShow(true)); bAll.addEventListener('click', () => setShow(false));
+
+	tickAllBtn.addEventListener('click', async () => {
+		tickAllBtn.disabled = true;
+		const undo = !!lastTicked;
+		try {
+			await flushAll();
+			const ids = lastTicked ?? tickable().map((r) => r.id);
+			await api('POST', `/api/rounds/${slug}/items:batchTick`, { ids, ok: !undo });
+			for (const r of rows) if (ids.includes(r.id)) { r.ok = !undo; touched[r.id] = Date.now(); }
+			lastTicked = undo ? null : ids;
+			const left = rows.filter((r) => !isDone(r)).length;
+			say(undo ? `Unticked ${ids.length}.` : `Ticked ${ids.length}.${left ? ` ${left} left for you to choose.` : ''}`);
+		} catch {
+			say('Could not save. Check the review server is running, then press again.', true);
+		}
+		render();
+	});
+
+	sendBtn.addEventListener('click', async () => {
+		sendBtn.disabled = true; say('Sending…');
+		try {
+			await flushAll();
+			await api('POST', '/api/signal', { slug });
+			sendBtn.dataset.state = 'sent'; sendBtn.title = 'Sent'; say('Sent to the agent');
+		} catch {
+			say('Could not send. Check the review server is running, then press Send again.', true);
+		}
+		sendBtn.disabled = false;
+		setTimeout(() => { delete sendBtn.dataset.state; sendBtn.title = 'Send to the agent'; }, 2500);
+	});
+
+	// Rows the agent adds and answers the agent writes appear without a reload.
+	setInterval(() => { if (!document.hidden) load(); }, POLL_MS);
+	window.addEventListener('focus', load);
+	load().then(render);
+})();
+</script>
