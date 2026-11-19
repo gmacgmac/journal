@@ -2,8 +2,10 @@
 // files held as text, answered the way the spec's routes answer (a `Response`, whole days and `next`, older pages newest
 // first, problems with a status), with real keys and offsets from `src/format/`, and a store held in a map. Every call is
 // recorded, and each answer can be changed.
+import { word } from '../../src/engine/words.ts';
 import { dateTitle, daysBetween, keyedBlocks, localToday } from '../../src/format/index.ts';
-import type { Day, Edit, RangeEdit } from '../../src/seam-types.ts';
+import type { Day, Edit } from '../../src/seam-types.ts';
+import { plan, undoOf, version } from '../../src/store/index.ts';
 import type { Chip, ConfirmAsk, PluginEvent, PluginHost, Ref } from '../../src/vendor/plugin-host/plugin-host.ts';
 import { recentDays } from '../../src/view/dates.ts';
 import { mountJournal } from '../../src/view/journal.ts';
@@ -43,17 +45,17 @@ export function fakeHost() {
 	function dayOf(date: string): Day {
 		const text = files.get(date);
 		const blocks = text === undefined ? [] : keyedBlocks(text);
-		return { date, title: dateTitle(date), exists: text !== undefined, version: null, blocks, problems: problems.get(date) ?? [] };
+		return { date, title: dateTitle(date), exists: text !== undefined, version: text === undefined ? null : version(text), blocks, problems: problems.get(date) ?? [] };
 	}
 
+	/** Saves an edit by the engine's own rules (`plan`), so the view meets the answers and refusals the real one gives. */
 	function save(e: Edit): Response {
 		if (e.op === 'entry') return json({ title: 'not in this fake', status: 400, code: 'unreadable' }, 400);
-		const text = files.get(e.date) ?? '';
-		if (text.slice(e.start, e.end) !== e.before) return json({ title: 'The page changed.', status: 409, code: 'changed', day: dayOf(e.date) }, 409);
-		const after = e.op === 'insert' ? `${e.before}\n\n${e.text}` : e.after;
-		files.set(e.date, text.slice(0, e.start) + after + text.slice(e.end));
-		const undo: RangeEdit = { op: 'range', date: e.date, start: e.start, end: e.start + after.length, before: after, after: e.before };
-		return json({ day: dayOf(e.date), undo });
+		const text = files.get(e.date) ?? null;
+		const done = plan(e.date, text, e);
+		if (!done.ok) return json({ title: word(done.say, done.vars), status: done.status, code: done.code, day: dayOf(e.date) }, done.status);
+		files.set(e.date, done.text);
+		return json({ day: dayOf(e.date), undo: undoOf(e.date, text ?? '', done.text) });
 	}
 
 	const host: PluginHost = {

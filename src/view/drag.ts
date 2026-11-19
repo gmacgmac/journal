@@ -6,11 +6,12 @@
 // was let go. Esc, a cancelled or lost pointer, the window losing focus, or the day changing underneath puts it back.
 // From the keyboard the handle is a button: Space or Enter lifts, ↑ ↓ choose the place, Space or Enter drops, Esc puts it
 // back; each step is said through a polite live region. No dependency: pointer events, rects and the Web Animations API.
+import { entrySpans, placesFor, type EntrySpan } from '../format/index.ts';
 import { writingOf } from './days.ts';
 import { el } from './render.ts';
-import { entriesOfDay, entryName, isStill, moveEdit, slotsFor, type EntrySpan } from './move.ts';
+import { entryName, isStill, moveEditOf } from './move.ts';
 import type { BlockNode, Page } from './session.ts';
-import type { Day, RangeEdit } from './wire.ts';
+import type { Block, Day, RangeEdit } from './wire.ts';
 import { say } from './words.ts';
 
 /** How far, in pixels, a press moves before it is a drag (a press that stays is a click on the handle). */
@@ -39,7 +40,7 @@ interface Group {
 interface Lift {
 	date: string;
 	section: HTMLElement;
-	entries: EntrySpan[];
+	entries: EntrySpan<Block>[];
 	from: number;
 	slots: number[];
 	slot: number;
@@ -122,13 +123,13 @@ export function createDrag(d: DragDeps) {
 		const date = section.dataset.date!;
 		const day = d.day(date);
 		if (day === undefined) return null;
-		const entries = entriesOfDay(writingOf(day));
+		const entries = entrySpans(writingOf(day));
 		const groups = groupsOf(section);
 		// The page and the day it was drawn from must agree, entry for entry.
-		if (groups.length !== entries.length || groups.some((g, i) => g.nodes[0]!.dataset.key !== entries[i]!.head.key)) return null;
+		if (groups.length !== entries.length || groups.some((g, i) => g.nodes[0]!.dataset.key !== entries[i]!.id)) return null;
 		const from = groups.findIndex((g) => g.nodes[0] === head);
 		if (from < 0) return null;
-		return { date, section, entries, from, slots: slotsFor(entries, from), source: groups[from]!.nodes };
+		return { date, section, entries, from, slots: placesFor(entries, from), source: groups[from]!.nodes };
 	}
 
 	function begin(handle: HTMLElement, pointerY: number | null): boolean {
@@ -213,7 +214,7 @@ export function createDrag(d: DragDeps) {
 	async function drop(): Promise<void> {
 		const l = lift;
 		if (l === null) return;
-		const edit = gone(l) ? null : moveEdit(l.date, l.entries, l.from, l.slot);
+		const edit = gone(l) ? null : moveEditOf(l.date, l.entries, l.from, l.slot);
 		if (edit === null) return cancel(false);
 		// Where every block is now: the moved entry where its copy was let go.
 		const before = new Map<Element, DOMRect>();
@@ -231,7 +232,7 @@ export function createDrag(d: DragDeps) {
 		if (l.keys) tell(say('journal.view.move.dropped', { entry: entryName(l.entries[l.from]!), n: placeOf(l.from, l.slot) + 1, count: l.entries.length }));
 		settle(l.section, before);
 		// The handle keeps focus after a drop from the keys, so the next move is a key away.
-		if (l.keys) sheet.querySelector<HTMLElement>(`.block[data-date="${l.date}"][data-key="${l.entries[l.from]!.head.key}"] .drag-handle`)?.focus();
+		if (l.keys) sheet.querySelector<HTMLElement>(`.block[data-date="${l.date}"][data-key="${l.entries[l.from]!.id}"] .drag-handle`)?.focus();
 	}
 
 	/** Each block that moved glides from its old place to its new one (FLIP). */

@@ -4,7 +4,7 @@
 // whose block changed stays (marked stale), and a draft stays where it was put.
 // A day whose file breaks the rules (spec § The data) is drawn as it is, read only, with its problems over it: no block
 // opens, no box ticks, and no entry is added, since the engine refuses every write to it.
-import { entryOf, localToday } from '../format/index.ts';
+import { entryOf, hasWriting, localToday } from '../format/index.ts';
 import type { Block, Day } from './wire.ts';
 import { icon } from './icons.ts';
 import { el, parseMarkdown, renderMarkdown } from './render.ts';
@@ -15,14 +15,14 @@ import { say } from './words.ts';
 export const isBroken = (day: Day): boolean => (day.problems ?? []).length > 0;
 
 /** A day's blocks under its date line (the date line is drawn as the page heading; a broken day may not start with one). */
-export const writingOf = (day: Day) => (day.blocks[0]?.text === `# ${day.title}` ? day.blocks.slice(1) : day.blocks);
+export const writingOf = (day: Day): Block[] => (day.blocks[0]?.text === `# ${day.title}` ? day.blocks.slice(1) : day.blocks);
 
 /**
  * Whether a day has a page to show: a file with writing in it, or one that breaks the rules. A file left with only its
  * date line (its last entry deleted, or the day removed) is shown as a day with no page, with the way to start it (GM,
  * 2026-11-19: not "Nothing written").
  */
-export const hasPage = (day: Day): boolean => day.exists && (isBroken(day) || writingOf(day).length > 0);
+export const hasPage = (day: Day): boolean => day.exists && (isBroken(day) || hasWriting(day.blocks));
 
 export function setRange(node: BlockNode, date: string, b: Block): void {
 	node.dataset.date = date;
@@ -137,7 +137,10 @@ export function patchDay(day: Day, section: Element | null, fresh: boolean, hint
 	if (section === null) return null;
 	// A page that appeared or went, or started or stopped breaking the rules, is drawn anew.
 	if (section.classList.contains('gap') === hasPage(day) || section.classList.contains('broken') !== isBroken(day)) {
-		section.replaceWith(daySection(day, hintId));
+		const fresh = daySection(day, hintId);
+		// A day the person removed here stays on the sheet as one with no page, so Undo's patch finds it.
+		if (section.classList.contains('placed')) fresh.classList.add('placed');
+		section.replaceWith(fresh);
 		return { date: day.date, replacedDay: true };
 	}
 	// Still no page: a gap has nothing to patch.

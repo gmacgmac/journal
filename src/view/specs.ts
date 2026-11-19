@@ -15,7 +15,7 @@ const range = (node: BlockNode) => ({ date: node.dataset.date!, start: Number(no
 const clones = (node: Node): Node[] => [...node.childNodes].map((c) => c.cloneNode(true));
 
 export function bodySpec(node: BlockNode): Spec {
-	const st = { before: node._text ?? '', shown: clones(node) };
+	const st = { before: node._text ?? '', shown: clones(node), removedAt: NaN };
 	return {
 		kind: 'body',
 		editables: () => [node],
@@ -25,13 +25,17 @@ export function bodySpec(node: BlockNode): Spec {
 			if (r.md === st.before) return { edit: null };
 			// The only writing of an entry with no title, emptied: the entry goes, its time with it (GM, 2026-11-19).
 			if (r.md === '') {
-				const whole = emptiedEntry(node, st.before);
-				if (whole !== null) return { edit: whole };
+				const whole = emptiedEntry(node);
+				if (whole !== null) {
+					st.removedAt = Number(entryHeadOf(node)!.dataset.start);
+					return { edit: whole };
+				}
 			}
 			return { edit: { op: 'replace', ...range(node), before: st.before, after: r.md } };
 		},
 		restore: () => node.replaceChildren(...st.shown.map((c) => c.cloneNode(true))),
-		landing: ({ edit }) => startOf(edit),
+		// A removed entry names no place in the file: the cursor lands where its heading was.
+		landing: ({ edit }) => (edit.op === 'remove' ? st.removedAt : startOf(edit)),
 		rebase(now, which) {
 			st.before = now.text;
 			Object.assign(node.dataset, { start: String(now.start), end: String(now.end), key: now.key });
@@ -81,21 +85,17 @@ export function bodySpec(node: BlockNode): Spec {
 }
 
 /**
- * The edit that removes `node`'s whole entry, when `node` (whose saved text is `before`) is the only writing of an entry
- * with a time and no title; null otherwise. A time alone is not worth keeping: deleting the writing deletes the entry.
+ * The edit that removes `node`'s whole entry, when `node` is the only writing of an entry with a time and no title; null
+ * otherwise. A time alone is not worth keeping: deleting the writing deletes the entry. The entry is named by its heading's
+ * key, and the engine finds the bytes.
  */
-function emptiedEntry(node: BlockNode, before: string): Extract<Edit, { op: 'range' }> | null {
+function emptiedEntry(node: BlockNode): Extract<Edit, { op: 'remove' }> | null {
 	const head = node.previousElementSibling as BlockNode | null;
-	if (head === null || !head.classList.contains('entry-head') || head.classList.contains('has-title') || head.dataset.start === undefined) return null;
+	if (head === null || !head.classList.contains('entry-head') || head.classList.contains('has-title') || head.dataset.key === undefined) return null;
 	let next = node.nextElementSibling as BlockNode | null;
 	while (next !== null && next.classList.contains('draft')) next = next.nextElementSibling as BlockNode | null;
 	if (next !== null && !next.classList.contains('entry-head')) return null;
-	const date = node.dataset.date!;
-	const start = Number(head.dataset.start);
-	const joined = `${head._text}\n\n${before}`;
-	return next !== null
-		? { op: 'range', date, start, end: Number(next.dataset.start), before: `${joined}\n\n`, after: '' }
-		: { op: 'range', date, start: start - 2, end: Number(node.dataset.end), before: `\n\n${joined}`, after: '' };
+	return { op: 'remove', date: node.dataset.date!, entry: head.dataset.key };
 }
 
 /** The start of a line that makes it a list, a to-do, a quote or a heading, not a title. */
@@ -200,19 +200,7 @@ export function headingSpec(node: BlockNode): Spec {
 		setTimed: timing.setTimed,
 		/** Delete on a heading removes the whole entry: its time, title and writing. */
 		remove(s) {
-			const parts: BlockNode[] = [node];
-			for (let n = node.nextElementSibling as BlockNode | null; n !== null && !n.classList.contains('entry-head'); n = n.nextElementSibling as BlockNode | null) {
-				if (n.dataset.key !== undefined) parts.push(n);
-			}
-			const last = parts.at(-1)!;
-			const next = last.nextElementSibling as BlockNode | null;
-			const joined = parts.map((p) => p._text).join('\n\n');
-			const start = Number(node.dataset.start);
-			const end = Number(last.dataset.end);
-			const date = node.dataset.date!;
-			void s.save(next !== null
-				? { op: 'range', date, start, end: Number(next.dataset.start), before: `${joined}\n\n`, after: '' }
-				: { op: 'range', date, start: start - 2, end, before: `\n\n${joined}`, after: '' }, 'stay', start);
+			void s.save({ op: 'remove', date: node.dataset.date!, entry: node.dataset.key! }, 'stay', Number(node.dataset.start));
 		},
 	};
 }

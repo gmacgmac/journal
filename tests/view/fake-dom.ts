@@ -191,6 +191,10 @@ export class FakeElement extends FakeNode {
 	}
 	focus(): void { doc.activeElement = this; }
 	scrollIntoView(): void {}
+	/** The pointer this element holds (`setPointerCapture`), as a browser would until the button comes up. */
+	captured: number | null = null;
+	setPointerCapture(id: number): void { this.captured = id; }
+	releasePointerCapture(id: number): void { if (this.captured === id) this.captured = null; }
 	override cloneNode(deep = false): FakeElement {
 		const c = new FakeElement(this.tagName);
 		for (const [k, v] of this.attrs) c.setAttribute(k, v);
@@ -199,7 +203,7 @@ export class FakeElement extends FakeNode {
 		return c;
 	}
 
-	matches(selector: string): boolean { return selectorList(selector).some((s) => matchCompound(this, s.compound)); }
+	matches(selector: string): boolean { return selectorList(selector).some((s) => matchChain(this, s, null)); }
 	closest(selector: string): FakeElement | null {
 		for (let n: FakeElement | null = this; n !== null; n = n.parentNode) if (n.matches(selector)) return n;
 		return null;
@@ -209,7 +213,7 @@ export class FakeElement extends FakeNode {
 		const out: FakeElement[] = [];
 		const walk = (n: FakeElement) => {
 			for (const c of n.children) {
-				if (list.some((s) => (!s.child || c.parentNode === this) && matchCompound(c, s.compound))) out.push(c);
+				if (list.some((s) => matchChain(c, s, this))) out.push(c);
 				walk(c);
 			}
 		};
@@ -239,12 +243,39 @@ function parseCompound(src: string): Compound {
 	return c;
 }
 
-function selectorList(selector: string): { child: boolean; compound: Compound }[] {
+/** A selector: compounds joined by descendant (space) or child (`>`) combinators, perhaps starting at `:scope`. */
+type Chain = { scoped: boolean; parts: { comb: ' ' | '>'; compound: Compound }[] };
+
+function selectorList(selector: string): Chain[] {
 	return selector.split(',').map((part) => {
-		const s = part.trim();
-		const m = /^:scope\s*>\s*(.+)$/.exec(s);
-		return { child: m !== null, compound: parseCompound(m?.[1] ?? s) };
+		let s = part.trim();
+		const scoped = s.startsWith(':scope');
+		if (scoped) s = s.slice(':scope'.length).trim();
+		const parts: Chain['parts'] = [];
+		let comb: ' ' | '>' = ' ';
+		// A compound may hold spaces inside brackets or parentheses (`[data-key="a b"]`, `:not(.x .y)`): those are not combinators.
+		for (const token of s.match(/(?:[^\s>[(]|\[[^\]]*\]|\([^)]*\))+|>/g) ?? []) {
+			if (token === '>') comb = '>';
+			else {
+				parts.push({ comb, compound: parseCompound(token) });
+				comb = ' ';
+			}
+		}
+		return { scoped, parts };
 	});
+}
+
+/** Whether `el` ends the chain; `scope` is what `:scope` and a search from an element are relative to. */
+function matchChain(el: FakeElement, chain: Chain, scope: FakeElement | null): boolean {
+	const at = (e: FakeElement, i: number): boolean => {
+		const part = chain.parts[i]!;
+		if (!matchCompound(e, part.compound)) return false;
+		if (i === 0) return !chain.scoped || scope === null ? true : part.comb === '>' ? e.parentNode === scope : scope.contains(e) && e !== scope;
+		if (part.comb === '>') return e.parentNode !== null && at(e.parentNode, i - 1);
+		for (let up = e.parentNode; up !== null; up = up.parentNode) if (at(up, i - 1)) return true;
+		return false;
+	};
+	return chain.parts.length > 0 && at(el, chain.parts.length - 1);
 }
 
 function matchCompound(el: FakeElement, c: Compound): boolean {

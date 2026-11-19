@@ -139,8 +139,7 @@ export function mountJournal(root: HTMLElement, host: PluginHost): PluginView {
 	async function removeDay(date: string): Promise<void> {
 		const day = views.shown.get(date);
 		const writing = day === undefined ? [] : writingOf(day);
-		const head = day?.blocks[0];
-		if (day === undefined || head === undefined || writing.length === 0) return;
+		if (day === undefined || writing.length === 0) return;
 		const count = writing.filter((b) => entryOf(b.text) !== null).length;
 		const yes = await host.confirm({
 			heading: say('journal.view.day.removeHeading', { date: day.title }),
@@ -151,13 +150,19 @@ export function mountJournal(root: HTMLElement, host: PluginHost): PluginView {
 		// Writing open on the page is saved first, so the day removed is the day as it is.
 		if (page.sessions.current !== null && (await page.sessions.current.finish({ then: 'stay' })) !== null) return;
 		const now = views.shown.get(date) ?? day;
-		const rest = writingOf(now);
-		if (rest.length === 0) return;
-		const before = `\n\n${rest.map((b) => b.text).join('\n\n')}`;
-		const r = await page.edit({ op: 'range', date, start: now.blocks[0]!.end, end: rest.at(-1)!.end, before, after: '' });
+		// The engine clears the day it was shown: with no version to name there is nothing to clear.
+		if (writingOf(now).length === 0 || now.version === null) return;
+		// The day stays on the sheet as one with no page, so Undo's patch finds it and the journal does not close up round it.
+		const section = () => sheet.querySelector<HTMLElement>(`.day[data-date="${date}"]`);
+		section()?.classList.add('placed');
+		const r = await page.edit({ op: 'clear', date, version: now.version });
 		if (r.day) page.patch(r.day, false);
 		if (r.ok) undo.push(r.undo, say('journal.view.day.removed'));
-		else notify(r.reason);
+		else {
+			// Refused: the day keeps its page, so it is no placed gap.
+			if (!section()?.classList.contains('gap')) section()?.classList.remove('placed');
+			notify(r.reason);
+		}
 	}
 
 	/** A new entry on `date`'s page (made when it has none), wherever the day is. */

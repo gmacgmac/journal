@@ -172,7 +172,7 @@ export function startSession(node: BlockNode, host: Page, spec: Spec, at: Where 
 				if (open) close();
 				node.remove();
 				host.patch(res.day, false);
-				host.undo(res.undo, say('after' in edit && edit.after === '' ? 'journal.view.deleted' : 'journal.view.saved'));
+				host.undo(res.undo, say(edit.op === 'remove' || ('after' in edit && edit.after === '') ? 'journal.view.deleted' : 'journal.view.saved'));
 				if (open) land(then, landing ?? spec.landing({ edit, res }));
 				return null;
 			}
