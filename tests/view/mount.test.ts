@@ -360,7 +360,7 @@ describe('mount', () => {
 		const { from } = recent();
 		const m = await mounted((h) => h.files.set(from, fileOf(from, '## 08:00', 'Morning.')));
 		const bar = (act: string) => q(m.root, `[data-act="${act}"]`);
-		fire(q(m.root, `.day[data-date="${from}"]`).querySelector('.add-entry'), 'click');
+		fire(q(m.root, `.day[data-date="${from}"]`).querySelector('.add-entry[data-timed="true"]'), 'click');
 		const draft = q(m.root, '.entry-draft');
 		const time = draft.querySelector('.time')!;
 		assert.ok(!bar('notime').hidden && bar('addtime').hidden, 'a new entry has a time, and can drop it');

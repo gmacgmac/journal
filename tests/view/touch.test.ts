@@ -54,13 +54,14 @@ describe('the phone layout', () => {
 		const columns = valuesOf(wide, '.entries', 'grid-template-columns');
 		assert.ok(columns.length > 0 && columns.every((v) => v.startsWith('var(--journal-time-w) ')), columns.join(' | '));
 		assert.deepEqual(valuesOf(wide, '.entries', 'column-gap'), ['var(--journal-gutter)']);
-		const margin = valuesOf(wide, '.add-entry', 'margin')[0] ?? '';
+		// The buttons sit in the foot of the day (`.add-zone`), whose inset is the column less a button's own padding.
+		const margin = valuesOf(wide, '.add-zone', 'padding')[0] ?? '';
 		const padding = valuesOf(wide, '.add-entry', 'padding')[0] ?? '';
 		const inset = /^\S+ (\S+)$/.exec(padding)?.[1];
 		assert.ok(inset !== undefined, `padding ${padding}`);
 		assert.match(margin, new RegExp(`calc\\(var\\(--journal-time-w\\) \\+ var\\(--journal-gutter\\) - ${inset}\\)`), 'the words, not the button’s edge, meet the column');
 		// On the phone the entries are one column, and Add an entry's words start at the left edge, as an entry's text does.
 		assert.ok(valuesOf(narrow, '.entries', 'display').includes('block'), 'one column');
-		assert.ok(valuesOf(narrow, '.add-entry', 'margin-left').includes(`-${inset}`), 'its words, not its edge, at the left');
+		assert.ok(valuesOf(narrow, '.add-zone', 'margin-left').includes(`-${inset}`), 'its words, not its edge, at the left');
 	});
 });

@@ -25,7 +25,7 @@ export const checkbox = (checked = false): HTMLInputElement => el('input', [], {
 	type: 'checkbox', class: 'todo', contenteditable: 'false', 'aria-label': say('journal.view.todo'), ...(checked ? { checked: '' } : {}),
 });
 
-/** An empty item keeps a <br> so the caret has somewhere to stand; the reader drops it. */
+/** The caret into an item or a quote's paragraph: one left empty gets a <br> to stand on, and the caret goes before it. */
 function caretIntoItem(li: HTMLElement, at = 0): void {
 	if (li.textContent === '') {
 		if (li.querySelector(':scope > br') === null) li.append(el('br'));
@@ -179,10 +179,16 @@ function paste(s: Session, target: EventTarget | null, raw: string): void {
 /** Make `p` a list item, a to-do or a quote, keeping its words and the caret at their start. */
 function convert(p: HTMLElement, { ordered = false, todo = false, quote = false }, caret = 0): void {
 	if (quote) {
-		const q = el('blockquote');
-		p.replaceWith(q);
-		q.append(p);
-		return placeCaret(p, caret);
+		// Straight under a quote, it carries that quote on (one bar); else it starts one. Typed on an empty line, the
+		// paragraph keeps a line to stand on, so the caret stays in it (GM, 2026-11-19: it jumped to the line above).
+		const above = p.previousElementSibling;
+		if (above?.tagName === 'BLOCKQUOTE') above.append(p);
+		else {
+			const q = el('blockquote');
+			p.replaceWith(q);
+			q.append(p);
+		}
+		return caretIntoItem(p, caret);
 	}
 	const li = el('li', todo ? [checkbox(false)] : [], todo ? { class: 'task' } : {});
 	li.append(...p.childNodes);

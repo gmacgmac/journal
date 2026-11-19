@@ -8,6 +8,7 @@ import { readInlines } from './dom-tree.ts';
 import { bodyMarkdown } from './editor.ts';
 import { el, renderMarkdown } from './render.ts';
 import { entryHeadOf, startOf, type BlockNode, type Session, type Spec } from './session.ts';
+import type { Edit } from './wire.ts';
 import { say } from './words.ts';
 
 const range = (node: BlockNode) => ({ date: node.dataset.date!, start: Number(node.dataset.start), end: Number(node.dataset.end) });
@@ -21,7 +22,13 @@ export function bodySpec(node: BlockNode): Spec {
 		read() {
 			const r = bodyMarkdown(node);
 			if ('problem' in r) return r;
-			return { edit: r.md === st.before ? null : { op: 'replace', ...range(node), before: st.before, after: r.md } };
+			if (r.md === st.before) return { edit: null };
+			// The only writing of an entry with no title, emptied: the entry goes, its time with it (GM, 2026-11-19).
+			if (r.md === '') {
+				const whole = emptiedEntry(node, st.before);
+				if (whole !== null) return { edit: whole };
+			}
+			return { edit: { op: 'replace', ...range(node), before: st.before, after: r.md } };
 		},
 		restore: () => node.replaceChildren(...st.shown.map((c) => c.cloneNode(true))),
 		landing: ({ edit }) => startOf(edit),
@@ -53,8 +60,46 @@ export function bodySpec(node: BlockNode): Spec {
 				if (problem === null) s.host.open(head)?.act('title');
 			});
 		},
+		/** The entry's time can be taken off or put on from any of its writing, as from its heading (GM, 2026-11-19). */
+		timed: () => {
+			const head = entryHeadOf(node);
+			return head !== null && !head.classList.contains('no-time');
+		},
+		setTimed(on: boolean) {
+			const head = entryHeadOf(node);
+			const s = node._editor;
+			if (head === null || s == null) return;
+			const date = head.dataset.date!;
+			const key = head.dataset.key!;
+			void s.finish({ then: 'stay' }).then((problem) => {
+				// The save may have moved the heading; it is found again by its key, which a save of the writing keeps.
+				const now = problem === null ? head.parentElement?.querySelector<BlockNode>(`.block[data-date="${date}"][data-key="${key}"]`) : null;
+				if (now != null) s.host.open(now)?.act(on ? 'addtime' : 'notime');
+			});
+		},
 	};
 }
+
+/**
+ * The edit that removes `node`'s whole entry, when `node` (whose saved text is `before`) is the only writing of an entry
+ * with a time and no title; null otherwise. A time alone is not worth keeping: deleting the writing deletes the entry.
+ */
+function emptiedEntry(node: BlockNode, before: string): Extract<Edit, { op: 'range' }> | null {
+	const head = node.previousElementSibling as BlockNode | null;
+	if (head === null || !head.classList.contains('entry-head') || head.classList.contains('has-title') || head.dataset.start === undefined) return null;
+	let next = node.nextElementSibling as BlockNode | null;
+	while (next !== null && next.classList.contains('draft')) next = next.nextElementSibling as BlockNode | null;
+	if (next !== null && !next.classList.contains('entry-head')) return null;
+	const date = node.dataset.date!;
+	const start = Number(head.dataset.start);
+	const joined = `${head._text}\n\n${before}`;
+	return next !== null
+		? { op: 'range', date, start, end: Number(next.dataset.start), before: `${joined}\n\n`, after: '' }
+		: { op: 'range', date, start: start - 2, end: Number(node.dataset.end), before: `\n\n${joined}`, after: '' };
+}
+
+/** The start of a line that makes it a list, a to-do, a quote or a heading, not a title. */
+export const BLOCKISH_RE = /^(?:[-*+] |\d+[.)] |> |\[ ?\] |#)/;
 
 /** A time as the person types it: an hour of one digit is taken (`9:30`), and saved as `09:30`. */
 export const TYPED_TIME_RE = /^([01]?\d|2[0-3]):[0-5]\d$/;
@@ -68,6 +113,9 @@ export function headingMarkdown(time: Pick<Node, 'textContent'>, title: Node | n
 	const t = (time.textContent ?? '').trim();
 	const words = title === null ? '' : inlineMarkdown(readInlines(title)).trim();
 	const named = words === '' ? null : words;
+	// A title is one line of words: one that starts like a list, a quote or a heading is writing typed in the wrong place
+	// (GM, 2026-11-19: "- milk" in a title was saved as the heading "## - milk").
+	if (BLOCKISH_RE.test((title?.textContent ?? '').trim())) return { problem: say('journal.view.write.titleShape') };
 	if (t === '') {
 		// No time: the title holds the entry, and must read back as a title (not start like a time).
 		return named !== null && entryOf(entryHeading(null, named))?.time === null ? { time: null, title: named } : { problem: say('journal.view.write.untimed') };
@@ -134,7 +182,13 @@ export function headingSpec(node: BlockNode): Spec {
 			node.classList.toggle('has-title', st.hadTitle);
 			node.classList.toggle('no-time', st.hadNoTime);
 		},
-		landing: ({ edit }) => startOf(edit),
+		// A heading with a time may have moved into time order: it lands where it now is, found by its time (one entry to a
+		// time). One with none stays where it was.
+		landing: ({ edit, res }) => {
+			const time = 'after' in edit ? entryOf(edit.after)?.time ?? null : null;
+			const moved = time === null ? undefined : res.day.blocks.find((b) => entryOf(b.text)?.time === time);
+			return moved?.start ?? startOf(edit);
+		},
 		enter(target) {
 			if (target === time && title !== null) title.focus();
 			else void node._editor?.finish({ then: 'next' });

@@ -6,12 +6,23 @@
 // opens, no box ticks, and no entry is added, since the engine refuses every write to it.
 import { entryOf, localToday } from '../format/index.ts';
 import type { Block, Day } from './wire.ts';
+import { icon } from './icons.ts';
 import { el, parseMarkdown, renderMarkdown } from './render.ts';
 import { isEditing, type BlockNode } from './session.ts';
 import { say } from './words.ts';
 
 /** Whether a day's file breaks the rules, so the page shows it read only. */
 export const isBroken = (day: Day): boolean => (day.problems ?? []).length > 0;
+
+/** A day's blocks under its date line (the date line is drawn as the page heading; a broken day may not start with one). */
+export const writingOf = (day: Day) => (day.blocks[0]?.text === `# ${day.title}` ? day.blocks.slice(1) : day.blocks);
+
+/**
+ * Whether a day has a page to show: a file with writing in it, or one that breaks the rules. A file left with only its
+ * date line (its last entry deleted, or the day removed) is shown as a day with no page, with the way to start it (GM,
+ * 2026-11-19: not "Nothing written").
+ */
+export const hasPage = (day: Day): boolean => day.exists && (isBroken(day) || writingOf(day).length > 0);
 
 export function setRange(node: BlockNode, date: string, b: Block): void {
 	node.dataset.date = date;
@@ -35,6 +46,13 @@ export function blockElement(date: string, b: Block, hintId: string): BlockNode 
 			node.classList.add('no-time');
 		}
 		node.append(time);
+		// The handle to drag the entry to another place (drag.ts), in the margin; never part of the heading's text. Only an
+		// entry with no time has one: a timed entry's place is its time (GM, 2026-11-19).
+		if (entry.time === null) {
+			node.append(el('button', [icon('grip')], {
+				type: 'button', class: 'drag-handle', contenteditable: 'false', 'aria-label': say('journal.view.move.handle', { entry: entry.title ?? '' }),
+			}));
+		}
 		if (entry.title !== null) {
 			node.classList.add('has-title');
 			node.append(el('span', [...renderMarkdown(entry.title)[0]!.childNodes], { class: 'title' }));
@@ -54,7 +72,7 @@ export function daySection(day: Day, hintId: string, today = localToday()): HTML
 		head.prepend(el('span', [say('journal.view.today')], { class: 'today-mark' }));
 	}
 	const start = day.date === today ? 'journal.view.day.startToday' : 'journal.view.day.start';
-	const add = el('button', [say(day.exists ? 'journal.view.day.add' : start)], { type: 'button', class: 'add-entry' });
+	const add = el('button', [say(start)], { type: 'button', class: 'add-entry', 'data-timed': 'false' });
 	if (isBroken(day)) {
 		section.classList.add('broken');
 		const problems = el('ul', day.problems.map((p) => el('li', [p])));
@@ -63,16 +81,34 @@ export function daySection(day: Day, hintId: string, today = localToday()): HTML
 		patchDay(day, section, false, hintId);
 		return section;
 	}
-	if (!day.exists) {
+	if (!hasPage(day)) {
 		// A day with no page is one line: its date, and the way to start it.
 		section.classList.add('gap');
 		head.append(add);
 		return section;
 	}
-	section.append(el('div', [], { class: 'entries' }), el('p', [say('journal.view.day.empty')], { class: 'quiet empty' }), add);
+	// Remove this day: at the end of the date line, shown only while that line is pointed at; it moves nothing (GM, 2026-11-19).
+	head.append(el('button', [icon('trash'), el('span', [say('journal.view.day.remove')])], {
+		type: 'button', class: 'day-remove', 'aria-label': say('journal.view.day.removeLabel', { date: day.title }),
+	}));
+	section.append(el('div', [], { class: 'entries' }), addZone());
 	// A first drawing is not a change, so nothing is marked fresh.
 	patchDay(day, section, false, hintId);
 	return section;
+}
+
+/**
+ * The foot of a day, the room under its last entry: a faint + while the day is pointed at, its two ways to add an entry
+ * once the pointer is in this room, each full only when pointed at itself (GM, 2026-11-19). Nothing in it moves.
+ */
+function addZone(): HTMLElement {
+	const entry = el('button', [icon('plus'), el('span', [say('journal.view.add.entry')], { class: 'add-label' })], {
+		type: 'button', class: 'add-entry', 'data-timed': 'false', 'aria-label': say('journal.view.day.add'),
+	});
+	const timed = el('button', [icon('plus'), el('span', [say('journal.view.add.timed')], { class: 'add-label' })], {
+		type: 'button', class: 'add-entry', 'data-timed': 'true', 'aria-label': say('journal.view.day.addTimed'),
+	});
+	return el('div', [entry, timed], { class: 'add-zone' });
 }
 
 /** A broken day's blocks: nothing to tab to or tick, and no hint to write. */
@@ -82,6 +118,7 @@ function readOnly(section: Element): void {
 		node.removeAttribute('aria-describedby');
 	}
 	for (const box of section.querySelectorAll<HTMLInputElement>('input.todo')) box.disabled = true;
+	for (const handle of section.querySelectorAll('.drag-handle')) handle.remove();
 }
 
 /** Kept through a patch and skipped over when placing: a draft, or an editor whose block changed. */
@@ -99,15 +136,14 @@ export type PatchStats =
 export function patchDay(day: Day, section: Element | null, fresh: boolean, hintId: string): PatchStats | null {
 	if (section === null) return null;
 	// A page that appeared or went, or started or stopped breaking the rules, is drawn anew.
-	if (section.classList.contains('gap') === day.exists || section.classList.contains('broken') !== isBroken(day)) {
+	if (section.classList.contains('gap') === hasPage(day) || section.classList.contains('broken') !== isBroken(day)) {
 		section.replaceWith(daySection(day, hintId));
 		return { date: day.date, replacedDay: true };
 	}
 	// Still no page: a gap has nothing to patch.
-	if (!day.exists) return { date: day.date, kept: 0, added: 0, removed: 0, moved: 0 };
+	if (!hasPage(day)) return { date: day.date, kept: 0, added: 0, removed: 0, moved: 0 };
 	const body = section.querySelector('.entries')!;
-	// The date line is drawn as the page heading; a day that breaks the rules may not start with one.
-	const blocks = day.blocks[0]?.text === `# ${day.title}` ? day.blocks.slice(1) : day.blocks;
+	const blocks = writingOf(day);
 	const wanted = new Set(blocks.map((b) => b.key));
 	const old = new Map<string, BlockNode>();
 	const stats = { date: day.date, kept: 0, added: 0, removed: 0, moved: 0 };
@@ -141,7 +177,9 @@ export function patchDay(day: Day, section: Element | null, fresh: boolean, hint
 		}
 		prev = node;
 	}
-	section.classList.toggle('blank', blocks.length === 0);
+	// Writing a new entry hides Add an entry; once it is saved or gone, Add an entry is back (GM, 2026-11-19: it stayed
+	// hidden until a reload).
+	section.classList.toggle('drafting', section.querySelector('.entry-draft') !== null);
 	if (isBroken(day)) readOnly(section);
 	return stats;
 }

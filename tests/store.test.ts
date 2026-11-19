@@ -269,3 +269,21 @@ test('an edit writes only under the data folder: a bad date, a link, or a folder
 	assert.throws(() => applyEdit(dir, { op: 'entry', date: '2026-11-05', time: '09:00', title: null, text: 'x' }));
 	assert.deepEqual(readdirSync(outside.dir), ['secret.md']);
 });
+
+test('a heading given a new time moves its entry, writing and all, into time order (GM, 2026-11-19)', () => {
+	const date = '2026-11-07';
+	const text = `${dateHeading(date)}\n\n## 08:15 · Book\n\nRead.\n\nMore.\n\n## 09:00\n\nNine.\n\n## 21:00\n\nBed.\n`;
+	const head = (t: string) => blocksOf(text).find((b) => b.text === t)!;
+	const retime = (from: string, to: string) => {
+		const b = head(from);
+		return textOf(plan(date, text, { op: 'replace', date, start: b.start, end: b.end, before: b.text, after: to }));
+	};
+	// Later than the last: to the end.
+	assert.equal(retime('## 08:15 · Book', '## 22:00 · Book'), `${dateHeading(date)}\n\n## 09:00\n\nNine.\n\n## 21:00\n\nBed.\n\n## 22:00 · Book\n\nRead.\n\nMore.\n`);
+	// Between two others: there.
+	assert.equal(retime('## 21:00', '## 08:30'), `${dateHeading(date)}\n\n## 08:15 · Book\n\nRead.\n\nMore.\n\n## 08:30\n\nBed.\n\n## 09:00\n\nNine.\n`);
+	// Still in order: where it was.
+	assert.equal(retime('## 09:00', '## 10:01'), text.replace('## 09:00', '## 10:01'));
+	// Taken off its time: where it was.
+	assert.equal(retime('## 09:00', '## Nine'), text.replace('## 09:00', '## Nine'));
+});

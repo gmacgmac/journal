@@ -28,7 +28,7 @@ export function gapMarker(newer: string, older: string): HTMLElement | null {
 	const to = addDays(newer, -1);
 	const count = from <= to ? daysBetween(from, to) : 0;
 	if (count < 1) return null;
-	const add = el('button', [icon('plus'), say('journal.view.add.page')], {
+	const add = el('button', [icon('plus'), el('span', [say('journal.view.add.page')], { class: 'gap-label' })], {
 		type: 'button', class: 'gap-add', 'aria-haspopup': 'dialog', 'aria-label': say('journal.view.gap.add', { from: dayMonth(from), to: dayMonth(to) }),
 	});
 	// Only the way to add a page: how many days lie between is not worth a line of its own (GM, 2026-11-09).

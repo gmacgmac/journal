@@ -37,6 +37,11 @@
 	--journal-font: var(--host-font, system-ui, -apple-system, 'Segoe UI', sans-serif);
 	--journal-mono: var(--host-font-mono, ui-monospace, Menlo, monospace);
 	--journal-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, ui-serif, serif;
+	/* THE WRITING, ONE STEP LIGHTER (GM, 2026-11-19): the inks and accent the writing is set in (dates, times, titles, body,
+	   links) are the host's mixed with 12% white (`88%, #fff 12%` below), so its rich colours read a step lighter on the
+	   page. Everything else, the buttons, toolbar, bar, fills and focus ring (`--journal-chrome-*`, `--journal-app-*`,
+	   `--journal-fill*`, `--journal-focus`), is the host's own colour exactly; so are the grounds. Change the step by
+	   changing every 88% / 12% together. */
 	/* The toolbar: the host's own grounds and ink. */
 	--journal-app-bg: var(--host-canvas, light-dark(#faf6ef, #13100f));
 	--journal-app-ink: var(--host-ink, light-dark(#141414, #fafafa));
@@ -57,12 +62,17 @@
 	--journal-fresh: var(--journal-fresh-tint, light-dark(#f3dfc1, #3b2d22));
 	--journal-rule: var(--host-line, light-dark(#e4d8c4, #332d29));
 	--journal-field-line: var(--host-line-strong, light-dark(#d8c8b0, #463f3a));
-	--journal-ink: var(--host-ink, light-dark(#2a241e, #ece5da));
-	--journal-ink-soft: var(--host-ink-muted, light-dark(#6f5f4a, #c6baac));
+	--journal-ink: color-mix(in oklab, var(--host-ink, light-dark(#2a241e, #ece5da)) 88%, #fff 12%);
+	/* The muted ink is lifted only in the dark: on light paper a step lighter drops it under Lc 60 (colours.test.ts). */
+	--journal-ink-soft-host: var(--host-ink-muted, light-dark(#6f5f4a, #c6baac));
+	--journal-ink-soft: color-mix(in oklab, var(--journal-ink-soft-host) 88%, light-dark(var(--journal-ink-soft-host), #fff) 12%);
+	/* The controls on the paper (Add an entry, Add a page, Earlier pages, the writing bar): the host's own inks, not lifted. */
+	--journal-chrome-ink: var(--host-ink, light-dark(#2a241e, #ece5da));
+	--journal-chrome-soft: var(--host-ink-muted, light-dark(#6f5f4a, #c6baac));
 	/* The writing itself, one step softer than the ink, so an entry's title (in the ink) stands over its body. */
 	--journal-body: color-mix(in oklab, var(--journal-ink) 82%, var(--journal-page) 18%);
-	--journal-date-ink: var(--host-accent-strong, light-dark(#8a4320, #f2a77c));
-	--journal-link: var(--host-accent-strong, light-dark(#9b4519, #ff9a66));
+	--journal-date-ink: color-mix(in oklab, var(--host-accent-strong, light-dark(#8a4320, #f2a77c)) 88%, #fff 12%);
+	--journal-link: color-mix(in oklab, var(--host-accent-strong, light-dark(#9b4519, #ff9a66)) 88%, #fff 12%);
 	/* The fill of the view shown and of Done, white on it: the host's, else nclite's own warm rust and its hover (GM,
 	   2026-11-09: the paper's light terracotta was too pale a button). */
 	--journal-fill: var(--host-accent-fill, var(--host-accent, light-dark(#c4501f, #d2602f)));
@@ -86,6 +96,10 @@
 	--journal-ring: var(--journal-focus);
 	/* The Journal's own, whatever the host sets. */
 	--journal-warn: light-dark(#8a5508, #ffb54d);
+	/* Controls that show only on hover, at two strengths (GM, 2026-11-19): faint where they are offered, a hint once the
+	   pointer is in their place, and full only when pointed at themselves. */
+	--journal-faint: 0.3;
+	--journal-hint: 0.55;
 	--journal-shadow: light-dark(rgb(70 45 20 / 0.16), rgb(0 0 0 / 0.55));
 	position: relative; display: flex; flex-direction: column; height: 100%; min-height: 0;
 	container: journal / inline-size;
@@ -126,6 +140,41 @@
 	/* An icon is a flat stroke in its text's colour, as tall as a capital and a little more. */
 	.icon { width: 1.15em; height: 1.15em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 	.add-page { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; }
+	.toolbar .print { display: inline-flex; align-items: center; gap: 5px; }
+	.toolbar .print:disabled { opacity: 0.5; cursor: progress; }
+	/* The Print panel, in the date panel's own box: two sections, each under a small name. The colours first, three small
+	   pages side by side, each drawn in its own colours, the chosen one ringed; then what to print, one row each, which
+	   prints at once. */
+	.print-menu { display: flex; flex-direction: column; gap: 10px; width: 19em; max-width: 100%; padding: 2px; }
+	.print-menu > div + div { padding-top: 10px; border-top: 1px solid var(--dp-line); }
+	.print-section { margin: 0 6px 6px; font-size: 0.72em; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--dp-muted); }
+	.print-looks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+	.print-menu .print-looks button { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 6px; border-radius: 9px; }
+	.print-swatch {
+		display: flex; flex-direction: column; gap: 4px; height: 44px; padding: 8px 9px;
+		border-radius: 5px; box-shadow: 0 0 0 1px var(--dp-line); transition: box-shadow 120ms;
+	}
+	.print-swatch > span { display: block; height: 3px; border-radius: 2px; }
+	.print-swatch .sw-date { width: 55%; height: 4px; margin-bottom: 2px; }
+	.print-swatch .sw-short { width: 70%; }
+	.print-looks [data-look='plain'] .print-swatch { background: #fff; }
+	.print-looks [data-look='plain'] .sw-date { background: #000; }
+	.print-looks [data-look='plain'] .sw-line { background: #777; }
+	/* The theme's own paper, date and writing, in the mode each shows. */
+	.print-looks [data-look='light'] .print-swatch { color-scheme: light; }
+	.print-looks [data-look='dark'] .print-swatch { color-scheme: dark; }
+	.print-looks :is([data-look='light'], [data-look='dark']) .print-swatch { background: var(--journal-page); }
+	.print-looks :is([data-look='light'], [data-look='dark']) .sw-date { background: var(--journal-date-ink); }
+	.print-looks :is([data-look='light'], [data-look='dark']) .sw-line { background: var(--journal-body); opacity: 0.7; }
+	.print-swatch-name { font-size: 0.85em; text-align: center; color: var(--dp-muted); white-space: nowrap; }
+	.print-looks button:hover .print-swatch { box-shadow: 0 0 0 1px var(--dp-ink); }
+	.print-looks button[aria-checked='true'] .print-swatch { box-shadow: 0 0 0 2px var(--dp-surface), 0 0 0 4px var(--dp-accent); }
+	.print-looks button[aria-checked='true'] .print-swatch-name { color: var(--dp-ink); font-weight: 600; }
+	.print-choices { display: flex; flex-direction: column; gap: 1px; }
+	.print-menu .print-choices button { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 8px 10px; text-align: left; }
+	.print-note { color: var(--dp-muted); font-variant-numeric: tabular-nums; }
+	.print-more { font-size: 1.2em; line-height: 1; }
+	.print-menu .print-choices button:disabled { cursor: default; color: var(--dp-muted); }
 
 	/* ─── The open journal ──────────────────────────────────────────────────── */
 	/* The desk, and past the last day only the room the writing bar needs while it is up (161: a fixed room once left an
@@ -145,6 +194,20 @@
 		font: 600 var(--journal-date-size)/1.2 var(--journal-serif); letter-spacing: 0.005em;
 		color: var(--journal-date-ink); border-bottom: 1px solid var(--journal-rule);
 	}
+	/* Remove this day: at the end of the date line, quiet until the day is pointed at; it takes no room, so nothing moves. */
+	.day > header { position: relative; }
+	.day-remove {
+		position: absolute; right: 0; bottom: 12px; display: inline-flex; align-items: center; gap: 4px;
+		padding: 4px 8px; font: calc(0.8 * var(--journal-rem))/1 var(--journal-font); color: var(--journal-chrome-soft);
+		background: var(--journal-page); border: 0; border-radius: 6px; cursor: pointer; opacity: 0; transition: opacity 120ms, color 120ms;
+	}
+	.day-remove .icon { display: block; }
+	/* Only on the date line, and quiet there: it comes up fully only when pointed at itself. */
+	.day > header:hover .day-remove { opacity: var(--journal-hint); }
+	.day-remove:hover, .day-remove:focus-visible { opacity: 1; }
+	.day-remove:hover { color: var(--journal-warn); background: var(--journal-hover); }
+	.day-remove:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 1px; }
+	@media (hover: none) { .day-remove { opacity: 1; } .day-remove span { display: none; } }
 	/* Today: named above its date. */
 	.today-mark { display: block; margin-bottom: 4px; font: 600 calc(0.72 * var(--journal-rem))/1.2 var(--journal-font); letter-spacing: 0.08em; text-transform: uppercase; color: var(--journal-date-ink); }
 	/* A day with no page is one line: the date, quiet, and the way to start it at the end of the line. */
@@ -168,26 +231,32 @@
 	/* Between two days that are not next to each other: how many days lie between, and a page to add in them. */
 	.gap-marker {
 		display: flex; align-items: center; gap: 12px; margin: -12px 0 32px;
-		font: calc(0.8 * var(--journal-rem))/1.3 var(--journal-font); color: var(--journal-ink-soft);
+		font: calc(0.8 * var(--journal-rem))/1.3 var(--journal-font); color: var(--journal-chrome-soft);
 	}
 	.gap-marker::before, .gap-marker::after { content: ''; flex: 1; border-top: 1px dashed var(--journal-rule); }
 	.gap-add {
 		display: inline-flex; align-items: center; gap: 4px;
-		padding: 2px 8px; font: inherit; color: var(--journal-ink-soft); background: none; border: 0; border-radius: 6px; cursor: pointer;
+		padding: 2px 8px; font: inherit; color: var(--journal-chrome-soft); background: none; border: 0; border-radius: 6px; cursor: pointer;
 	}
-	.gap-add:hover { color: var(--journal-ink); background: var(--journal-hover); }
+	.gap-add:hover { color: var(--journal-chrome-ink); background: var(--journal-hover); }
 	.gap-add:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 1px; }
+	/* Quiet until pointed at (GM, 2026-11-19): a faint line and a faint plus; its words fade in on hover, already in their
+	   place, so nothing moves. Always shown for a keyboard or a finger. */
+	.gap-marker::before, .gap-marker::after { opacity: 0.4; transition: opacity 120ms; }
+	.gap-add .icon { opacity: var(--journal-faint); transition: opacity 120ms; }
+	.gap-label { opacity: 0; transition: opacity 120ms; }
+	.gap-marker:hover .icon, .gap-marker:hover .gap-label { opacity: var(--journal-hint); }
+	.gap-add:hover .icon, .gap-add:hover .gap-label, .gap-add:focus-visible .icon, .gap-add:focus-visible .gap-label { opacity: 1; }
+	@media (hover: none) { .gap-label, .gap-add .icon { opacity: 1; } }
 
 	/* The foot of the running journal, while older pages are left to read. */
 	.feed-end { display: flex; justify-content: center; padding-top: 8px; }
 	.feed-more {
-		padding: 6px 14px; font: calc(0.85 * var(--journal-rem)) var(--journal-font); color: var(--journal-ink-soft);
+		padding: 6px 14px; font: calc(0.85 * var(--journal-rem)) var(--journal-font); color: var(--journal-chrome-soft);
 		background: none; border: 1px solid var(--journal-rule); border-radius: 999px; cursor: pointer;
 	}
-	.feed-more:hover { color: var(--journal-ink); background: var(--journal-hover); }
+	.feed-more:hover { color: var(--journal-chrome-ink); background: var(--journal-hover); }
 	.feed-more:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 2px; }
-	.quiet { margin: 0; font-style: italic; color: var(--journal-ink-soft); }
-	.day:not(.blank) .empty { display: none; }
 	.day.fresh { border-radius: 4px; animation: journal-fresh 2.4s ease-out; }
 
 	/* A page that breaks the rules: shown as it is, read only, its problems over it. */
@@ -225,7 +294,9 @@
 	/* A list belongs to the page: its bullets small, in the date's colour. */
 	.block li::marker { color: var(--journal-date-ink); font-size: 0.8em; }
 	.block li + li { margin-top: 0.15em; }
-	.block blockquote { margin: 0; padding-left: 14px; border-left: 2px solid var(--journal-field-line); font-style: italic; }
+	/* A quote is marked by its bar, and set upright: italics on the page are only the writer's own emphasis, so the bar's
+	   Italic does what it shows (GM, 2026-11-19: a quote set italic by the page could not be made upright). */
+	.block blockquote { margin: 0; padding-left: 14px; border-left: 2px solid var(--journal-field-line); }
 	.block a { color: var(--journal-link); text-decoration-thickness: 1px; text-underline-offset: 2px; }
 	.block code, .block pre { font: 0.88em/1.5 var(--journal-mono); }
 	.block.fresh { animation: journal-fresh 2.4s ease-out; }
@@ -240,8 +311,12 @@
 	.block.stale { outline-color: var(--journal-warn); }
 	.busy { opacity: 0.6; pointer-events: none; }
 	/* The prompt, while the writing it sits in is empty (`markBlank`, editor.ts). */
+	/* Laid over the empty line, not in it, so the caret waits at its start and nothing needs deleting; faint, so it never
+	   reads as writing (GM, 2026-11-19). */
+	[data-placeholder][data-blank] { position: relative; }
 	[data-placeholder][data-blank]::before {
-		content: attr(data-placeholder); color: var(--journal-ink-soft); font-style: italic; pointer-events: none;
+		content: attr(data-placeholder); position: absolute; left: 0; top: 0; white-space: nowrap;
+		color: var(--journal-chrome-soft); opacity: 0.55; font-style: italic; pointer-events: none;
 	}
 
 	/* An entry heading edits its time and title where they stand: the time keeps the margin. */
@@ -264,24 +339,78 @@
 	input.todo:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 2px; }
 	li.task:has(> input.todo:checked) { color: var(--journal-ink-soft); }
 
-	/* Add an entry: quiet until the day is pointed at, always there for a keyboard or a finger. Its words start where an
-	   entry's writing starts; its padding sits in the gutter, as a block's does. */
-	.add-entry {
-		display: block; margin: 8px 0 0 calc(var(--journal-time-w) + var(--journal-gutter) - 8px); padding: 4px 8px;
-		font: calc(0.85 * var(--journal-rem)) var(--journal-font); color: var(--journal-ink-soft); background: none; border: 0; border-radius: 6px; cursor: pointer;
-		opacity: 0; transition: opacity 120ms;
+	/* Add an entry, at the foot of a day (`addZone`, days.ts): the room under the last entry, down into the space before
+	   the next day, so it is easy to reach. A faint + while the day is pointed at; + Entry and Timed entry once the pointer
+	   is in that room, both equally faint; each full only when pointed at itself. Its words start where an entry's writing starts. */
+	.add-zone {
+		display: flex; align-items: center; gap: 2px; margin: 0 0 -24px; padding: 6px 0 22px calc(var(--journal-time-w) + var(--journal-gutter) - 8px);
 	}
-	.day:hover .add-entry, .add-entry:focus-visible, .day.gap .add-entry { opacity: 1; }
-	.add-entry:hover { color: var(--journal-ink); background: var(--journal-hover); }
+	.add-entry {
+		display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px;
+		font: calc(0.85 * var(--journal-rem))/1.2 var(--journal-font); color: var(--journal-chrome-soft); background: none; border: 0; border-radius: 6px; cursor: pointer;
+		transition: opacity 120ms, color 120ms;
+	}
+	.add-entry .icon { display: block; }
+	.add-zone .add-entry { opacity: 0; }
+	.add-zone .add-label { opacity: 0; transition: opacity 120ms; }
+	/* Both at one faint strength, in the day and in the foot alike; only the one pointed at comes up (GM, 2026-11-19). */
+	.day:hover .add-zone [data-timed='false'], .add-zone:hover .add-entry, .add-zone:focus-within .add-entry { opacity: var(--journal-faint); }
+	.add-zone:hover .add-label, .add-zone:focus-within .add-label { opacity: 1; }
+	.add-zone .add-entry[data-timed]:hover, .add-zone .add-entry[data-timed]:focus-visible { opacity: 1; }
+	.add-entry:hover { color: var(--journal-chrome-ink); background: var(--journal-hover); }
 	.add-entry:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 1px; }
-	.day.drafting .add-entry { visibility: hidden; }
-	@media (hover: none) { .add-entry { opacity: 1; } }
+	.day.drafting .add-zone { visibility: hidden; }
+	@media (hover: none) { .add-zone .add-entry, .add-zone .add-label { opacity: 1; } }
+
+	/* ─── Moving an entry (drag.ts) ───────────────────────────────────────────────
+	   The handle sits in the margin left of the time, on the heading's first line, out of the writing's way: faint while
+	   the heading is pointed at, full when the handle is. While an entry is lifted its place goes faint, a copy rides
+	   under the pointer, and a line in the accent marks where it will land. */
+	.entry-head { position: relative; }
+	.drag-handle {
+		position: absolute; left: -30px; top: 1px; display: flex; align-items: center; justify-content: center;
+		width: 22px; height: var(--journal-line); padding: 0; color: var(--journal-chrome-soft); background: none; border: 0; border-radius: 5px;
+		cursor: grab; touch-action: none; opacity: 0; transition: opacity 120ms, color 120ms, background-color 120ms;
+	}
+	.has-title .drag-handle { height: calc(1.1 * var(--journal-line)); }
+	.drag-handle .icon { stroke-width: 2.6; }
+	.entry-head:hover .drag-handle { opacity: var(--journal-hint); }
+	.drag-handle:hover, .drag-handle:focus-visible { opacity: 1; color: var(--journal-chrome-ink); background: var(--journal-hover); }
+	.drag-handle:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 1px; }
+	.editing .drag-handle, .day.broken .drag-handle { display: none; }
+	@media (hover: none) { .drag-handle { opacity: var(--journal-faint); } }
+	.dragging, .dragging * { cursor: grabbing !important; user-select: none; -webkit-user-select: none; }
+	.dragging .block:hover { background: none; }
+	.dragging .drag-handle { opacity: 0; }
+	.drag-source { opacity: 0.25; transition: opacity 120ms; }
+	.dragging .drag-source .drag-handle { opacity: 1; color: var(--journal-focus); }
+	.drag-ghost {
+		position: absolute; left: 0; top: 0; z-index: 4; pointer-events: none; will-change: transform;
+		margin: -8px 0 0 -14px; padding: 8px 14px; border-radius: 10px; background: var(--journal-page);
+		box-shadow: 0 1px 2px var(--journal-shadow), 0 12px 32px var(--journal-shadow);
+		font: var(--journal-size)/var(--journal-leading) var(--journal-serif); color: var(--journal-body);
+	}
+	.drag-ghost .entries { margin: 0; }
+	.drag-ghost .block { margin-bottom: 0.5em; }
+	.drag-ghost .block:last-child { margin-bottom: 0; }
+	.drag-ghost .entry-head { margin-top: 0; }
+	.drop-line {
+		position: absolute; left: 0; top: -1px; z-index: 3; height: 2px; pointer-events: none;
+		background: var(--journal-focus); border-radius: 2px; will-change: transform;
+	}
+	.drop-line::before {
+		content: ''; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; box-sizing: border-box;
+		border: 2px solid var(--journal-focus); border-radius: 50%; background: var(--journal-page);
+	}
+	.drop-line[hidden] { display: none; }
+	/* Said to a screen reader, never shown. */
+	.journal-voice { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 	/* ─── The writing bar and the toast: over the paper, so they never push it ─── */
 	.bar {
 		position: absolute; left: 50%; bottom: 16px; z-index: 3; transform: translateX(-50%);
 		width: min(760px, calc(100% - 32px)); padding: 8px;
-		font: calc(14px * var(--journal-scale))/1.3 var(--journal-font); color: var(--journal-ink); background: var(--journal-page);
+		font: calc(14px * var(--journal-scale))/1.3 var(--journal-font); color: var(--journal-chrome-ink); background: var(--journal-page);
 		border: 1px solid var(--journal-rule); border-radius: 12px; box-shadow: 0 10px 30px var(--journal-shadow);
 	}
 	.bar[hidden], .bar-link[hidden], .toast[hidden] { display: none; }
@@ -300,7 +429,7 @@
 	.block-bin {
 		position: absolute; right: 0; z-index: 3; transform: translate(45%, -45%);
 		display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0;
-		color: var(--journal-ink-soft); background: var(--journal-page); border: 1px solid var(--journal-field-line); border-radius: 50%; cursor: pointer;
+		color: var(--journal-chrome-soft); background: var(--journal-page); border: 1px solid var(--journal-field-line); border-radius: 50%; cursor: pointer;
 	}
 	.block-bin:hover { color: var(--journal-warn); border-color: currentColor; }
 	.block-bin:focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 2px; }
@@ -309,14 +438,14 @@
 	.block-bin::before { content: ''; position: absolute; inset: -7px; }
 	.bar-link { margin-top: 8px; }
 	.bar-link label { display: flex; flex: 1; align-items: center; gap: 8px; }
-	.bar-link input { flex: 1; min-height: 34px; padding: 4px 8px; font: inherit; color: var(--journal-ink); background: var(--journal-field); border: 1px solid var(--journal-field-line); border-radius: 7px; }
+	.bar-link input { flex: 1; min-height: 34px; padding: 4px 8px; font: inherit; color: var(--journal-chrome-ink); background: var(--journal-field); border: 1px solid var(--journal-field-line); border-radius: 7px; }
 	.bar-notice { max-height: 40vh; overflow: auto; margin-top: 8px; padding: 0 4px; font: calc(0.9 * var(--journal-rem))/1.5 var(--journal-font); }
 	.bar-notice:empty { display: none; }
 	.bar-notice p { margin: 0 0 6px; }
 	.bar-notice .warn, .warn { color: var(--journal-warn); font-weight: 600; }
 	.bar button, .actions button {
 		min-height: 34px; min-width: 34px; padding: 5px 12px;
-		font: 600 calc(0.82 * var(--journal-rem))/1 var(--journal-font); color: var(--journal-ink); background: var(--journal-page);
+		font: 600 calc(0.82 * var(--journal-rem))/1 var(--journal-font); color: var(--journal-chrome-ink); background: var(--journal-page);
 		border: 1px solid var(--journal-field-line); border-radius: 7px; cursor: pointer;
 	}
 	.bar button:hover, .actions button:hover { background: var(--journal-hover); }
@@ -330,7 +459,7 @@
 	.toast {
 		position: absolute; left: 50%; bottom: calc(var(--journal-bar-h, 0px) + 28px); z-index: 4; transform: translateX(-50%);
 		display: flex; align-items: center; gap: 12px; padding: 6px 6px 6px 16px;
-		font: 600 calc(0.85 * var(--journal-rem))/1.2 var(--journal-font); color: var(--journal-page); background: var(--journal-ink); border-radius: 999px;
+		font: 600 calc(0.85 * var(--journal-rem))/1.2 var(--journal-font); color: var(--journal-page); background: var(--journal-chrome-ink); border-radius: 999px;
 		box-shadow: 0 8px 24px var(--journal-shadow);
 	}
 	.toast button { min-height: 30px; padding: 4px 12px; font: inherit; color: var(--journal-page); background: none; border: 1px solid currentColor; border-radius: 999px; cursor: pointer; }
@@ -365,7 +494,8 @@
 		.entry-head.editing .time, .entry-draft .time { display: block; justify-self: center; margin-left: 0; }
 		.entry-head.editing .time::before, .entry-head.editing .time::after, .entry-draft .time::before, .entry-draft .time::after { content: none; }
 		.entry-head.editing .time[hidden], .entry-draft .time[hidden] { display: none; }
-		.add-entry { margin-left: -8px; }
+		.add-zone { padding-left: 0; margin-left: -8px; }
+		.drag-handle, .has-title .drag-handle { left: auto; right: -6px; top: 0; height: 1.2em; }
 		/* A finger's reach: every control of the two bars, and Add an entry, at least --journal-tap high. */
 		.toolbar button, .toolbar input, .bar button, .bar-link input, .add-entry, .gap-add, .feed-more { min-height: var(--journal-tap); }
 		/* One row in a narrow pane: the toggle shows only the view it is on, Add a page is its +, and the day is narrower. */
@@ -373,11 +503,58 @@
 		.view-opt { min-width: 0; padding: 3px 10px; }
 		.view-opt:not(.on), .add-words { display: none; }
 		.add-page { min-width: var(--journal-tap); justify-content: center; padding: 4px; }
+		.toolbar .print { min-width: var(--journal-tap); justify-content: center; padding: 4px; }
 		.day-nav [data-nav='prev'], .day-nav [data-nav='next'] { min-width: 36px; }
 		.toolbar .day-pick { width: 6.8em; }
 		.bar button { min-width: var(--journal-tap); }
 		/* Narrow: Add to chat is its icon alone, its name on the button for readers. */
 		.bar [data-act='ask'] .word { display: none; }
+	}
+
+	/* ─── For paper (print.ts) ─────────────────────────────────────────────────────
+	   The element the host prints, alone: black on white whatever the app's mode (never the host's colours, which follow its
+	   dark mode), the page's serif, no break inside a paragraph, an item, a quote or a picture, and none straight after a
+	   heading. The page's size and margins are the host's. */
+	&.journal-print {
+		display: block; height: auto; min-height: 0; color-scheme: light; container-type: normal;
+		color: #000; background: #fff; font: 11pt/1.5 var(--journal-serif);
+		/* Days are set apart by a rule closing each one, never opening it: a day that starts a page starts clean. */
+		.print-day:not(:last-child) { margin-bottom: 1.2em; padding-bottom: 1.2em; border-bottom: 0.5pt solid #999; }
+		.print-date { margin: 0 0 0.8em; font: 600 16pt/1.25 var(--journal-serif); color: #000; break-after: avoid; }
+		/* An entry is one piece: it ends on the page it starts on, and the next starts on the next page when it would not
+		   fit (GM, 2026-11-19). One longer than a page breaks between its blocks, its heading never left alone. */
+		.print-item { margin-top: 1.2em; break-inside: avoid; }
+		.print-date + .print-item { margin-top: 0; }
+		.print-entry { display: flex; gap: 0.8em; align-items: baseline; margin: 0 0 0.3em; font: 600 12pt/1.3 var(--journal-serif); break-after: avoid; }
+		.print-time { font: 500 9pt/1 var(--journal-font); color: #444; font-variant-numeric: tabular-nums; }
+		.print-block { margin: 0 0 0.6em; }
+		.print-block :is(p, ul, ol, blockquote, pre) { margin: 0; }
+		.print-block :is(p, li, blockquote, pre, img, tr) { break-inside: avoid; }
+		.print-block :is(ul, ol) { padding-left: 1.3em; }
+		.print-block li.task { list-style: none; }
+		.print-box { margin-left: -1.2em; display: inline-block; width: 1.2em; }
+		.print-block blockquote { padding-left: 12pt; border-left: 1.5pt solid #999; }
+		.print-block code, .print-block pre { font: 0.9em/1.45 var(--journal-mono); }
+		.print-block img { max-width: 100%; height: auto; }
+		.print-block table { border-collapse: collapse; }
+		.print-block :is(th, td) { padding: 2pt 6pt; border: 0.5pt solid #999; }
+	}
+	/* In the theme, light or dark (print.ts copies the host's colours onto the element, with the mode chosen): the page's
+	   own paper, inks and accent, as the Journal shows them. */
+	&.journal-print:is([data-look='light'], [data-look='dark']) {
+		color-scheme: var(--host-color-scheme); color: var(--journal-body); background: var(--journal-page);
+		/* Room inside the coloured paper, on every page it runs over: the padding is drawn again at each page's top and
+		   foot, not only at the very start and end. The host's page margins round it stay the printer's white. */
+		padding: 20pt 24pt; box-decoration-break: clone; -webkit-box-decoration-break: clone;
+		.print-day:not(:last-child) { border-bottom-color: var(--journal-rule); }
+		.print-date, .print-time, .print-block li::marker { color: var(--journal-date-ink); }
+		.print-entry { color: var(--journal-ink); }
+		.print-block blockquote { border-left-color: var(--journal-field-line); }
+		.print-block :is(th, td) { border-color: var(--journal-rule); }
+	}
+	@media print {
+		/* On paper, every colour as written: no background left out, no ink lightened by the browser. */
+		&.journal-print { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 	}
 }
 @keyframes journal-fresh { from { background: var(--journal-fresh); } to { background: transparent; } }

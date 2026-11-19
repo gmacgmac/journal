@@ -1,6 +1,7 @@
 // The bar over the paper, one row at every width: which view (one toggle, the view shown filled in the accent; a press
 // switches to the other, and on a wide bar a press on the other's name goes there); in Day, the day shown, the days either
-// side and the way back to today; and Add a page (a plus and "Page"), which asks which day. Drawn once per mount; `show` brings it in line with the
+// side and the way back to today; Add a page (a plus and "Page"), which asks which day; and Print…, when the host can
+// print. Drawn once per mount; `show` brings it in line with the
 // place. It says what the person asked for through `actions` and decides nothing itself.
 import { shortDate } from './dates.ts';
 import { icon } from './icons.ts';
@@ -13,6 +14,8 @@ export interface ToolbarActions {
 	step(days: -1 | 1): void;
 	go(date: string): void;
 	add(date: string): void;
+	/** Print's choices under `anchor`; absent when the host cannot print, and then no Print control is drawn. */
+	print?(anchor: HTMLElement): void;
 	/** Asks for a day under `anchor` (the day's date, or Add a page), then does `then` with it. */
 	pick(anchor: HTMLElement, ask: { value: string; max?: string; align: 'start' | 'end' }, then: (date: string) => void): void;
 }
@@ -20,6 +23,8 @@ export interface ToolbarActions {
 export interface Toolbar {
 	el: HTMLElement;
 	show(place: Place, today: string): void;
+	/** Print is under way: its control waits. */
+	printing(on: boolean): void;
 }
 
 const button = (words: string, attrs: Record<string, string>) => el('button', [words], { type: 'button', ...attrs });
@@ -41,7 +46,11 @@ export function createToolbar(actions: ToolbarActions): Toolbar {
 	const add = el('button', [icon('plus'), el('span', [say('journal.view.add.short')], { class: 'add-words' })], {
 		type: 'button', 'data-add': '', class: 'add-page', 'aria-label': say('journal.view.add.page'), title: say('journal.view.add.page'), 'aria-haspopup': 'dialog',
 	});
-	const bar = el('nav', [views, dayNav, add], {
+	// Print…: only when the host can print; no disabled button and no hint when it cannot (nclite's handover).
+	const print = actions.print === undefined ? null : el('button', [icon('print'), el('span', [say('journal.view.print.short')], { class: 'add-words' })], {
+		type: 'button', 'data-print': '', class: 'print', 'aria-label': say('journal.view.print.button'), title: say('journal.view.print.button'), 'aria-haspopup': 'dialog',
+	});
+	const bar = el('nav', print === null ? [views, dayNav, add] : [views, dayNav, add, print], {
 		class: 'toolbar', 'aria-label': say('journal.view.toolbar.label'),
 	});
 
@@ -62,6 +71,7 @@ export function createToolbar(actions: ToolbarActions): Toolbar {
 			case 'today': return actions.go(today);
 			case 'pick': return actions.pick(t, { value: place.date ?? today, align: 'start' }, (date) => actions.go(date));
 		}
+		if (t === print) return actions.print?.(t);
 		// A page is added on a day up to today: the bot may write ahead, the person's Add a page does not.
 		if (t.hasAttribute('data-add')) actions.pick(t, { value: today, max: today, align: 'end' }, (date) => actions.add(date));
 	});
@@ -81,6 +91,9 @@ export function createToolbar(actions: ToolbarActions): Toolbar {
 			if (date === t) toToday.setAttribute('aria-hidden', 'true');
 			else toToday.removeAttribute('aria-hidden');
 			toToday.tabIndex = date === t ? -1 : 0;
+		},
+		printing(on) {
+			if (print !== null) print.disabled = on;
 		},
 	};
 }

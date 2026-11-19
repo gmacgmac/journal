@@ -92,7 +92,34 @@ function planReplace(date: string, text: string, e: Extract<Edit, { op: 'replace
 		if (now.length !== 1 || entry === null) return refuse(422, 'heading', 'journal.problem.entry-heading-form');
 		if (entry.time !== null && timesOf(blocks, index).includes(entry.time)) return refuse(422, 'entry-exists', 'journal.problem.entry-exists', { time: entry.time });
 	} else if (now.includes('heading')) return refuse(422, 'heading', 'journal.problem.heading');
-	return checked(date, text.slice(0, block.start) + after + text.slice(block.end));
+	const replaced = text.slice(0, block.start) + after + text.slice(block.end);
+	return checked(date, block.kind === 'heading' ? inTimeOrder(replaced, index) : replaced);
+}
+
+/**
+ * `text` with the entry whose heading is block `index` moved into time order, as a new entry is placed (GM, 2026-11-19: a
+ * time changed to a later or earlier one moves its entry there). An entry with no time, or one already between the entries
+ * timed before and after it, stays where it is.
+ */
+function inTimeOrder(text: string, index: number): string {
+	const blocks = blocksOf(text);
+	const time = entryOf(blocks[index]!.text)?.time ?? null;
+	if (time === null) return text;
+	const timed = blocks.flatMap((b, i) => {
+		const t = b.kind === 'heading' ? entryOf(b.text)?.time ?? null : null;
+		return t === null || i === index ? [] : [{ i, t }];
+	});
+	const before = timed.filter((x) => x.i < index).at(-1);
+	const after = timed.find((x) => x.i > index);
+	if ((before === undefined || before.t < time) && (after === undefined || after.t > time)) return text;
+	let last = index;
+	while (blocks[last + 1] !== undefined && blocks[last + 1]!.kind !== 'heading') last += 1;
+	const entry = text.slice(blocks[index]!.start, blocks[last]!.end);
+	const [from, to] = deleteRange(text, blocks[index]!.start, blocks[last]!.end);
+	const rest = text.slice(0, from) + text.slice(to);
+	const later = blocksOf(rest).find((b) => b.kind === 'heading' && (entryOf(b.text)?.time ?? '') > time);
+	if (later !== undefined) return `${rest.slice(0, later.start)}${entry}\n\n${rest.slice(later.start)}`;
+	return `${rest.trimEnd()}\n\n${entry}\n`;
 }
 
 function planInsert(date: string, text: string, e: Extract<Edit, { op: 'insert' }>): Plan {

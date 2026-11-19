@@ -24,6 +24,13 @@ describe('the built view', () => {
 	});
 	after(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
+	it('keeps nclite\'s stylesheet rules: no at-rule but @media, @supports, @container (and its own keyframes), url() only to data:', () => {
+		const at = [...css.matchAll(/@([a-z-]+)/g)].map((m) => m[1]!);
+		assert.deepEqual([...new Set(at)].filter((a) => !['media', 'supports', 'container', 'keyframes'].includes(a)), [], 'no @page, @import or @font-face');
+		const urls = [...css.matchAll(/url\(\s*['"]?([^'")\s]*)/g)].map((m) => m[1]!);
+		assert.deepEqual(urls.filter((u) => !u.startsWith('data:')), []);
+	});
+
 	it('is one module and one stylesheet', () => {
 		assert.deepEqual(fs.readdirSync(path.join(tmp, 'view')).sort(), ['journal.css', 'journal.js']);
 	});

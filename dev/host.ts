@@ -3,6 +3,9 @@
 // its own colours or a bot's, light or dark, wide or in a narrow pane. Never shipped.
 import type { Chip, ConfirmAsk, PluginEvent, PluginHost } from '../src/vendor/plugin-host/plugin-host.ts';
 import { mount } from '../src/view/view.ts';
+import type { PrintAsk } from '../src/view/print.ts';
+import { installOverlayScroll } from './overlay-scroll/overlay-scroll.ts';
+import './overlay-scroll/overlay-scroll.css';
 
 const $ = <T extends Element>(sel: string) => document.querySelector<T>(sel)!;
 const pane = $<HTMLElement>('#pane');
@@ -44,7 +47,6 @@ function dress(): void {
 	const look = $<HTMLInputElement>('input[name=look]:checked').value;
 	const mode = $<HTMLInputElement>('input[name=mode]:checked').value as 'light' | 'dark';
 	const width = $<HTMLInputElement>('input[name=width]:checked').value;
-	const i = mode === 'light' ? 0 : 1;
 	document.documentElement.dataset.mode = mode;
 	pane.dataset.width = width;
 	// Always given, as nclite gives them whichever colours the plugin wears: the mode and the faces.
@@ -58,13 +60,15 @@ function dress(): void {
 	for (const p of COLOUR_PROPS) pane.style.removeProperty(p);
 	if (look !== 'bot') return;
 	const a = ACCENTS[$<HTMLSelectElement>('select[name=accent]').value]!;
-	for (const [p, pair] of Object.entries(GROUNDS)) pane.style.setProperty(p, pair[i]);
-	const text = GROUNDS['--host-ink']![i];
-	pane.style.setProperty('--host-accent', a.accent[i]);
+	// As nclite gives them: each colour a light and dark pair, the mode chosen by `--host-color-scheme` (Pane.svelte), so a
+	// plugin can use either mode whatever the app is in (a print in the theme does).
+	const both = ([light, dark]: Pair) => `light-dark(${light}, ${dark})`;
+	for (const [p, pair] of Object.entries(GROUNDS)) pane.style.setProperty(p, both(pair));
+	pane.style.setProperty('--host-accent', both(a.accent));
 	// nclite's `--link`: in light, the accent mixed toward the text; in dark, the accent.
-	pane.style.setProperty('--host-accent-strong', i === 0 ? `color-mix(in srgb, ${a.accent[0]} 65%, ${text})` : a.accent[1]);
-	pane.style.setProperty('--host-accent-fill', a.strong[i]);
-	pane.style.setProperty('--host-accent-fill-hover', `color-mix(in srgb, ${a.strong[i]} 88%, black)`);
+	pane.style.setProperty('--host-accent-strong', both([`color-mix(in srgb, ${a.accent[0]} 65%, ${GROUNDS['--host-ink']![0]})`, a.accent[1]]));
+	pane.style.setProperty('--host-accent-fill', both(a.strong));
+	pane.style.setProperty('--host-accent-fill-hover', both([`color-mix(in srgb, ${a.strong[0]} 88%, black)`, `color-mix(in srgb, ${a.strong[1]} 88%, black)`]));
 }
 
 // Remembered on this page only, so a reload keeps what was being looked at.
@@ -103,9 +107,41 @@ function confirmAsk(ask: ConfirmAsk): Promise<boolean> {
 	return new Promise((done) => dialog.addEventListener('close', () => done(dialog.returnValue === 'yes'), { once: true }));
 }
 
+/** nclite's coming `print` (its handover, 2026-11-19), stood in for: the element shown alone, Print opens the browser's
+ * print window, and the promise settles once the stand-in closes, printed or not. */
+const printWindow = $<HTMLDialogElement>('#print');
+function printAsk(ask: PrintAsk): Promise<void> {
+	log('print', ask.title);
+	printWindow.querySelector('strong')!.textContent = ask.title;
+	printWindow.querySelector('.paper-preview')!.replaceChildren(ask.content);
+	const before = document.title;
+	printWindow.showModal();
+	const go = printWindow.querySelector<HTMLButtonElement>('.go')!;
+	const close = printWindow.querySelector<HTMLButtonElement>('.close')!;
+	return new Promise((done) => {
+		// To paper from the page's own flow, then back into the preview.
+		const out = $<HTMLElement>('#print-out');
+		const print = () => {
+			document.title = ask.title;
+			out.replaceChildren(ask.content);
+			window.print();
+			printWindow.querySelector('.paper-preview')!.replaceChildren(ask.content);
+			document.title = before;
+		};
+		go.addEventListener('click', print);
+		close.addEventListener('click', () => printWindow.close(), { once: true });
+		printWindow.addEventListener('close', () => {
+			go.removeEventListener('click', print);
+			printWindow.querySelector('.paper-preview')!.replaceChildren();
+			done();
+		}, { once: true });
+	});
+}
+
 const PREFIX = 'journal-dev-store:';
 const chip = (c: Chip) => `${c.label}${c.detail ? ` (${c.detail})` : ''}`;
-const host: PluginHost = {
+// `print` is in nclite's proposal, not yet in the vendored contract (see src/view/print.ts).
+const host: PluginHost & { print(ask: PrintAsk): Promise<void> } = {
 	api: (path, init) => fetch(`/api/journal/${path}`, init),
 	events(listener) {
 		listeners.add(listener);
@@ -122,6 +158,7 @@ const host: PluginHost = {
 	settings: { get: () => undefined, on: () => () => {} },
 	notify: (text, tone = 'info') => log(`notify ${tone}`, text),
 	confirm: confirmAsk,
+	print: printAsk,
 	store: {
 		get(key) {
 			try { return localStorage.getItem(PREFIX + key); } catch { return null; }
@@ -147,3 +184,6 @@ let rechip = false;
 // The view, on `window.journal` for the console: `journal.pageChip()`, `journal.reveal({ date })`, `journal.leave()`.
 const view = mount(root, host);
 Object.assign(window, { journal: view });
+
+// nclite's one scrollbar for every scrolling area, as its layout installs it (dev/overlay-scroll/README.md).
+installOverlayScroll(document);

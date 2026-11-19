@@ -4,7 +4,7 @@
 // writes it atomically (`writeDay`). A refusal writes nothing.
 import type { ChangeMeta, ToolResult } from '../../vendor/plugin-host/plugin-host.ts';
 import {
-	blocksOf, checkDay, dateHeading, dateTitle, dayPath, entriesOf, entryHeading, isDate, keyedBlocks, type SpanBlock,
+	blocksOf, checkDay, dateHeading, dateTitle, dayPath, entriesOf, entryHeading, entryOf, isDate, keyedBlocks, type SpanBlock,
 } from '../../format/index.ts';
 import type { Edit, WriteResult } from '../../seam-types.ts';
 import { TOO_BIG_VARS, plan, readDayFile, version as versionOf, writeDay, type Refusal } from '../../store/index.ts';
@@ -120,6 +120,16 @@ export function addEntry(dir: string, input: EntryInput, wrote: (date: string) =
 	}, wrote);
 }
 
+/**
+ * Where a replaced block now starts. A heading given a time may have moved its entry into time order; it is found by that
+ * time, which no other entry of the day has. Anything else stays where it was.
+ */
+function landedHeading(after: string, block: SpanBlock, text: string): number {
+	const time = block.kind === 'heading' ? entryOf(text.trim())?.time ?? null : null;
+	if (time === null) return block.start;
+	return blocksOf(after).find((b) => b.kind === 'heading' && entryOf(b.text)?.time === time)?.start ?? block.start;
+}
+
 /** `replace_block`, `delete_block` and `insert_after`: one anchored block replaced, removed, or written after. */
 export function changeBlock(dir: string, op: BlockOp, input: AnchorInput & { text?: string }, wrote: (date: string) => void, today: () => string): ToolResult {
 	const late = tooLate(input.date, input.future, today);
@@ -135,7 +145,7 @@ export function changeBlock(dir: string, op: BlockOp, input: AnchorInput & { tex
 	const e: Edit = op === 'insert' ? { op: 'insert', ...span, text } : { op: 'replace', ...span, after: op === 'delete' ? '' : text };
 	return save(dir, before, e, {
 		words: `journal.change.${op}`,
-		at: () => (op === 'delete' ? null : op === 'insert' ? block.end + 2 : block.start),
+		at: (after) => (op === 'delete' ? null : op === 'insert' ? block.end + 2 : landedHeading(after, block, text)),
 		// A key does not depend on place, so the entry a removal was in keeps its id (unless its heading was what went).
 		removedFrom: entryAt(before, block.start),
 		count: (was, after) => (op === 'insert' ? blocksOf(after).length - blocksOf(was ?? '').length : 1),

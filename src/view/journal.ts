@@ -6,7 +6,8 @@
 //   host.events     `{ date }` when a day file changes, from anyone; `{}` to read every day shown again
 //   host.chat.add   a block, as a chip, from the writing bar's Add to chat
 //   host.notify     a refused save, tick or undo, and a reveal it cannot show
-//   host.confirm    only from `leave()` (`leave.ts`)
+//   host.confirm    from `leave()` (`leave.ts`), and before a whole day is removed
+//   host.print      Print…, when the host can print (`print.ts`)
 //   host.pageChanged  once the first draw settles, then each time `pageChip()` would answer something else
 // Inside, the pieces are:
 //   views.ts    what is on the sheet: the running journal (feed.ts) or one day, and the place kept (place.ts)
@@ -17,7 +18,7 @@
 //   bar.ts      the writing bar
 // and `page` below is what every writing session talks to. Everything a mount knows lives in this call: two mounts in
 // one page share nothing, and once unmounted nothing that answers late acts.
-import { addDays, isDate, localToday } from '../format/index.ts';
+import { addDays, entryOf, isDate, localToday } from '../format/index.ts';
 import { blocksMarkdown } from '../vendor/markdown/index.ts';
 import type { PluginHost, PluginView } from '../vendor/plugin-host/plugin-host.ts';
 import { createBar } from './bar.ts';
@@ -25,6 +26,9 @@ import { createDayPicker } from './day-picker.ts';
 import { blockChip, daysChip } from './chips.ts';
 import { readBlocks } from './dom-tree.ts';
 import { draftAfter, entryDraft } from './drafts.ts';
+import { writingOf } from './days.ts';
+import { createDrag } from './drag.ts';
+import { createPrint, printerOf } from './print.ts';
 import { drawView } from './draw.ts';
 import { trackFocusSource } from './focus.ts';
 import { isEditing, startSession } from './editor.ts';
@@ -39,12 +43,14 @@ import { createRoutes } from './wire.ts';
 import { say } from './words.ts';
 
 export function mountJournal(root: HTMLElement, host: PluginHost): PluginView {
+	const printer = printerOf(host);
 	const toolbar = createToolbar({
 		view: (v) => void (v === views.place.view ? undefined : v === 'journal' ? views.showJournal() : views.showDay(views.place.date ?? localToday())),
 		step: (n) => void views.showDay(addDays(views.place.date ?? localToday(), n)),
 		go: (date) => void views.showDay(date),
 		add: (date) => void addPage(date),
 		pick: (anchor, ask, then) => picker.calendar(anchor, { ...ask, onPick: then }),
+		...(printer === null ? {} : { print: (anchor: HTMLElement) => print!.open(anchor) }),
 	});
 	const parts = drawView(root, toolbar.el);
 	const { paper, sheet, hintId } = parts;
@@ -102,6 +108,13 @@ export function mountJournal(root: HTMLElement, host: PluginHost): PluginView {
 	}
 	const views = createViews({ paper, sheet, routes, page, toolbar, store: host.store, live, notify, onShow: chipMayHaveChanged });
 	const undo = createUndo(page, parts.toast, root);
+	const print = printer === null ? null : createPrint({
+		printer, routes, picker, live, notify, store: host.store, source: root,
+		dayOnScreen: () => views.place.date ?? localToday(),
+		today: localToday,
+		busy: (on) => toolbar.printing(on),
+	});
+	const drag = createDrag({ root, paper, sheet, page, day: (date) => views.shown.get(date), undo: (u, label) => undo.push(u, label), live });
 	const offFocus = trackFocusSource(root);
 	const { unsaved, leave } = createLeave(page, (ask) => host.confirm(ask), live);
 
@@ -119,16 +132,46 @@ export function mountJournal(root: HTMLElement, host: PluginHost): PluginView {
 		}
 	}
 
+	/**
+	 * Removes every entry on `date`, after the person says yes on the pane: the page keeps only its date line, which shows as
+	 * a day with no page. One edit, so one Undo puts the whole day back.
+	 */
+	async function removeDay(date: string): Promise<void> {
+		const day = views.shown.get(date);
+		const writing = day === undefined ? [] : writingOf(day);
+		const head = day?.blocks[0];
+		if (day === undefined || head === undefined || writing.length === 0) return;
+		const count = writing.filter((b) => entryOf(b.text) !== null).length;
+		const yes = await host.confirm({
+			heading: say('journal.view.day.removeHeading', { date: day.title }),
+			body: say('journal.view.day.removeBody', { count: count === 1 ? say('journal.view.day.entry') : say('journal.view.day.entries', { count }) }),
+			confirm: say('journal.view.day.removeConfirm'),
+		});
+		if (!yes || !live.on) return;
+		// Writing open on the page is saved first, so the day removed is the day as it is.
+		if (page.sessions.current !== null && (await page.sessions.current.finish({ then: 'stay' })) !== null) return;
+		const now = views.shown.get(date) ?? day;
+		const rest = writingOf(now);
+		if (rest.length === 0) return;
+		const before = `\n\n${rest.map((b) => b.text).join('\n\n')}`;
+		const r = await page.edit({ op: 'range', date, start: now.blocks[0]!.end, end: rest.at(-1)!.end, before, after: '' });
+		if (r.day) page.patch(r.day, false);
+		if (r.ok) undo.push(r.undo, say('journal.view.day.removed'));
+		else notify(r.reason);
+	}
+
 	/** A new entry on `date`'s page (made when it has none), wherever the day is. */
 	async function addPage(date: string): Promise<void> {
 		const section = await views.reach(date);
 		if (section === null || section.classList.contains('broken')) return;
 		section.scrollIntoView({ block: 'start', behavior: 'smooth' });
-		entryDraft(section, page);
+		entryDraft(section, page, false);
 	}
 
 	sheet.addEventListener('click', (e) => {
 		const t = e.target as Element;
+		// The drag handle is the drag's alone (drag.ts): a press on it never opens the heading.
+		if (t.closest('.drag-handle') !== null) return;
 		const gap = t.closest<HTMLElement>('.gap-marker');
 		if (gap !== null && t.closest('.gap-add') !== null) {
 			const { from, to } = gap.dataset as { from: string; to: string };
@@ -137,15 +180,17 @@ export function mountJournal(root: HTMLElement, host: PluginHost): PluginView {
 			return picker.strip(t.closest<HTMLElement>('.gap-add')!, from, to, (date) => void addPage(date));
 		}
 		if (t.closest('.feed-more') !== null) return void views.readOlder();
+		const remove = t.closest<HTMLElement>('.day-remove');
+		if (remove !== null) return void removeDay(remove.closest<HTMLElement>('.day')!.dataset.date!);
 		// In Day, a day with no page is a blank page: a press anywhere on it starts writing.
 		if (views.place.view === 'day' && t.closest('button, a, input') === null) {
 			const blank = sheet.querySelector<HTMLElement>('.day.gap:not(.drafting)');
-			if (blank !== null && (t === sheet || blank.contains(t))) return void entryDraft(blank, page);
+			if (blank !== null && (t === sheet || blank.contains(t))) return void entryDraft(blank, page, false);
 		}
 		// A page that breaks the rules is read only: the engine would refuse every write to it.
 		if (t.closest('.day.broken') !== null) return;
-		const add = t.closest('.add-entry');
-		if (add !== null) return void entryDraft(add.closest<HTMLElement>('.day')!, page);
+		const add = t.closest<HTMLElement>('.add-entry');
+		if (add !== null) return void entryDraft(add.closest<HTMLElement>('.day')!, page, add.dataset.timed === 'true');
 		const node = t.closest<BlockNode>('.block');
 		if (node === null || isEditing(node) || t.closest('a') !== null) return;
 		if (t.matches('input.todo')) return void tick(t as HTMLInputElement);
@@ -153,6 +198,7 @@ export function mountJournal(root: HTMLElement, host: PluginHost): PluginView {
 	});
 	sheet.addEventListener('keydown', (e) => {
 		const t = e.target as BlockNode;
+		if (drag.busy || t.closest?.('.drag-handle') != null) return;
 		// A key the writing already took (its Enter can close this very block) is not a request to open it.
 		if (e.defaultPrevented || e.key !== 'Enter' || !t.classList?.contains('block') || isEditing(t)) return;
 		if (t.closest('.day.broken') !== null) return;
@@ -197,6 +243,7 @@ export function mountJournal(root: HTMLElement, host: PluginHost): PluginView {
 			page.sessions.current?.discard();
 			offEvents();
 			undo.dispose();
+			drag.dispose();
 			views.dispose();
 			offFocus();
 			paper.removeEventListener('scroll', onScroll);

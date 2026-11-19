@@ -88,6 +88,14 @@ describe('entry headings', () => {
 		assert.deepEqual(headingMarkdown({ textContent: '21:30' }, el('span', ['A ', el('i', ['quiet'])])), { time: '21:30', title: 'A *quiet*' });
 	});
 
+	it('refuses a title that starts like a list, a quote or a heading (GM, 2026-11-19)', () => {
+		for (const words of ['- milk', '* milk', '1. milk', '> said', '[ ] do', '# big']) {
+			assert.ok('problem' in headingMarkdown({ textContent: '' }, el('span', [words])), words);
+			assert.ok('problem' in headingMarkdown({ textContent: '09:00' }, el('span', [words])), `${words}, timed`);
+		}
+		assert.deepEqual(headingMarkdown({ textContent: '' }, el('span', ['-ish, a title'])), { time: null, title: '-ish, a title' });
+	});
+
 	it('refuses a time that is not one', () => {
 		for (const t of ['24:00', '9:5', 'noon', '']) assert.ok('problem' in headingMarkdown({ textContent: t }, null), t);
 	});

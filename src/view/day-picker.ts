@@ -5,6 +5,7 @@
 import { createCalendar, createDayStrip, openPopover, type Popover } from '../ui/date-pick/index.ts';
 import { addDays, daysBetween } from '../format/index.ts';
 import type { Routes } from './wire.ts';
+import { hasPage } from './days.ts';
 import { say } from './words.ts';
 
 /** The days a gap's strip offers before it offers another day from the calendar. */
@@ -17,11 +18,15 @@ export interface CalendarAsk {
 	min?: string;
 	max?: string;
 	align: 'start' | 'end' | 'center';
+	/** The panel's name; "Which day?" when left out. */
+	label?: string;
 	onPick(date: string): void;
 }
 
 export interface DayPicker {
 	calendar(anchor: HTMLElement, ask: CalendarAsk): void;
+	/** Any content of the Journal's own (Print's choices) in the same kind of panel, under `anchor`. */
+	panel(anchor: HTMLElement, content: HTMLElement, label: string, focus: () => void): void;
 	/** The days `from`..`to` (a gap), newest first, `STRIP_DAYS` at most, then the calendar for the rest. */
 	strip(anchor: HTMLElement, from: string, to: string, onPick: (date: string) => void): void;
 	close(): void;
@@ -38,8 +43,8 @@ export function createDayPicker(boundary: HTMLElement, scroller: HTMLElement, ro
 		return same;
 	}
 
-	function show(anchor: HTMLElement, content: HTMLElement, align: CalendarAsk['align'], focus: () => void): Popover {
-		const popover = openPopover({ anchor, content, boundary, scroller, align, label: say('journal.view.add.pick'), className: 'journal-dp' });
+	function show(anchor: HTMLElement, content: HTMLElement, align: CalendarAsk['align'], focus: () => void, label = say('journal.view.add.pick')): Popover {
+		const popover = openPopover({ anchor, content, boundary, scroller, align, label, className: 'journal-dp' });
 		open = { popover, anchor };
 		focus();
 		return popover;
@@ -57,11 +62,16 @@ export function createDayPicker(boundary: HTMLElement, scroller: HTMLElement, ro
 			},
 			onMonth(first, last) {
 				void routes.days(first, last).then((r) => {
-					if (r.ok && popover?.open) cal.mark(r.days.filter((d) => d.exists).map((d) => d.date));
+					if (r.ok && popover?.open) cal.mark(r.days.filter(hasPage).map((d) => d.date));
 				});
 			},
 		});
-		popover = show(anchor, cal.el, ask.align, () => cal.focus());
+		popover = show(anchor, cal.el, ask.align, () => cal.focus(), ask.label);
+	}
+
+	function panel(anchor: HTMLElement, content: HTMLElement, label: string, focus: () => void): void {
+		if (toggled(anchor)) return;
+		show(anchor, content, 'end', focus, label);
 	}
 
 	function strip(anchor: HTMLElement, from: string, to: string, onPick: (date: string) => void): void {
@@ -85,5 +95,5 @@ export function createDayPicker(boundary: HTMLElement, scroller: HTMLElement, ro
 		popover = show(anchor, days.el, 'center', () => days.focus());
 	}
 
-	return { calendar, strip, close: () => open?.popover.close('api') };
+	return { calendar, strip, panel, close: () => open?.popover.close('api') };
 }

@@ -31,8 +31,8 @@ export function draftAfter(anchor: BlockNode, host: Page): Session {
 	}, 0);
 }
 
-/** A new entry at the end of `section`'s day. */
-export function entryDraft(section: HTMLElement, host: Page): Session {
+/** A new entry at the end of `section`'s day: with a time (now), or without one, its title then holding it. */
+export function entryDraft(section: HTMLElement, host: Page, timed = true): Session {
 	let entries = section.querySelector<HTMLElement>('.entries');
 	if (entries === null) {
 		entries = el('div', [], { class: 'entries' });
@@ -53,16 +53,18 @@ export function entryDraft(section: HTMLElement, host: Page): Session {
 		title.focus();
 	}
 	const timing = timeSwitch(node, time, () => title, addTitle);
-	return startSession(node, host, {
+	const session = startSession(node, host, {
 		kind: 'entry',
 		root: body,
 		editables: () => [time, title, body].filter((e): e is HTMLElement => e !== null && !e.hidden),
 		focusTarget: () => body,
 		read() {
-			const h = headingMarkdown(time, title);
-			if ('problem' in h) return h;
 			const r = bodyMarkdown(body);
 			if ('problem' in r) return r;
+			// Nothing written, not even a title: nothing to save, with a time or without.
+			if (r.md === '' && (title === null || (title.textContent ?? '').trim() === '')) return { edit: null };
+			const h = headingMarkdown(time, title);
+			if ('problem' in h) return h;
 			if (r.md === '' && h.title === null) return { edit: null };
 			return { edit: { op: 'entry', date: section.dataset.date!, time: h.time, title: h.title, text: r.md } };
 		},
@@ -90,4 +92,6 @@ export function entryDraft(section: HTMLElement, host: Page): Session {
 		timed: timing.timed,
 		setTimed: timing.setTimed,
 	}, 0);
+	if (!timed) session.act('notime');
+	return session;
 }

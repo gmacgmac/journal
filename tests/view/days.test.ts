@@ -119,8 +119,48 @@ describe('days as elements', () => {
 		assert.ok(gap.classList.contains('gap'));
 	});
 
-	it('an empty day says nothing is written', () => {
+	it('a page left with only its date line shows as a day with no page, with the way to start it (GM, 2026-11-19)', () => {
 		const section = daySection(dayOf('2026-10-01', ['# D']), HINT);
-		assert.ok(section.classList.contains('blank'));
+		assert.ok(section.classList.contains('gap'));
+		assert.ok(section.querySelector('.add-entry') !== null);
+		assert.equal(section.querySelector('.day-remove'), null, 'nothing to remove');
+	});
+});
+
+describe('adding entries (GM, 2026-11-19)', () => {
+	before(installDom);
+
+	it('Add an entry comes back once a new entry is saved: the day is no longer drafting', () => {
+		const date = '2026-10-01';
+		const section = daySection(dayOf(date, ['# D', '## 08:00', 'One.']), HINT);
+		const draft = document.createElement('div');
+		draft.className = 'block draft entry-draft';
+		section.querySelector('.entries')!.append(draft);
+		section.classList.add('drafting');
+		patchDay(dayOf(date, ['# D', '## 08:00', 'One.']), section, false, HINT);
+		assert.ok(section.classList.contains('drafting'), 'still writing');
+		draft.remove();
+		patchDay(dayOf(date, ['# D', '## 08:00', 'One.', '## 09:00', 'Two.']), section, false, HINT);
+		assert.ok(!section.classList.contains('drafting'));
+	});
+
+	it('a day with writing offers to remove it; one emptied becomes a day with no page', () => {
+		const date = '2026-10-01';
+		const section = daySection(dayOf(date, ['# D', '## 08:00', 'One.']), HINT);
+		assert.ok(section.querySelector('.day-remove') !== null);
+		const parent = document.createElement('div');
+		parent.append(section);
+		patchDay(dayOf(date, ['# D']), section, false, HINT);
+		assert.ok(parent.firstElementChild!.classList.contains('gap'));
+	});
+});
+
+describe('the drag handle (GM, 2026-11-19)', () => {
+	before(installDom);
+
+	it('only an entry with no time has one: a timed entry keeps its place by its time', () => {
+		const section = daySection(dayOf('2026-10-01', ['# D', '## 08:00 · Timed', 'One.', '## Untimed', 'Two.']), HINT);
+		const heads = [...section.querySelectorAll('.entry-head')];
+		assert.deepEqual(heads.map((h) => h.querySelector('.drag-handle') !== null), [false, true]);
 	});
 });

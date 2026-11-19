@@ -1,0 +1,75 @@
+/**
+ * THE OVERLAY SCROLLBAR'S LOOK (GM, 2026-10-24; the pattern is on /patterns, the behaviour is
+ * `lib/overlay-scroll.ts`, installed once by `routes/+layout.svelte`).
+ *
+ * THE NATIVE BAR IS HIDDEN ON EVERYTHING, in both engines: `scrollbar-width` for Chromium and Firefox,
+ * the pseudo-element for WebKit (the desktop app) and Chromium. A scroller still scrolls by wheel, touch
+ * and keys; only its picture changes. An area that wants its own look says so by a class, which beats `*`.
+ * `data-overlay-off` (on the scroller) is the one place the thumb is not drawn either.
+ */
+* {
+	scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+	display: none;
+}
+
+/* The thumb: a 12px hit strip at the area's edge that holds a 3px thumb on its far side. Unseen and
+   unclickable until it is shown (`.on`), so it never takes a click meant for what is under it. Hovering
+   the thumb widens it, as the system's own does. */
+.ui-overlay-thumb {
+	position: fixed;
+	width: 12px;
+	display: flex;
+	justify-content: flex-end;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.35s ease;
+}
+.ui-overlay-thumb[data-axis='x'] {
+	width: auto;
+	height: 12px;
+	align-items: flex-end;
+}
+.ui-overlay-thumb::after {
+	content: '';
+	width: 3px;
+	height: 100%;
+	margin-right: 2px;
+	border-radius: 2px;
+	background: color-mix(in srgb, var(--text) 38%, transparent);
+	transition:
+		width 0.12s ease,
+		background-color 0.12s ease;
+}
+.ui-overlay-thumb[data-axis='x']::after {
+	width: 100%;
+	height: 3px;
+	margin: 0 0 2px;
+}
+.ui-overlay-thumb.on {
+	opacity: 1;
+	pointer-events: auto;
+	cursor: default;
+	transition-duration: 0.08s;
+}
+.ui-overlay-thumb.on:hover::after,
+.ui-overlay-thumb.held::after {
+	width: 6px;
+	background: color-mix(in srgb, var(--text) 55%, transparent);
+}
+/* The strip yields to a control under it (`lib/overlay-scroll.ts`): the press is the control's. */
+.ui-overlay-thumb.on.yield {
+	pointer-events: none;
+}
+.ui-overlay-thumb[data-axis='x'].on:hover::after,
+.ui-overlay-thumb[data-axis='x'].held::after {
+	width: 100%;
+	height: 6px;
+}
+@media (prefers-reduced-motion: reduce) {
+	.ui-overlay-thumb,
+	.ui-overlay-thumb::after {
+		transition: none;
+	}
+}

@@ -300,6 +300,23 @@ describe('entries with no time (GM, 2026-11-09)', () => {
 		assert.equal(idAt(read(), '09:00'), nine, 'a key does not move');
 	});
 
+	it('a heading given a later time moves its entry into time order, and the answer names it there (GM, 2026-11-19)', async (t) => {
+		const { call, read, dir } = toolsOn(t, true);
+		writeDay(dir, DATE, '# Thursday 1 October 2026\n\n## 09:00\n\nFirst.\n\n## 10:00\n\nSecond.\n');
+		const w = wrote(await call('replace_block', { date: DATE, version: version(read()), entry: idAt(read(), '09:00'), block: '## 09:00', text: '## 11:00' }));
+		assert.equal(read(), '# Thursday 1 October 2026\n\n## 10:00\n\nSecond.\n\n## 11:00\n\nFirst.\n');
+		assert.equal(w.entry, idAt(read(), '11:00'));
+		assert.equal(w.key, keyedBlocks(read()).find((b) => b.text === '## 11:00')!.key);
+	});
+
+	it('renaming the second of two entries to the first one\'s title names the second (review 2026-11-19)', async (t) => {
+		const { call, read, dir } = toolsOn(t, true);
+		writeDay(dir, DATE, '# Thursday 1 October 2026\n\n## Notes\n\nOne.\n\n## Other\n\nTwo.\n');
+		const other = entriesOf(read()).find((e) => e.title === 'Other')!.id;
+		const w = wrote(await call('replace_block', { date: DATE, version: version(read()), entry: other, block: '## Other', text: '## Notes' }));
+		assert.equal(w.key, keyedBlocks(read()).filter((b) => b.text === '## Notes')[1]!.key);
+	});
+
 	it('two entries at one time are named apart by their ids', async (t) => {
 		const { call, read, dir } = toolsOn(t, true);
 		writeDay(dir, DATE, '# Thursday 1 October 2026\n\n## 09:00\n\nOne.\n\n## 09:00\n\nTwo.\n');

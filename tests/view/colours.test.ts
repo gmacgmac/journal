@@ -39,7 +39,10 @@ const PAIRS: [text: string, grounds: string[], lc: number][] = [
 	['--journal-date-ink', ['--journal-page'], 45],
 	['--journal-link', ['--journal-page', '--journal-field', '--journal-hover', '--journal-fresh'], 45],
 	['--journal-on-fill', ['--journal-fill', '--journal-fill-hover'], 60],
-	['--journal-page', ['--journal-ink'], 60],
+	// The controls on the paper, in the host's own inks (Add an entry, Add a page, Earlier pages, the bar), and the toast.
+	...['--journal-chrome-ink', '--journal-chrome-soft'].map((ink): [string, string[], number] =>
+		[ink, ['--journal-page', '--journal-field', '--journal-hover'], 60]),
+	['--journal-page', ['--journal-ink', '--journal-chrome-ink'], 60],
 	['--journal-app-ink', ['--journal-app-bg', '--journal-app-field'], 60],
 	['--journal-focus', ['--journal-page', '--journal-field'], 30],
 ];

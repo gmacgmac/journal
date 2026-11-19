@@ -7,7 +7,7 @@
 // is open is saved before the sheet is drawn again, and a sheet that cannot be saved over stays.
 import { addDays, daysBetween, localToday } from '../format/index.ts';
 import type { PluginStore } from '../vendor/plugin-host/plugin-host.ts';
-import { daySection, patchDay } from './days.ts';
+import { daySection, hasPage, patchDay } from './days.ts';
 import { recentDays, RECENT_DAYS, type Range } from './dates.ts';
 import { layout, PAGE_BATCH, placeSection, sectionsOf } from './feed.ts';
 import { keepPlace, readPlace, type Place } from './place.ts';
@@ -159,7 +159,7 @@ export function createViews(d: ViewsDeps) {
 		if (there !== null) return there;
 		const section = daySection(day, page.hintId);
 		// A day with no page, put here to write in, stays until the journal is drawn again.
-		if (!day.exists) section.classList.add('placed');
+		if (!hasPage(day)) section.classList.add('placed');
 		shown.set(day.date, day);
 		placeSection(sheet, section);
 		relayout();
@@ -188,7 +188,7 @@ export function createViews(d: ViewsDeps) {
 		const r = await routes.days(from, range.to);
 		if (!d.live.on || n !== seq || place.view !== 'journal') return null;
 		if (!r.ok) return (d.notify(r.reason), null);
-		for (const day of r.days) if (day.exists || day.date === drawnToday()) ensure(day);
+		for (const day of r.days) if (hasPage(day) || day.date === drawnToday()) ensure(day);
 		return sectionsOf(sheet).find((s) => s.dataset.date! <= range.to && s.dataset.date! >= from) ?? null;
 	}
 
@@ -207,7 +207,7 @@ export function createViews(d: ViewsDeps) {
 		const n = seq;
 		const r = await routes.days(date, date);
 		const day = r.ok ? r.days[0] : undefined;
-		if (!d.live.on || n !== seq || place.view !== 'journal' || day === undefined || !day.exists || shown.has(date)) return;
+		if (!d.live.on || n !== seq || place.view !== 'journal' || day === undefined || !hasPage(day) || shown.has(date)) return;
 		ensure(day).classList.add('fresh');
 	}
 
@@ -222,7 +222,7 @@ export function createViews(d: ViewsDeps) {
 		if (place.view === 'journal') {
 			const r = await routes.days(feed.recentFrom, drawnToday());
 			// A recent day shown is patched; one not shown that now has a page is drawn in.
-			if (r.ok) for (const day of r.days) if (shown.has(day.date)) page.patch(day); else if (day.exists) ensure(day);
+			if (r.ok) for (const day of r.days) if (shown.has(day.date)) page.patch(day); else if (hasPage(day)) ensure(day);
 		}
 		for (const date of dates.filter((date) => place.view === 'day' || date < feed.recentFrom)) await page.refresh(date);
 	}

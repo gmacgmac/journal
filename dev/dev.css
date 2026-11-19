@@ -24,3 +24,20 @@ body { margin: 0; height: 100vh; display: flex; flex-direction: column; backgrou
 dialog { max-width: 360px; border: 1px solid light-dark(#ccc, #333); border-radius: 10px; }
 dialog h2 { margin: 0 0 8px; font-size: 15px; }
 dialog menu { display: flex; justify-content: flex-end; gap: 8px; margin: 16px 0 0; padding: 0; }
+
+/* The stand-in print window: the element as it will print, nothing round it. Paper gets the element alone, from
+   #print-out in the page's own flow: printed from inside a modal dialog it came out clipped to the screen. */
+dialog#print { max-width: none; width: min(860px, 92vw); max-height: 92vh; padding: 0; overflow: hidden; display: none; flex-direction: column; }
+dialog#print[open] { display: flex; }
+#print header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid light-dark(#ddd, #333); font: 13px system-ui, sans-serif; }
+#print header span { display: flex; gap: 8px; }
+#print .paper-preview { overflow: auto; }
+#print .paper-preview > [data-look='plain'] { padding: 24px 28px; }
+#print-out { display: none; }
+@media print {
+	body > :not(#print-out) { display: none !important; }
+	#print-out { display: block; }
+}
+
+/* The ink nclite's overlay scrollbar is drawn in (`--text` in nclite's app.css). */
+:root { --text: light-dark(#141414, #fafafa); }
