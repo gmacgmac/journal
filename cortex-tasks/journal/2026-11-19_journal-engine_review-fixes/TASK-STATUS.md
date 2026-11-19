@@ -36,7 +36,7 @@ tracker:
 | 1 | BE_01 | 1 | strong | no | Principal storage engineer — an edit names what the person saw and is refused, never guessed, when the file has moved on; every write keeps the day's rules. | [Engine edits and entry rules](./BE_01_engine-edits.md) | Completed | Engine plans move/remove/clear; entry rules in `src/format/entries.ts`; `GET pages` skips date-line-only files |
 | 2 | FE_02 | 1 | standard | no | — | [Split the stylesheet](./FE_02_stylesheet-split.md) | Completed | Built sheet: same rules, same order; +6 `.journal{` wrapper openers |
 | 3 | FE_01 | 2 | strong | no | Staff front-end engineer — the view states intent and the engine owns the bytes; every interaction has a test that drives it as a person would. | [View on the new edits, drag tests](./FE_01_view-edits.md) | Completed | View sends `move`/`remove`/`clear`; drag has 16 tests; `fake-host` runs the engine's `plan` |
-| 4 | DOC_01 | 3 | strong | no | Technical writer for developer platforms — every sentence about the code names the symbol and the test that keeps it true. | [Spec true to the code](./DOC_01_spec.md) | Pending | |
+| 4 | DOC_01 | 3 | strong | no | Technical writer for developer platforms — every sentence about the code names the symbol and the test that keeps it true. | [Spec true to the code](./DOC_01_spec.md) | Completed | `plugin.md` true to the code; untested claims under Not covered; README stylesheet line |
 | 5 | VERIFY_01 | 4 | standard | no | A person who keeps a journal in a notes app they love — expects writing, moving and removing to just work, and nothing to be lost. | [Final verification](./VERIFY_01_testing.md) | Pending | |
 
 **Status Values**: `Pending` | `In Progress` | `Completed` | `Blocked` | `Deferred`
@@ -72,6 +72,9 @@ tracker:
 | BE_01-R1 | BE_01 | `tests/view/fake-host.ts` — handle `move`, `remove`, `clear` where it reads `start`/`end`/`before`/`after`, so `npm run check` is clean | FE_01 | Done |
 | GATE-1 | orchestrator | `src/format/day.ts` ↔ `entries.ts` imported each other: `entriesOf` moved into `entries.ts`, one-way now | orchestrator | Done |
 | FE_01-N1 | FE_01 | Backspace joining two paragraphs (`bodySpec` `merge`, `src/view/specs.ts`) still sends a view-built `range`; outside this set's scope, predates it | closed: kept as is, anchored to bytes the view just read; recorded for DOC_01 and the user | Closed |
+| DOC_01-R1 | DOC_01 | `src/view/specs.ts` — an engine edit for Backspace's paragraph join | follow-up, put to the user at close | Closed |
+| DOC_01-R2 | DOC_01 | `tests/view/` — tests for the claims under the spec's § Not covered | follow-up, put to the user at close | Closed |
+| DOC_01-R3 | DOC_01 | `src/view/css/-c1-40.css` — stray empty partial | orchestrator: deleted at the wave 3 gate | Done |
 
 ---
 
@@ -90,8 +93,8 @@ _Status:_ Completed
 _Notes:_ `moveEditOf` in `view/move.ts`; `removeDay` sends `clear` and keeps the day `placed` through the patch; `fake-host` `save` uses the store's `plan`/`undoOf` and real versions (BE_01-R1 done). New `drag.test.ts`, `remove.test.ts`; `fake-dom` selectors gained combinators. `specs.ts` `merge` still sends a `range` (Backspace join), left as it is. `npm run check` clean, `npm test` 291 pass.
 
 ### DOC_01: Spec true to the code
-_Status:_ Pending  
-_Notes:_ 
+_Status:_ Completed  
+_Notes:_ `docs/specification/plugin.md` extended section by section (data, routes, tools, view, look, not covered); Backspace's `range` join described as view-built (FE_01-N1). No tests exist for hover strengths, `> `, quotes upright, the Backspace join: under Not covered. Stray `src/view/css/-c1-40.css` (empty `.journal {}`, not imported) left for the orchestrator. `npm test` 291 pass.
 
 ### VERIFY_01: Final Verification
 _Status:_ Pending  

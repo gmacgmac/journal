@@ -118,10 +118,32 @@ default `.<id>`). Inside, one file per day:
   to `23:59`, and so does `## Title` alone, an entry with no time (GM, 2026-11-09; its title may not start like a time,
   `9:30`); an entry's body is paragraphs, lists (to-dos included) and quotes; no front matter, no HTML, lines end with a
   plain `\n`. Dates are `YYYY-MM-DD` throughout, worked out in UTC so a time zone never moves a day.
-- **An entry's id** is its heading block's key (below; `entriesOf`, `src/format/day.ts`): what the bot names an entry by,
-  apart from its time, so an entry with no time, or two at one time, are named all the same. A changed heading is a new id.
+- **An entry's id** is its heading block's key (below; `entriesOf`, `src/format/entries.ts`): what the bot and the person's
+  edits name an entry by, apart from its time, so an entry with no time, or two at one time, are named all the same. A
+  changed heading is a new id.
+- **The entry rules have one home**, `src/format/entries.ts`, which the engine plans by and the view draws by, so neither
+  restates them: `entrySpans` groups a day's blocks into entries (the date line belongs to none), `placesFor` says where an
+  entry may be moved to, and `hasWriting` says whether a day holds anything past its date line. Proven by `tests/format.test.ts`:
+  "entrySpans groups a day into entries, each heading with the writing under it, and leaves the date line out", "entriesOf is
+  the same entries, as the day reads them", "a day has writing when it holds anything but its date line".
 - **Order**: an entry with a time is placed by its time (before the first entry with a later one); one with no time stays
-  where it was put, and a new one goes at the end of the day.
+  where it was put, and a new one goes at the end of the day. **An entry keeps time order when its time changes**: a heading
+  replaced with another time moves its entry, writing and all, to where that time falls (`inTimeOrder`, `src/store/edits.ts`),
+  whether the person or the bot made the change; the bot's answer names the entry where it now is (`landedHeading`,
+  `src/engine/tools/write.ts`). One with no time, or already between its timed neighbours, stays. `placesFor` is the same
+  rule for a move: an entry with no time may go anywhere, one with a time only where the timed entries stay in order, and
+  where it already is is always a place. Proven by `tests/store.test.ts` "a heading given a new time moves its entry, writing
+  and all, into time order (GM, 2026-11-19)", `tests/tools.test.ts` "a heading given a later time moves its entry into time
+  order, and the answer names it there (GM, 2026-11-19)", and `tests/format.test.ts` "an entry with no time may go anywhere;
+  a timed one only between its timed neighbours", "where it already is is always a place".
+- **A title cannot start like a block.** Beside the time-like start the format refuses (`entryOf`), the view refuses a title
+  that starts like a list, a to-do, a quote or a heading (`BLOCKISH_RE`, `headingMarkdown`, `src/view/specs.ts`), saying
+  `journal.view.write.titleShape`, since `- milk` as a title would be saved as the heading `## - milk`. The check is the
+  view's own; the engine's rule for a title is `entryOf`'s. Proven by `tests/view/dom-tree.test.ts` "refuses a title that
+  starts like a list, a quote or a heading (GM, 2026-11-19)".
+- **A day with only its date line has no page.** `hasWriting` is false for it; the engine's `GET pages` leaves such a file
+  out (§ Routes) and the view draws it as a day with no page (`hasPage`, `src/view/days.ts`). The file stays: `GET days` still
+  says `exists`.
 - **Offsets** are into the file's text as a JavaScript string indexes it (UTF-16 code units), from nclite's parser:
   `parseMarkdownSpans(text)` gives each top-level block `{ block, start, end }`. The Journal never re-scans the grammar.
 - **A block's key** is stable on screen and in a chip: the FNV-1a 32-bit hash of the block's text (offset basis
@@ -200,28 +222,59 @@ host's wrapping, `src/store/size.ts`, measured with `jsonBytes` as the host meas
 the first day left out, and the view reads on from it. A day that is not too big (§ The data) answers well inside
 `REPLY_BUDGET` alone, so the first day always fits; the host answers anything over `REPLY_LIMITS` as too large.
 
-**`GET pages?before=YYYY-MM-DD&limit=N`**: the days that have a page before `before` (not included), newest first, at
+**`GET pages?before=YYYY-MM-DD&limit=N`**: the days that have a page (a file holding more than its date line,
+`hasWriting`; one with only that is passed over, and listing goes on past it, so a batch still gives `limit` pages when the
+journal has them, `readPages`, `src/engine/days.ts`) before `before` (not included), newest first, at
 most `limit` (1 to `MAX_PAGES`, 31; `PAGES_DEFAULT`, 10, when left out), for the view's running journal. The day files are
 found by walking the year and month folders (`datesWithPages`, `src/store/folders.ts`), never through a link. `200`
 `{ "days": Day[], "next"?: "YYYY-MM-DD" }`, each day whole, under the same budget as `days` (always at least one); `next`
 is the oldest day given when older pages are left, so the view reads on with `before=next`. `400` `dates` (not a date) or
 `limit`. Proven by `tests/routes.test.ts`: "pages answers only the days that have a page, newest first, before a date, and says
 where to read on", "pages gives PAGES_DEFAULT when not told how many, none for an empty journal, and refuses a bad date or
-limit", "pages stops at the budget, always gives one day, and says next".
+limit", "pages stops at the budget, always gives one day, and says next", "a file holding only its date line is no page, and
+reading on still reaches the older ones".
 
-**`POST edit`**, body one `Edit`, JSON (the proof's four edits, `src/store/edits.ts` `plan`), each anchored to bytes the view
-saw and refused, never merged, when they changed:
+**`POST edit`**, body one `Edit`, JSON (`src/store/edits.ts` `plan`). Four are anchored to bytes the view saw (the proof's
+edits) and three name what the person saw, and the engine does the bytes. Each is refused, never merged, when what it names
+has changed:
 
 ```ts
 type Edit =
 	| { op: 'replace'; date: string; start: number; end: number; before: string; after: string }   // '' after deletes
 	| { op: 'insert'; date: string; start: number; end: number; before: string; text: string }     // new writing after a block
 	| { op: 'entry'; date: string; time: string | null; title: string | null; text: string }       // a new entry: by time, or none and a title
-	| { op: 'range'; date: string; start: number; end: number; before: string; after: string };    // exact bytes: an undo
+	| { op: 'range'; date: string; start: number; end: number; before: string; after: string }     // exact bytes: an undo
+	| { op: 'move'; date: string; entry: string; before: string | null }                          // before: an entry id; null is the end of the day
+	| { op: 'remove'; date: string; entry: string }                                               // the entry, writing and all
+	| { op: 'clear'; date: string; version: string };                                             // every entry; the date line stays
 // 200: { "day": Day, "undo": RangeEdit }
-// 400 "unreadable": not an Edit · 409 "changed": the bytes moved (with day) · 422 "rules", "heading", "date-heading",
-//     "entry-exists", "malformed", "too-big" (with day)
+// 400 "unreadable": not an Edit · 409 "changed": the bytes, entry or version moved (with day) · 422 "rules", "heading",
+//     "date-heading", "entry-exists", "order", "malformed", "too-big" (with day)
 ```
+
+**`move`, `remove` and `clear` name an entry by its id (§ The data) or the day by its `version`**, so the view says what it
+wants and the engine finds the bytes (`planMove`, `planRemove`, `planClear`, `src/store/edits.ts`):
+
+- `move` puts entry `entry` in front of entry `before`, or at the end of the day when `before` is `null`. A missing `entry` or
+  `before` is `409 changed`. A move that would put a timed entry out of time order is `422 order`
+  (`journal.problem.entry-order`; `placesFor` decides), and a timed entry moves only by changing its time. A move to where
+  the entry already is succeeds with the file's text untouched, to the byte.
+- `remove` takes out the entry, its heading and all its writing; a missing id is `409 changed`. `clear` takes out every entry
+  of the day and leaves the date line, so the file stays; a `version` that is no longer the day's is `409 changed`. A day
+  with no page answers `409 changed` to all three.
+- **The engine rebuilds the day** from its date line and each entry's own text (its first block's start to its last block's
+  end), one blank line between, ending in `\n`; the spacing the file had by hand between its blocks is not carried, and what
+  an entry holds inside itself is (`rebuilt`). So a hand-spaced file is moved and removed all the same.
+- Each answers its undo as a `range` over the changed bytes, so Undo stays an ordinary `range` and never moves. The view
+  sends all three (§ The view); the bot's tools do not (it keeps `delete_block` and the rest), and a `move` that reached the
+  tools' own planner would be refused as a heading (`storeRefusal`, `src/engine/tools/write.ts`).
+- A body that is not one of the seven (a missing id, a `version` that is not a string, `before` neither a string nor `null`)
+  is `400 unreadable` (`isEdit`).
+
+Proven by `tests/store.test.ts` "move, remove and clear name an entry or a day, and the engine does the bytes (GM,
+2026-11-19)", "a hand-spaced file is moved and removed all the same, and each edit undoes by a range", "move, remove and
+clear are applied through the store with an undo that restores the file"; and `tests/routes.test.ts` "takes move, remove
+and clear by entry id and day version, and answers each with an undo that restores the day".
 
 Every saved edit answers the edit that undoes it. **The answer is built and measured before the write** (`planEdit`, then
 `writeDay`): when the day with the undo would be over `REPLY_BUDGET` (a large change of control characters), the edit is
@@ -340,7 +393,7 @@ Shared schema parts (`$defs` written out in each tool's schema; each `descriptio
 |---|---|---|
 | `read_days` | `from` (date, required), `to` (date) | Reads `from` to `to` (`to` defaults to `from`), at most `READ_MAX_DAYS` (31) days and `READ_MAX_CHARS` (60,000) characters, and `REPLY_BUDGET` bytes as JSON (each day counted twice: its sentences and its `structuredContent`): whole days from `from` until the next would not fit, and then says where to read on |
 | `add_entry` | `date`, `text` (required); `time`; `title` (string, at most 80 characters, one line; required when there is no `time`, else refused `untimed`); `version` (null for a day with no page; checked when given); `future` (boolean) | A new entry `## time`, `## time · title` or `## title` with `text` as its body: with a time, placed before the first later entry; with none, at the end of the day; makes the day's page when it has none |
-| `replace_block` | `date`, `version`, `entry` (an entry's id, the pattern of a key), `block` (text), `text` (required); `nth` (integer from 1); `future` (boolean) | The block under the entry `entry` whose whole text is `block` becomes `text`. The entry's heading is a block too: replacing it gives the entry a new time or title, or takes its time off (`## Title`) |
+| `replace_block` | `date`, `version`, `entry` (an entry's id, the pattern of a key), `block` (text), `text` (required); `nth` (integer from 1); `future` (boolean) | The block under the entry `entry` whose whole text is `block` becomes `text`. The entry's heading is a block too: replacing it gives the entry a new time or title, or takes its time off (`## Title`); a new time moves the entry, writing and all, to where that time falls, and the answer names it there (§ The data, Order) |
 | `delete_block` | `date`, `version`, `entry`, `block` (required); `nth`, `future` | Removes that block and the blank line after it |
 | `insert_after` | `date`, `version`, `entry`, `block`, `text` (required); `nth`, `future` | New writing after that block, under the same entry |
 
@@ -457,7 +510,7 @@ module-level variable holds a day, a session, a listener or a timer, so two moun
 - **Journal**, the running journal, newest first: today, always, then only the days that have a page (GM, 2026-11-09: no
   row per empty day). The recent days, today and the six before it (`RECENT_DAYS`, `recentDays`), are read at once; older
   pages `PAGE_BATCH` (10) at a time from `GET pages`, read on as the person nears the foot, or with Earlier pages
-  (`src/view/feed.ts`). Today with no page is one line: its date, named Today, and Start today's page. Between two days
+  (`src/view/feed.ts`). Today with no page is one line: its date, named Today, and Start today's page, unseen until that line is pointed at (`.day.gap .add-entry`). A page left with only its date line (its last entry deleted, or the day removed) is that line too: it has no page (`hasPage`). Between two days
   that are not next to each other, a gap marker offers only Add a page (a plus and its
   words; no count of the days, GM 2026-11-09): one day between, that day at once; more, a strip of those days, newest
   first, `STRIP_DAYS` (7) at most, then Other day… for the calendar held to the gap. A day not shown that gains a page, from anyone, is drawn in.
@@ -484,9 +537,84 @@ strip. Every icon's button is named for readers (`aria-label`) and hinted (`titl
 strokes in the text's colour. **Delete is a bin on the block being written in**, at its top right corner (`src/view/bar.ts`,
 GM 2026-11-09: where the eye already is, not in the bar), seen at 30px and pressed in 44; it goes when the writing closes.
 
-**An entry with or without a time.** A new entry's time is filled in with now; the writing bar's No time takes it off (the
-title then opens, and holds the entry) and Add time puts it back; an entry's heading, opened for writing, offers the same.
-An entry with no time keeps its margin empty and its title where every title sits.
+**An entry with or without a time.** A new entry's time, when it has one, is filled in with now; the writing bar's No time
+takes it off (the title then opens, and holds the entry) and Add time puts it back; an entry's heading, opened for writing,
+and any of its writing offer the same (`timed`, `setTimed`, `bodySpec`, `src/view/specs.ts`). An entry with no time keeps its
+margin empty and its title where every title sits. Nothing written, not even a title, saves nothing, with a time or without
+(`entryDraft`, `src/view/drafts.ts`). Proven by the mount test "a new entry can be written with no time: No time takes it
+off and opens the title, Add time puts it back" and "an entry with no time keeps the margin empty and its title where every
+title sits".
+
+**The foot of a day** (`addZone`, `src/view/days.ts`): under a day's last entry, a faint + while the day is pointed at, and, once
+the pointer is in that room, **+ Entry** (`journal.view.add.entry`, no time; its title holds it) and **+ Entry with time**
+(`journal.view.add.timed`, the time now), each full only when pointed at itself and both at one faint strength until then. It
+is hidden while an entry is being written at the foot (the day is `drafting`, read from the page, so a save that patches the
+day brings it back). A day's page is made by Add a page and Start this page (and a press anywhere on a day with no page in
+Day), each opening an entry with no time (`entryDraft(…, false)`). Proven by the mount test above, and `tests/view/days.test.ts`
+"Add an entry comes back once a new entry is saved: the day is no longer drafting"; `tests/view/touch.test.ts` "Add an entry
+starts its words where an entry’s text starts, on both layouts" holds its place on both layouts.
+
+**Remove this day** (`removeDay`, `src/view/journal.ts`): at the end of a day's date line, shown only while that line is
+pointed at, taking no room. It asks through `host.confirm` ("Remove {date}?", how many entries go, "Remove the day"); on yes it
+saves any writing open, then sends **one `clear`** naming the day's `version` the view last read, so one Undo puts the whole
+day back. The day stays on the sheet as a day with no page (`placed`) until the journal is drawn again, so Undo's patch finds
+it and the journal does not close up round it; a refused `clear` leaves the day as it was and says why. Proven by
+`tests/view/remove.test.ts` "Remove this day clears it by the version seen, keeps it on the sheet with no page, and Undo
+brings it back", "a clear the engine refuses leaves the day as it was, with the reason said", and `tests/view/days.test.ts`
+"a day with writing offers to remove it; one emptied becomes a day with no page".
+
+**Removing an entry** names it by its id and sends a `remove` (`headingSpec`, `src/view/specs.ts`): Delete on an entry's
+heading takes the whole entry, and so does emptying the only writing of an entry that has a time and no title, a time alone
+being no entry, where the cursor lands on where its heading was (`emptiedEntry`, `bodySpec`). Proven by
+`tests/view/remove.test.ts` "Delete on an entry’s heading removes the entry by its id, writing and all", "emptying the only
+writing of an entry with a time and no title removes the entry, by its id", "a hand-spaced file loses the entry as well: the
+engine finds the bytes, not the view".
+
+**Drag to reorder** (`createDrag`, `src/view/drag.ts`): only an entry with no time has a handle (a button in the margin,
+`journal.view.move.handle`), since a timed entry's place is its time. The places offered are `placesFor`'s (§ The data), so
+the view and the engine agree on them. A press that moves 4px (`LIFT_PX`) lifts the entry; letting go sends one
+`move` naming the entry and the entry it now goes in front of (`before` is `null` past the last), built by `moveEditOf`
+(`src/view/move.ts`), one Undo; letting go where it began sends nothing. Escape, a cancelled or lost pointer, the window
+losing focus, the handle losing focus, or unmount puts it back and saves nothing. From the keyboard Space or Enter lifts,
+Up and Down choose the place and Enter drops, said through a polite live region (`journal.view.move.*`). Proven by
+`tests/view/drag.test.ts` (each of the above, one test apiece: "Space lifts and says so, Down moves and says where, Enter
+drops: one move edit that names the entry and what it goes before", "a press holds the pointer, and a move under 4px is
+still a click; past it, the entry lifts", "letting go lower down drops it there: one move edit, before the entry that is
+nearest", "unmount mid-lift leaves no copy, no line and no listener, and saves nothing", and the rest) and
+`tests/view/move.test.ts` "names the entry and the one it goes in front of, by id", "a drop past the last entry is the end of
+the day", "nothing to send where the entry already is, or for a place that is not one"; `tests/view/days.test.ts` "only an
+entry with no time has one: a timed entry keeps its place by its time".
+
+**Print…** (`createPrint`, `src/view/print.ts`) is drawn in the toolbar beside Add a page only when the host gives `print`
+(`printerOf`): no disabled control and no hint otherwise. It opens a panel under the control: the colours first (three small
+sample pages: black and white, the theme light, the theme dark; kept per device in `store` under `printLook`), then what to
+print (the day on screen, a range of days, or everything), and a choice with nothing in it says "Nothing to print" and cannot
+be pressed. The element handed over is `journal journal-print` built for paper (`printContent`), the days that have a page,
+oldest first, read through the Journal's own routes within `MAX_RANGE_DAYS` and `MAX_PAGES` (`daysToPrint`); its rules for
+paper are `&.journal-print` in `src/view/css/print.css`. `print` is not yet in the vendored contract, so `PrintAsk` (`src/view/print.ts`) is
+the proposal's word for word, and the Journal stays on seam 2. What was built, and the pattern other plugins can reuse, is
+`docs/handover/print-pattern.md`; this page does not repeat it. Proven by `tests/view/print.test.ts`: "no Print control at all
+when the host cannot print", "This day prints the day on screen, under its date, with links as words and no control in it", "a
+range prints the days in it that have a page, oldest first", "Everything prints every page, oldest first, read a batch at a time",
+"the colours: black and white by default; the theme, light or dark, carries its mode; the choice is kept", "a choice with
+nothing to print says so and cannot be pressed: the day on screen, or all of them with no pages", "the control waits while
+printing; a print that cannot start is said, a cancelled one is not"; and `tests/view/build.test.ts` "built stylesheet check
+(a build rule, read from the output): nclite's at-rules only (@media, @supports, @container, its own keyframes), url() only
+to data:" (no `@page`).
+
+**Hover controls show at two strengths**: `--journal-faint` (0.3) where a control is offered and `--journal-hint` (0.55) once the
+pointer is in its place, and full only when pointed at itself (the drag handle, Remove this day, the gap's Add a page, the
+foot of a day, Start this page). With no hover (`@media (hover: none)`) each shows without it, in the
+strength its rule gives (the handle faint, Start this page at the hint strength, the rest in full), and Remove this day
+without its words. These are CSS only and held by no test (§ Not covered).
+
+**Writing in place, three details.** Typing `> ` straight under a quote carries that quote on, as one bar, and starts one
+otherwise (`convert`, `src/view/editor-keys.ts`). Quotes are set upright, marked by their bar, so an italic on the page is
+only the writer's own emphasis (`.block blockquote`, `src/view/css/sheet.css`). **Backspace at the start of a paragraph joins
+it to the one above by sending a `range` the view builds** from the two blocks' text and one blank line between
+(`merge`, `bodySpec`, `src/view/specs.ts`): it is anchored to bytes the view has just read, so on a file whose blocks are
+spaced otherwise it is refused `changed` and nothing is saved, unlike `move`, `remove` and `clear`, which the engine plans
+from the file. No test drives it (§ Not covered).
 
 **Add a page** (`+`) asks which day (the calendar, § Asking for a day) and opens a new entry on it, in its place:
 on the running journal a day not shown is drawn where it falls; in Day, that day is shown. **The place is kept** per bot on
@@ -501,13 +629,14 @@ saves; a to-do ticks and saves at once; Undo is a toast inside `root`.
 
 | Member | The Journal's use |
 |---|---|
-| `api` | `days?from=…&to=…` (GET, followed by `next` until the range is read), `pages?before=…&limit=…` (GET, one batch at a time) and `edit` (POST, `content-type: application/json`), paths with no leading `/`; a reply with status 400 or more is a problem (§ Routes) |
+| `api` | `days?from=…&to=…` (GET, followed by `next` until the range is read), `pages?before=…&limit=…` (GET, one batch at a time) and `edit` (POST, the seven edits of § Routes: the view sends `replace`, `insert`, `entry`, `range` (an undo, and Backspace's join, below), `move`, `remove` and `clear`, `content-type: application/json`), paths with no leading `/`; a reply with status 400 or more is a problem (§ Routes) |
 | `events` | `{ date }` of a day shown reads that day again; of an older day the running journal reaches but does not show, draws its new page in; `{}` reads every day shown again, after a draw under way (one before the first draw lands reads nothing: "an event of {} that comes before the first draw settles (the host says one as its stream opens) throws nothing and reads nothing twice"); any other ref is ignored |
 | `chat` | `add(chip)` for a block's Add to chat in the writing bar (a `block` chip); nothing is staged by `attach`; no `send` |
 | `settings` | Nothing |
 | `notify` | A refused save or tick (`error`), and a reveal it cannot show. A refused save that is a clash stays in the writing bar with its two choices instead |
-| `confirm` | Only from `leave()`, when writing could not be saved |
+| `confirm` | From `leave()`, when writing could not be saved, and from Remove this day, before a whole day goes (above) |
 | `store` | The place, under `place`: `{ view, date, on }` (§ above). It may lose anything: a lost or unreadable place is the first-time one |
+| `print` | Optional: `print({ title, content })`, once a choice is pressed in the Print panel (above); a rejection is said through `notify`, a cancel is not. Read through `printerOf`, since the vendored contract does not carry it yet |
 | `imageRoute` | Nothing |
 | `pageChanged` | Called once the first draw settles, then each time `pageChip()` would answer otherwise; never from `unmount` or after (§ below, `pageChip()`) |
 
@@ -554,8 +683,10 @@ by hand in `npm run dev` (README).
 
 ## The look
 
-`view/journal.css`: every selector under `.journal` (a class `.journal` or `.journal-…`), custom properties `--journal-*`, no
-`@import`, no `url()` but `data:`, no `@font-face`: nclite refuses a stylesheet that breaks this (`docs/plugins.md` § A guest in
+`view/journal.css`, built from `src/view/journal.css`, which is an index of `@import`s of the partials in `src/view/css/`
+(the index lists them, by concern: the root's tokens, the sheet, writing in place, the bar, drag, the phone layout, print) that the build
+bundles into the one stylesheet (`readStylesheet`, `tests/view/css.ts`, reads the index with its partials for the tests that hold the CSS). The built stylesheet has: every selector under `.journal` (a class `.journal` or `.journal-…`), custom properties `--journal-*`, no
+`@import`, no `url()` but `data:`, no `@font-face`, no `@page`: nclite refuses a stylesheet that breaks this (`docs/plugins.md` § A guest in
 the app's page). The view reads the contract's `HOST_PROPERTIES` and nothing else of the page, and keeps the proof's warm
 paper as its own look when the host sets none.
 
@@ -579,9 +710,11 @@ paper as its own look when the host sets none.
 | `--journal-hover` | `var(--host-surface-sunken)` | `light-dark(#f4ecdf, #25211e)` |
 | `--journal-fresh` | `color-mix(in oklab, var(--journal-page) 90%, var(--host-accent) 10%)`: a block just changed or revealed (22% failed the contrast rule with the host's values: muted text Lc 53.6 in light, links Lc 43.8 in dark) | `light-dark(#f3dfc1, #3b2d22)` |
 | `--journal-rule`, `--journal-field-line` | `var(--host-line)`, `var(--host-line-strong)` | `light-dark(#e4d8c4, #332d29)`, `light-dark(#d8c8b0, #463f3a)` |
-| `--journal-ink`, `--journal-ink-soft` | `var(--host-ink)`, `var(--host-ink-muted)` | `light-dark(#2a241e, #ece5da)`, `light-dark(#6f5f4a, #c6baac)` |
+| `--journal-ink`, `--journal-ink-soft` | The writing's inks, **a step lighter** than the host's: `var(--host-ink)` and `var(--host-ink-muted)` each mixed with 12% white (`color-mix(in oklab, … 88%, #fff 12%)`); the muted ink is lifted only in the dark, since on light paper a step lighter falls under Lc 60 | the same mixes of `light-dark(#2a241e, #ece5da)`, `light-dark(#6f5f4a, #c6baac)` |
+| `--journal-chrome-ink`, `--journal-chrome-soft` | The controls on the paper (Add an entry, Add a page, Earlier pages, the writing bar), in the host's own inks, not lifted: `var(--host-ink)`, `var(--host-ink-muted)` | `light-dark(#2a241e, #ece5da)`, `light-dark(#6f5f4a, #c6baac)` |
+| `--journal-app-*` (`bg`, `ink`, `line`, `field`, `raised`, `muted`, `line-strong`) | The toolbar, in the host's own grounds and inks: `var(--host-canvas)`, `--host-ink`, `--host-line`, `--host-surface`, `--host-surface-sunken`, `--host-ink-muted`, `--host-line-strong` | the proof's warm values, each a `light-dark()` pair |
 | `--journal-body` | `color-mix(in oklab, var(--journal-ink) 82%, var(--journal-page) 18%)`: the writing, one step softer than the ink, so an entry's title (in the ink) stands over it | the same mix of the Journal's own |
-| `--journal-date-ink`, `--journal-link` | `var(--host-accent-strong)` | `light-dark(#8a4320, #f2a77c)`, `light-dark(#9b4519, #ff9a66)` |
+| `--journal-date-ink`, `--journal-link` | `var(--host-accent-strong)` mixed with 12% white, as the inks are | `light-dark(#8a4320, #f2a77c)`, `light-dark(#9b4519, #ff9a66)` |
 | `--journal-fill`, `--journal-fill-hover`, `--journal-on-fill` | `var(--host-accent-fill, var(--host-accent))`, `var(--host-accent-fill-hover, var(--host-accent-strong))`, `var(--host-on-accent)`: Done and the view shown | nclite's own warm rust, `light-dark(#c4501f, #d2602f)` and its hover `light-dark(#ac461b, #b95429)`, white on them |
 | `--journal-focus` | `var(--host-focus, var(--host-accent))` | `light-dark(#c4501f, #ff8a4f)` |
 | `--journal-warn`, `--journal-shadow` | The Journal's own, whatever the host sets | the proof's |
@@ -589,7 +722,8 @@ paper as its own look when the host sets none.
 Each token is declared on `.journal` with its host form, whose `var()` falls back to the right-hand column. **Contrast**: ink
 and soft ink on desk, page, field, hover and fresh meet APCA Lc 60, and date ink and links Lc 45, for the host values of
 nclite's table (the board spec's § Theme and host styling) in light and dark, and for the Journal's own: the mixes stay small
-enough that the host's own pairs carry over. Proven by JR_04 `tests/view/colours.test.ts` (its own APCA-W3 0.0.98G-4g, a test
+enough that the host's own pairs carry over, and the controls' inks (`--journal-chrome-ink`, `--journal-chrome-soft`) meet Lc 60 on page,
+field and hover. Proven by JR_04 `tests/view/colours.test.ts` (its own APCA-W3 0.0.98G-4g, a test
 helper): "every pair meets its tier with the host's values and without them, light and dark", "the stylesheet reads only host
 properties of the contract's list", "every rule is under .journal".
 
@@ -671,4 +805,13 @@ compiles alone with the DOM types", "a host that gives the contract's PluginHost
 - The caret, focus, layout and typing need a real browser, which this repo's fake DOM is not; nclite's smoke rows walk them.
 - A day the person and the bot change in the same second: each change is anchored, so the second is refused, never merged;
   the person sees the refusal, and the bot reads again.
+- How the view's controls look and show: the two hover strengths and how they show with no hover (`--journal-faint`,
+  `--journal-hint`, `@media (hover: none)`), Start this page being unseen until pointed at, quotes set upright, and the drag's
+  handle, line and glide on a real screen. `tests/view/drag.test.ts` holds what drag sends and says, not how it looks.
+- `> ` carrying a quote on (`convert`, `src/view/editor-keys.ts`): `tests/view/dom-tree.test.ts` holds that `> ` is a marker,
+  nothing holds what it does under a quote.
+- Backspace's paragraph join (`merge`, `bodySpec`), which still sends a `range` the view builds, so it is refused `changed` on a
+  hand-spaced file (§ The view). Moving it into the engine as an edit of its own is a code change, and is not made here.
+- A page's print on paper: `tests/view/print.test.ts` holds what is handed to `host.print`; how the host's window sets it
+  is the host's (`docs/handover/print-pattern.md`).
 - Moving the notes out of the workspace, a lock, and a journal for more than one person (nclite PLAN, Out of Scope).

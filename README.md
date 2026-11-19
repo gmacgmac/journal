@@ -20,6 +20,6 @@ There are no runtime dependencies; Vite, TypeScript and `@types/node` are exact-
 
 ## Layout
 
-- `src/engine/` the engine (`createEngine`) · `src/view/` the view (`mount`) and `journal.css`
+- `src/engine/` the engine (`createEngine`) · `src/view/` the view (`mount`); its stylesheet is `journal.css`, an index of the partials in `src/view/css/`
 - `src/seam.ts` the seam number · `src/seam-types.ts` the source of `plugin.d.ts`
 - `src/vendor/markdown/` the synced copy (never edit by hand) · `skill/` · `words/` · `bin/` · `tests/` · `docs/`
