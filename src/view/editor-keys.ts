@@ -180,7 +180,7 @@ function paste(s: Session, target: EventTarget | null, raw: string): void {
 function convert(p: HTMLElement, { ordered = false, todo = false, quote = false }, caret = 0): void {
 	if (quote) {
 		// Straight under a quote, it carries that quote on (one bar); else it starts one. Typed on an empty line, the
-		// paragraph keeps a line to stand on, so the caret stays in it (GM, 2026-11-19: it jumped to the line above).
+		// paragraph keeps a line to stand on: an empty one has no height, and the caret would land on the line above (GM, 2026-11-19).
 		const above = p.previousElementSibling;
 		if (above?.tagName === 'BLOCKQUOTE') above.append(p);
 		else {

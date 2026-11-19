@@ -24,7 +24,7 @@ describe('the built view', () => {
 	});
 	after(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
-	it('keeps nclite\'s stylesheet rules: no at-rule but @media, @supports, @container (and its own keyframes), url() only to data:', () => {
+	it('built stylesheet check (a build rule, read from the output): nclite\'s at-rules only (@media, @supports, @container, its own keyframes), url() only to data:', () => {
 		const at = [...css.matchAll(/@([a-z-]+)/g)].map((m) => m[1]!);
 		assert.deepEqual([...new Set(at)].filter((a) => !['media', 'supports', 'container', 'keyframes'].includes(a)), [], 'no @page, @import or @font-face');
 		const urls = [...css.matchAll(/url\(\s*['"]?([^'")\s]*)/g)].map((m) => m[1]!);

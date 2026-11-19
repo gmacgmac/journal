@@ -177,8 +177,8 @@ export function patchDay(day: Day, section: Element | null, fresh: boolean, hint
 		}
 		prev = node;
 	}
-	// Writing a new entry hides Add an entry; once it is saved or gone, Add an entry is back (GM, 2026-11-19: it stayed
-	// hidden until a reload).
+	// Writing a new entry hides Add an entry; once that entry is saved or gone, it is back. Read from the page, since a
+	// save patches the day without the draft knowing (GM, 2026-11-19).
 	section.classList.toggle('drafting', section.querySelector('.entry-draft') !== null);
 	if (isBroken(day)) readOnly(section);
 	return stats;

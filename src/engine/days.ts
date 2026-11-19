@@ -1,17 +1,16 @@
 // Days as the person's routes and the chips see them: a day file read and worded (`Day`, the spec's § Routes), and a range
 // read in whole days up to a budget of characters and of answer bytes.
-import { checkDay, dateTitle, daysBetween, isDate, keyedBlocks, addDays } from '../format/index.ts';
+import { MAX_PAGES, MAX_RANGE_DAYS, checkDay, dateTitle, daysBetween, isDate, keyedBlocks, addDays } from '../format/index.ts';
+
+export { MAX_PAGES, MAX_RANGE_DAYS };
 import type { Day } from '../seam-types.ts';
 import { REPLY_BUDGET, TOO_BIG_VARS, datesWithPages, jsonBytes, readDayFile, version, type DayFile } from '../store/index.ts';
 import { problemText, word } from './words.ts';
 
-/** The most days one `GET days` may ask for. */
-export const MAX_RANGE_DAYS = 93;
 /** What one `GET days` answer may hold: characters of day text, and bytes as JSON; always at least one day. */
 export const DAYS_MAX_CHARS = 300000;
 export const DAYS_BUDGET: ReadBudget = { chars: DAYS_MAX_CHARS, bytes: REPLY_BUDGET };
-/** The most pages one `GET pages` may ask for, and how many it gives when it is not told. */
-export const MAX_PAGES = 31;
+/** How many pages one `GET pages` gives when it is not told. */
 export const PAGES_DEFAULT = 10;
 
 /** `date`'s day as the routes answer it, from what is at its path. */

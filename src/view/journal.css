@@ -173,7 +173,7 @@
 	.print-choices { display: flex; flex-direction: column; gap: 1px; }
 	.print-menu .print-choices button { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 8px 10px; text-align: left; }
 	.print-note { color: var(--dp-muted); font-variant-numeric: tabular-nums; }
-	.print-more { font-size: 1.2em; line-height: 1; }
+	.print-more { display: flex; }
 	.print-menu .print-choices button:disabled { cursor: default; color: var(--dp-muted); }
 
 	/* ─── The open journal ──────────────────────────────────────────────────── */
@@ -215,7 +215,8 @@
 	.day.gap header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
 	.day.gap .today-mark { flex-basis: 100%; }
 	.day.gap h2 { flex: 1; margin: 0; padding: 0; border: 0; font-size: var(--journal-rem); font-weight: 400; color: var(--journal-ink-soft); }
-	.day.gap.today { margin-bottom: 36px; }
+	/* Room under today, as padding, so pointing anywhere above the divider below it is pointing at today. */
+	.day.gap.today { margin-bottom: 0; padding-bottom: 36px; }
 	.day.gap.today h2 { font-size: var(--journal-date-size); font-weight: 600; color: var(--journal-date-ink); }
 	.sheet[data-view='day']:has(> .day.gap:not(.drafting)) { cursor: text; }
 	/* Alone in Day, or being started: a day with no page wears the full date heading. */
@@ -223,7 +224,12 @@
 		padding-bottom: 8px; border-bottom: 1px solid var(--journal-rule);
 		font-size: var(--journal-date-size); font-weight: 600; color: var(--journal-date-ink);
 	}
-	.day.gap .add-entry { margin: 0; }
+	/* Start today's page: unseen until the day's place is pointed at, then faint, full only when pointed at itself, as
+	   every control that shows on hover is. Alone in Day, the page is the place, so it is always faintly there. */
+	.day.gap .add-entry { margin: 0; opacity: 0; }
+	.day.gap:hover .add-entry, .day.gap:focus-within .add-entry, .sheet[data-view='day'] .day.gap .add-entry { opacity: var(--journal-faint); }
+	.day.gap .add-entry:hover, .day.gap .add-entry:focus-visible { opacity: 1; }
+	@media (hover: none) { .day.gap .add-entry { opacity: var(--journal-hint); } }
 	.day.gap.drafting .add-entry { display: none; }
 	.day.gap.drafting { margin-bottom: 44px; }
 	.day.gap.drafting .entries { margin-top: 12px; }
@@ -295,7 +301,7 @@
 	.block li::marker { color: var(--journal-date-ink); font-size: 0.8em; }
 	.block li + li { margin-top: 0.15em; }
 	/* A quote is marked by its bar, and set upright: italics on the page are only the writer's own emphasis, so the bar's
-	   Italic does what it shows (GM, 2026-11-19: a quote set italic by the page could not be made upright). */
+	   Italic does what it shows: a quote the page set italic could not be made upright (GM, 2026-11-19). */
 	.block blockquote { margin: 0; padding-left: 14px; border-left: 2px solid var(--journal-field-line); }
 	.block a { color: var(--journal-link); text-decoration-thickness: 1px; text-underline-offset: 2px; }
 	.block code, .block pre { font: 0.88em/1.5 var(--journal-mono); }

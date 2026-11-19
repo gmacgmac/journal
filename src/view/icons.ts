@@ -11,6 +11,7 @@ const ICONS = {
 	send: ['M20.5 3.5L3.5 10.5l7 2.5 2.5 7 7.5-16.5z', 'M10.5 13l4.5-4.5'],
 	// Six dots, two columns of three: a stroke of no length with round ends is a dot.
 	grip: ['M9 6h.01', 'M15 6h.01', 'M9 12h.01', 'M15 12h.01', 'M9 18h.01', 'M15 18h.01'],
+	chevron: ['M9.5 6l6 6-6 6'],
 	print: ['M7 9V4h10v5', 'rect:4,9,16,8,2', 'M7 14h10v6H7z'],
 	trash: ['M4 7h16', 'M9 7V4.5h6V7', 'M6 7l1 13h10l1-13', 'M10 11v5.5', 'M14 11v5.5'],
 } as const;

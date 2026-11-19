@@ -97,8 +97,8 @@ function planReplace(date: string, text: string, e: Extract<Edit, { op: 'replace
 }
 
 /**
- * `text` with the entry whose heading is block `index` moved into time order, as a new entry is placed (GM, 2026-11-19: a
- * time changed to a later or earlier one moves its entry there). An entry with no time, or one already between the entries
+ * `text` with the entry whose heading is block `index` moved into time order, as a new entry is placed: a time changed to a
+ * later or earlier one moves its entry there (GM, 2026-11-19). An entry with no time, or one already between the entries
  * timed before and after it, stays where it is.
  */
 function inTimeOrder(text: string, index: number): string {

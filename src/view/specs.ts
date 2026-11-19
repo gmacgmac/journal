@@ -114,7 +114,7 @@ export function headingMarkdown(time: Pick<Node, 'textContent'>, title: Node | n
 	const words = title === null ? '' : inlineMarkdown(readInlines(title)).trim();
 	const named = words === '' ? null : words;
 	// A title is one line of words: one that starts like a list, a quote or a heading is writing typed in the wrong place
-	// (GM, 2026-11-19: "- milk" in a title was saved as the heading "## - milk").
+	// ("- milk" typed as a title would be saved as the heading "## - milk"; GM, 2026-11-19).
 	if (BLOCKISH_RE.test((title?.textContent ?? '').trim())) return { problem: say('journal.view.write.titleShape') };
 	if (t === '') {
 		// No time: the title holds the entry, and must read back as a title (not start like a time).

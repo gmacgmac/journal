@@ -10,11 +10,12 @@
 //
 // `print` is an optional member nclite is adding to the contract (`PrintAsk`, below, is its proposal word for word). Until
 // the vendored contract carries it, the Journal reads it through `printerOf`, and nothing else here changes when it does.
-import { addDays, dateTitle, entryOf } from '../format/index.ts';
+import { MAX_PAGES, MAX_RANGE_DAYS, addDays, dateTitle, entryOf } from '../format/index.ts';
 import { HOST_PROPERTIES, type PluginHost, type PluginStore } from '../vendor/plugin-host/plugin-host.ts';
 import { hasPage, writingOf } from './days.ts';
 import { dayMonth, shortDate } from './dates.ts';
 import type { DayPicker } from './day-picker.ts';
+import { icon } from './icons.ts';
 import { el, renderMarkdown } from './render.ts';
 import type { Day, Routes } from './wire.ts';
 import { say } from './words.ts';
@@ -65,10 +66,8 @@ const THEME_PROPERTIES = HOST_PROPERTIES.filter((p) => p !== '--host-text-scale'
 /** What the person chose to print. */
 export type PrintChoice = { kind: 'day'; date: string } | { kind: 'range'; from: string; to: string } | { kind: 'all' };
 
-/** The most days one `GET days` may ask for (the engine's `MAX_RANGE_DAYS`); a longer range is read in parts. */
-const RANGE_PART = 93;
-/** Pages read a batch at a time for everything (the engine's `MAX_PAGES`), and the date read before: past any page. */
-const PAGES_PART = 31;
+/** The date everything is read before: past any page. A longer range, and every page, are read in parts within the routes'
+ * limits (`MAX_RANGE_DAYS`, `MAX_PAGES`). */
 const NO_LATER = '9999-12-31';
 
 /** The days `choice` names that have a page, oldest first, as a printed journal reads; or why they could not be read. */
@@ -76,7 +75,7 @@ export async function daysToPrint(routes: Routes, choice: PrintChoice): Promise<
 	const days: Day[] = [];
 	if (choice.kind === 'all') {
 		for (let before: string | null = NO_LATER; before !== null;) {
-			const r = await routes.pages(before, PAGES_PART);
+			const r = await routes.pages(before, MAX_PAGES);
 			if (!r.ok) return r;
 			days.push(...r.days);
 			before = r.next;
@@ -84,8 +83,8 @@ export async function daysToPrint(routes: Routes, choice: PrintChoice): Promise<
 		days.reverse();
 	} else {
 		const [from, to] = choice.kind === 'day' ? [choice.date, choice.date] : [choice.from, choice.to];
-		for (let at = from; at <= to; at = addDays(at, RANGE_PART)) {
-			const end = addDays(at, RANGE_PART - 1);
+		for (let at = from; at <= to; at = addDays(at, MAX_RANGE_DAYS)) {
+			const end = addDays(at, MAX_RANGE_DAYS - 1);
 			const r = await routes.days(at, end < to ? end : to);
 			if (!r.ok) return r;
 			days.push(...r.days);
@@ -251,7 +250,7 @@ export function createPrint(d: PrintDeps) {
 			const moveFocus = b === document.activeElement;
 			b.disabled = true;
 			const note = b.querySelector('.print-note')!;
-			note.textContent = say('journal.view.print.empty');
+			note.replaceChildren(say('journal.view.print.empty'));
 			note.classList.remove('print-more');
 			note.removeAttribute('aria-hidden');
 			if (moveFocus) [...choices.querySelectorAll<HTMLButtonElement>('button')].find((x) => !x.disabled)?.focus();
@@ -265,7 +264,7 @@ export function createPrint(d: PrintDeps) {
 			el('button', [el('span', [words]), note], { type: 'button', 'data-choice': kind });
 		const choices = el('div', [
 			choice(say('journal.view.print.day'), 'day', el('span', [shortDate(day)], { class: 'print-note' })),
-			choice(say('journal.view.print.range'), 'range', el('span', ['›'], { class: 'print-note print-more', 'aria-hidden': 'true' })),
+			choice(say('journal.view.print.range'), 'range', el('span', [icon('chevron')], { class: 'print-note print-more', 'aria-hidden': 'true' })),
 			choice(say('journal.view.print.all'), 'all', el('span', [], { class: 'print-note' })),
 		], { class: 'print-choices', role: 'group', 'aria-labelledby': `${id}-what` });
 		const menu = el('div', [
