@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { createEngine } from '../src/engine/engine.ts';
 import { DAYS_MAX_CHARS, MAX_PAGES, MAX_RANGE_DAYS, PAGES_DEFAULT, dayOf, readDays, readPages } from '../src/engine/days.ts';
-import { MAX_DAY_BYTES, addDays, blocksOf, dateHeading, datesBetween, hasWriting, keyedBlocks } from '../src/format/index.ts';
+import { MAX_DAY_BYTES, addDays, blocksOf, dateHeading, datesBetween, entrySpansOf, hasWriting, keyedBlocks } from '../src/format/index.ts';
 import type { DaysAnswer, Edit, EditAnswer, RouteProblem } from '../src/seam-types.ts';
 import { dayFile, version, writeDay } from '../src/store/index.ts';
 import type { Caller, EngineReply } from '../src/vendor/plugin-host/plugin-host.ts';
@@ -81,6 +81,10 @@ describe('GET pages', () => {
 		assert.deepEqual(all.days.map((d) => d.date), bare.slice(2));
 		const rest = (await call('GET', `pages?before=${first.next}&limit=${MAX_PAGES}`))!.body as DaysAnswer;
 		assert.deepEqual(rest.days.map((d) => d.date), bare.slice(3));
+		// Older files that are all bare promise nothing: no `next` past the last real page (Fable review).
+		for (const d of bare.slice(3)) writeDay(dir, d, `${dateHeading(d)}\n`);
+		const last = (await call('GET', 'pages?before=2026-10-05&limit=1'))!.body as DaysAnswer;
+		assert.deepEqual([last.days.map((d) => d.date), last.next], [[bare[2]], undefined]);
 		// The day itself is still a file: GET days says it exists, with no blocks past its date line.
 		const one = (await call('GET', `days?from=${bare[0]}&to=${bare[0]}`))!.body as DaysAnswer;
 		assert.equal(one.days[0]!.exists, true);
@@ -213,9 +217,12 @@ describe('POST edit', () => {
 		writeDay(dir, date, text);
 		const [one, two, nine, ten] = keyedBlocks(text).filter((b) => b.text.startsWith('## ')).map((b) => b.key) as [string, string, string, string];
 		const post = async (e: Edit) => (await call('POST', 'edit', e))!;
+		/** The keys of an entry's blocks in `text`, as the view sends them for the entry it saw. */
+		const seen = (id: string) => entrySpansOf(text).find((e) => e.id === id)!.blocks.map((b) => b.key);
+		const [first, second] = keyedBlocks(text).filter((b) => b.text === 'First.' || b.text === 'Second.').map((b) => b.key) as [string, string];
 		for (const e of [
-			{ op: 'move', date, entry: one, before: null },
-			{ op: 'remove', date, entry: two },
+			{ op: 'move', date, entry: one, blocks: seen(one), before: null },
+			{ op: 'remove', date, entry: two, blocks: seen(two) },
 			{ op: 'clear', date, version: version(text) },
 		] as Edit[]) {
 			const r = await post(e);
@@ -232,21 +239,37 @@ describe('POST edit', () => {
 		assert.equal(read(date), `${dateHeading(date)}\n`);
 		writeDay(dir, date, text);
 		// Refusals carry the day as it is.
-		const gone = await post({ op: 'remove', date, entry: 'nope-0' });
+		const gone = await post({ op: 'remove', date, entry: 'nope-0', blocks: ['nope-0'] });
 		assert.equal(gone.status, 409);
 		assert.equal((gone.body as RouteProblem).code, 'changed');
 		assert.equal((gone.body as RouteProblem).day?.version, version(text));
 		const stale = await post({ op: 'clear', date, version: 'old' });
 		assert.equal((stale.body as RouteProblem).code, 'changed');
-		const order = await post({ op: 'move', date, entry: ten, before: nine });
+		// Named as seen: an entry with writing the view never saw is refused, with the day as it is.
+		const unseen = await post({ op: 'remove', date, entry: one, blocks: [one] });
+		assert.deepEqual([unseen.status, (unseen.body as RouteProblem).code], [409, 'changed']);
+		const order = await post({ op: 'move', date, entry: ten, blocks: seen(ten), before: nine });
 		assert.equal(order.status, 422);
 		assert.equal((order.body as RouteProblem).code, 'order');
 		assert.match((order.body as RouteProblem).title, /stays in time order/);
 		// A malformed one is unreadable.
-		for (const bad of [{ op: 'move', date, entry: one }, { op: 'remove', date }, { op: 'clear', date, version: 1 }, { op: 'move', date, entry: 3, before: null }, { op: 'join', date, first: 'a', second: 'b' }, { op: 'join', date, first: 'a', second: 2, text: 'x' }]) {
+		for (const bad of [{ op: 'move', date, entry: one }, { op: 'remove', date }, { op: 'remove', date, entry: one }, { op: 'remove', date, entry: one, blocks: [] }, { op: 'clear', date, version: 1 }, { op: 'move', date, entry: 3, before: null }, { op: 'join', date, first: 'a', second: 'b' }, { op: 'join', date, first: 'a', second: 2, text: 'x' }]) {
 			assert.equal((await post(bad as unknown as Edit)).status, 400, JSON.stringify(bad));
 		}
 		assert.equal(read(date), text);
+		// Join: two paragraphs side by side become one, undone by its range; a pair that cannot be joined is refused with the day.
+		const apart = await post({ op: 'join', date, first, second, text: 'First. Second.' });
+		assert.equal(apart.status, 409, 'a heading lies between First and Second: not side by side');
+		const pair = `${dateHeading(date)}\n\n## One\n\nFirst.\n\nMore.\n`;
+		writeDay(dir, date, pair);
+		const [a, b] = keyedBlocks(pair).slice(2).map((x) => x.key) as [string, string];
+		const paragraphs = await post({ op: 'join', date, first: a, second: b, text: 'First.\n\nMore.' });
+		assert.deepEqual([paragraphs.status, (paragraphs.body as RouteProblem).code, (paragraphs.body as RouteProblem).day?.version], [422, 'join', version(pair)]);
+		const ok = await post({ op: 'join', date, first: a, second: b, text: 'First. More.' });
+		assert.equal(ok.status, 200);
+		assert.equal(read(date), `${dateHeading(date)}\n\n## One\n\nFirst. More.\n`);
+		assert.equal((await post((ok.body as EditAnswer).undo)).status, 200);
+		assert.equal(read(date), pair);
 	});
 });
 

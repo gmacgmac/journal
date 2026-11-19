@@ -4,6 +4,7 @@
 // The fake DOM has no layout, so the tests that need places stack every block 40px below the last.
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
+import { entrySpans } from '../../src/format/index.ts';
 import { say } from '../../src/view/words.ts';
 import { FakeElement, fire, installDom, settle } from './fake-dom.ts';
 import { fileOf, mounted, recent } from './fake-host.ts';
@@ -27,7 +28,9 @@ async function week() {
 	const m = await mounted((h) => h.files.set(from, fileOf(from, ...WEEK)));
 	const ids = m.dayOf(from).blocks.slice(1).filter((b) => b.text.startsWith('## ')).map((b) => b.key);
 	const handles = () => all(m.root, '.drag-handle');
-	return { ...m, from, ids, handles };
+	/** The keys of an entry's blocks, as the view sends them for the entry it saw. */
+	const seen = (id: string) => entrySpans(m.dayOf(from).blocks).find((e) => e.id === id)!.blocks.map((b) => b.key);
+	return { ...m, from, ids, handles, seen };
 }
 
 /** The pointer as a browser sends it to a handle that holds the press. */
@@ -88,7 +91,7 @@ describe('drag to reorder', () => {
 			assert.deepEqual(m.calls.edits, [], 'nothing is saved until it is dropped');
 			fire(weekend, 'keydown', { key: 'Enter' });
 			await settle();
-			assert.deepEqual(m.calls.edits, [{ op: 'move', date: m.from, entry: m.ids[0], before: m.ids[2] }]);
+			assert.deepEqual(m.calls.edits, [{ op: 'move', date: m.from, entry: m.ids[0], blocks: m.seen(m.ids[0]!), before: m.ids[2] }]);
 			assert.equal(m.files.get(m.from), fileOf(m.from, '## 16:40', 'Tea.', '## Weekend', 'Leaving early.', '## Notes', 'A note.'));
 			assert.equal(voice(m.root), say('journal.view.move.dropped', { entry: 'Weekend', n: 2, count: 3 }));
 			assert.equal((q(m.root, '.toast').querySelector('span') as unknown as FakeElement).textContent, say('journal.view.move.moved'));
@@ -105,7 +108,7 @@ describe('drag to reorder', () => {
 			for (let i = 0; i < 5; i += 1) fire(weekend, 'keydown', { key: 'ArrowDown' });
 			fire(weekend, 'keydown', { key: ' ' });
 			await settle();
-			assert.deepEqual(m.calls.edits, [{ op: 'move', date: m.from, entry: m.ids[0], before: null }]);
+			assert.deepEqual(m.calls.edits, [{ op: 'move', date: m.from, entry: m.ids[0], blocks: m.seen(m.ids[0]!), before: null }]);
 			assert.equal(m.files.get(m.from), fileOf(m.from, '## 16:40', 'Tea.', '## Notes', 'A note.', '## Weekend', 'Leaving early.'));
 			m.view.unmount();
 		});
@@ -192,7 +195,7 @@ describe('drag to reorder', () => {
 			assert.ok(!q(m.root, '.drop-line').hidden, 'a line shows where it will land');
 			send(m.handle, 'pointerup', 140);
 			await settle();
-			assert.deepEqual(m.calls.edits, [{ op: 'move', date: m.from, entry: m.ids[0], before: m.ids[2] }]);
+			assert.deepEqual(m.calls.edits, [{ op: 'move', date: m.from, entry: m.ids[0], blocks: m.seen(m.ids[0]!), before: m.ids[2] }]);
 			assert.equal(m.root.querySelector('.drag-ghost'), null);
 			assert.equal(all(m.root, '.drag-source').length, 0);
 			assert.equal(m.root.querySelector('.drop-line'), null);
@@ -204,7 +207,7 @@ describe('drag to reorder', () => {
 			send(m.handle, 'pointermove', 400);
 			send(m.handle, 'pointerup', 400);
 			await settle();
-			assert.deepEqual(m.calls.edits, [{ op: 'move', date: m.from, entry: m.ids[0], before: null }]);
+			assert.deepEqual(m.calls.edits, [{ op: 'move', date: m.from, entry: m.ids[0], blocks: m.seen(m.ids[0]!), before: null }]);
 			m.view.unmount();
 		});
 

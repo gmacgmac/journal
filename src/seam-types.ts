@@ -54,8 +54,8 @@ export type Edit =
 	| { op: 'insert'; date: string; start: number; end: number; before: string; text: string }
 	| { op: 'entry'; date: string; time: string | null; title: string | null; text: string }      // no time: a title
 	| { op: 'range'; date: string; start: number; end: number; before: string; after: string }
-	| { op: 'move'; date: string; entry: string; before: string | null }                          // before: an entry id; null is the end of the day
-	| { op: 'remove'; date: string; entry: string }                                               // the entry, writing and all
+	| { op: 'move'; date: string; entry: string; blocks: string[]; before: string | null }        // blocks: the entry's keys as seen; before: an entry id, null the end
+	| { op: 'remove'; date: string; entry: string; blocks: string[] }                             // the entry as seen (its blocks' keys), writing and all
 	| { op: 'clear'; date: string; version: string }                                              // every entry; the date line stays
 	| { op: 'join'; date: string; first: string; second: string; text: string };                  // two paragraphs by key, as one: Backspace
 

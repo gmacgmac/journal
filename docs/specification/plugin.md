@@ -122,13 +122,16 @@ default `.<id>`). Inside, one file per day:
   edits name an entry by, apart from its time, so an entry with no time, or two at one time, are named all the same. A
   changed heading is a new id.
 - **The entry rules have one home**, `src/format/entries.ts`, which the engine plans by and the view draws by, so neither
-  restates them: `entrySpans` groups a day's blocks into entries (the date line belongs to none), `placesFor` says where an
-  entry may be moved to, and `hasWriting` says whether a day holds anything past its date line. Proven by `tests/format.test.ts`:
+  restates them: `entrySpans` groups a day's blocks into entries (the date line belongs to none; `entrySpansOf` from a day's
+  text), `placesFor` says where an entry may be moved to, `inOrder` and `timePlace` are time order, and `hasWriting` says
+  whether a day holds anything past its date line. Proven by `tests/format.test.ts`:
   "entrySpans groups a day into entries, each heading with the writing under it, and leaves the date line out", "entriesOf is
   the same entries, as the day reads them", "a day has writing when it holds anything but its date line".
 - **Order**: an entry with a time is placed by its time (before the first entry with a later one); one with no time stays
-  where it was put, and a new one goes at the end of the day. **An entry keeps time order when its time changes**: a heading
-  replaced with another time moves its entry, writing and all, to where that time falls (`inTimeOrder`, `src/store/edits.ts`),
+  where it was put, and a new one goes at the end of the day. Time order is strict, one entry to a time (`inOrder`): a new
+  entry or a new time at a taken one is refused `entry-exists`. **An entry keeps time order when its time changes**: a heading
+  replaced with another time moves its entry, writing and all, to where that time falls (`inTimeOrder`, `src/store/edits.ts`;
+  the day is then rebuilt as a move rebuilds it, § Routes),
   whether the person or the bot made the change; the bot's answer names the entry where it now is (`landedHeading`,
   `src/engine/tools/write.ts`). One with no time, or already between its timed neighbours, stays. `placesFor` is the same
   rule for a move: an entry with no time may go anywhere, one with a time only where the timed entries stay in order, and
@@ -228,14 +231,15 @@ journal has them, `readPages`, `src/engine/days.ts`) before `before` (not includ
 most `limit` (1 to `MAX_PAGES`, 31; `PAGES_DEFAULT`, 10, when left out), for the view's running journal. The day files are
 found by walking the year and month folders (`datesWithPages`, `src/store/folders.ts`), never through a link. `200`
 `{ "days": Day[], "next"?: "YYYY-MM-DD" }`, each day whole, under the same budget as `days` (always at least one); `next`
-is the oldest day given when older pages are left, so the view reads on with `before=next`. `400` `dates` (not a date) or
+is the oldest day given, and only when an older page with writing is left (a run of bare files promises nothing), so the
+view reads on with `before=next`. `400` `dates` (not a date) or
 `limit`. Proven by `tests/routes.test.ts`: "pages answers only the days that have a page, newest first, before a date, and says
 where to read on", "pages gives PAGES_DEFAULT when not told how many, none for an empty journal, and refuses a bad date or
 limit", "pages stops at the budget, always gives one day, and says next", "a file holding only its date line is no page, and
-reading on still reaches the older ones".
+reading on still reaches the older ones" (which also holds that older bare files give no `next`).
 
 **`POST edit`**, body one `Edit`, JSON (`src/store/edits.ts` `plan`). Four are anchored to bytes the view saw (the proof's
-edits) and three name what the person saw, and the engine does the bytes. Each is refused, never merged, when what it names
+edits) and four name what the person saw, and the engine does the bytes. Each is refused, never merged, when what it names
 has changed:
 
 ```ts
@@ -244,13 +248,13 @@ type Edit =
 	| { op: 'insert'; date: string; start: number; end: number; before: string; text: string }     // new writing after a block
 	| { op: 'entry'; date: string; time: string | null; title: string | null; text: string }       // a new entry: by time, or none and a title
 	| { op: 'range'; date: string; start: number; end: number; before: string; after: string }     // exact bytes: an undo
-	| { op: 'move'; date: string; entry: string; before: string | null }                          // before: an entry id; null is the end of the day
-	| { op: 'remove'; date: string; entry: string }                                               // the entry, writing and all
+	| { op: 'move'; date: string; entry: string; blocks: string[]; before: string | null }        // blocks: the entry's keys as seen; before: an entry id, null the end
+	| { op: 'remove'; date: string; entry: string; blocks: string[] }                             // the entry as seen (its blocks' keys), writing and all
 	| { op: 'clear'; date: string; version: string }                                              // every entry; the date line stays
 	| { op: 'join'; date: string; first: string; second: string; text: string };                  // two paragraphs by key, as one: Backspace
 // 200: { "day": Day, "undo": RangeEdit }
 // 400 "unreadable": not an Edit · 409 "changed": the bytes, entry or version moved (with day) · 422 "rules", "heading",
-//     "date-heading", "entry-exists", "order", "malformed", "too-big" (with day)
+//     "date-heading", "entry-exists", "order", "join", "malformed", "too-big" (with day)
 ```
 
 **`move`, `remove`, `clear` and `join` name an entry or a block by its id (§ The data) or the day by its `version`**, so the
@@ -258,25 +262,33 @@ view says what it wants and the engine finds the bytes (`planMove`, `planRemove`
 `src/store/edits.ts`):
 
 - `join` makes paragraphs `first` and `second` (block keys), which must stand one straight after the other, into the one
-  paragraph `text`, whatever blank lines lay between them. A missing key, or a pair not side by side, is `409 changed`; a block
-  that is not a paragraph, or `text` that is not one paragraph, is `400 unreadable` (`journal.problem.join`).
-  `tests/store.test.ts` "join: two paragraphs side by side, named by key, become the one given, however they were spaced".
+  paragraph `text`, whatever blank lines lay between them. `text` is the editor's writing, not derived from the two: the
+  person may have changed the second before pressing Backspace. A missing key, or a pair not side by side, is `409 changed`; a
+  block that is not a paragraph, or `text` that is not one paragraph, is `422 join` with the day (`journal.problem.join`).
+  `tests/store.test.ts` "join: two paragraphs side by side, named by key, become the one given, however they were spaced";
+  `tests/routes.test.ts` "takes move, remove and clear by entry id and day version…" (a join made, undone, and refused).
 
+- **`move` and `remove` name the entry as the person saw it**: its id and `blocks`, the keys of all its blocks, heading
+  first. Unless the entry holds exactly those blocks now, the edit is `409 changed` (`seenIndex`): writing the bot added to
+  an entry after the person saw it is never moved or removed unseen, and an id that has come to name another entry under the
+  same heading is not taken for it. `tests/store.test.ts` "remove and move name the entry as it was seen…";
+  `tests/view/remove.test.ts` "an entry the bot has added to since the person saw it is not removed…".
 - `move` puts entry `entry` in front of entry `before`, or at the end of the day when `before` is `null`. A missing `entry` or
   `before` is `409 changed`. A move that would put a timed entry out of time order is `422 order`
   (`journal.problem.entry-order`; `placesFor` decides), and a timed entry moves only by changing its time. A move to where
   the entry already is succeeds with the file's text untouched, to the byte.
 - `remove` takes out the entry, its heading and all its writing; a missing id is `409 changed`. `clear` takes out every entry
   of the day and leaves the date line, so the file stays; a `version` that is no longer the day's is `409 changed`. A day
-  with no page answers `409 changed` to all three.
+  with no page answers `409 changed` to `move`, `remove`, `clear` and `join` alike.
 - **The engine rebuilds the day** from its date line and each entry's own text (its first block's start to its last block's
   end), one blank line between, ending in `\n`; the spacing the file had by hand between its blocks is not carried, and what
   an entry holds inside itself is (`rebuilt`). So a hand-spaced file is moved and removed all the same.
 - Each answers its undo as a `range` over the changed bytes, so Undo stays an ordinary `range` and never moves. The view
-  sends all three (§ The view); the bot's tools do not (it keeps `delete_block` and the rest), and a `move` that reached the
-  tools' own planner would be refused as a heading (`storeRefusal`, `src/engine/tools/write.ts`).
-- A body that is not one of the eight (a missing id, a `version` that is not a string, `before` neither a string nor `null`)
-  is `400 unreadable` (`isEdit`).
+  sends all four (§ The view); the bot's tools do not (it keeps `delete_block` and the rest). Should one of their refusals
+  reach the tools' own planner, `order` is worded as a page that has moved on and `join` as writing not taken
+  (`storeRefusal`, `src/engine/tools/write.ts`).
+- A body that is not one of the eight (a missing id, `blocks` missing, empty or not strings, a `version` that is not a
+  string, `before` neither a string nor `null`) is `400 unreadable` (`isEdit`).
 
 Proven by `tests/store.test.ts` "move, remove and clear name an entry or a day, and the engine does the bytes (GM,
 2026-11-19)", "a hand-spaced file is moved and removed all the same, and each edit undoes by a range", "move, remove and
@@ -614,7 +626,7 @@ pointer is in its place, and full only when pointed at itself (the drag handle, 
 foot of a day, Start this page). With no hover (`@media (hover: none)`) each shows without it, in the
 strength its rule gives (the handle faint, Start this page at the hint strength, the rest in full), except Remove this day:
 it shows, without its words, only on the day whose date line was pressed (`revealed`, `src/view/journal.ts`; one day at a
-time, and a second press puts it away). `tests/view/remove.test.ts` "a press on a date line shows that day’s Remove this day
+time, and a second press puts it away), or when a keyboard has focused it, so it is never focused unseen. `tests/view/remove.test.ts` "a press on a date line shows that day’s Remove this day
 where nothing hovers; again puts it away; one day at a time". The strengths themselves are CSS only and held by no test
 (§ Not covered).
 

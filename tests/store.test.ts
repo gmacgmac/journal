@@ -4,12 +4,14 @@ import assert from 'node:assert/strict';
 import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { MAX_DAY_BLOCKS, MAX_DAY_BYTES, MAX_DAY_JSON_BYTES, blocksOf, dateHeading, dayPath, entriesOf, keyedBlocks as keyedBlocksOf } from '../src/format/index.ts';
+import { MAX_DAY_BLOCKS, MAX_DAY_BYTES, MAX_DAY_JSON_BYTES, blocksOf, dateHeading, dayPath, entriesOf, entrySpansOf, keyedBlocks as keyedBlocksOf } from '../src/format/index.ts';
 import type { Edit } from '../src/seam-types.ts';
 import { applyEdit, dayFile, plan, readDayFile, undoOf, version, writeDay, type Plan } from '../src/store/index.ts';
 import { DAYS, sampleDays, scratch } from './fixtures/days.ts';
 
 const DATE = '2026-10-01';
+/** The keys of entry `id`'s blocks in `text`: what the view sends as the entry it saw. */
+const seenKeys = (text: string, id: string): string[] => entrySpansOf(text).find((e) => e.id === id)?.blocks.map((b) => b.key) ?? ['gone-0'];
 const read = (dir: string, date = DATE): string => readFileSync(dayFile(dir, date), 'utf8');
 
 function replaceOf(dir: string, index: number, after: string, date = DATE): Extract<Edit, { op: 'replace' }> {
@@ -293,8 +295,8 @@ test('move, remove and clear name an entry or a day, and the engine does the byt
 	const day = (...parts: string[]) => `${dateHeading(date)}\n\n${parts.join('\n\n')}\n`;
 	const text = day('## Weekend', 'Leaving early.', '## 16:40', 'Tea.', '- one\n- two', '## Notes', 'A note.', '## 17:09', 'oh toodles');
 	const [weekend, tea, notes, late] = entriesOf(text).map((e) => e.id) as [string, string, string, string];
-	const move = (t: string, entry: string, before: string | null) => plan(date, t, { op: 'move', date, entry, before });
-	const remove = (t: string, entry: string) => plan(date, t, { op: 'remove', date, entry });
+	const move = (t: string, entry: string, before: string | null) => plan(date, t, { op: 'move', date, entry, blocks: seenKeys(t, entry), before });
+	const remove = (t: string, entry: string) => plan(date, t, { op: 'remove', date, entry, blocks: seenKeys(t, entry) });
 
 	// Moved to the end, writing and all; an untimed entry between timed ones.
 	assert.equal(textOf(move(text, weekend, null)), day('## 16:40', 'Tea.', '- one\n- two', '## Notes', 'A note.', '## 17:09', 'oh toodles', '## Weekend', 'Leaving early.'));
@@ -319,7 +321,7 @@ test('move, remove and clear name an entry or a day, and the engine does the byt
 	assert.equal(textOf(plan(date, text, { op: 'clear', date, version: version(text) })), `${dateHeading(date)}\n`);
 	assert.deepEqual([status(plan(date, text, { op: 'clear', date, version: version(`${text}x`) })), code(plan(date, text, { op: 'clear', date, version: 'x' }))], [409, 'changed']);
 	// No page to move in, or remove from, or clear.
-	for (const e of [{ op: 'move', date, entry: tea, before: null }, { op: 'remove', date, entry: tea }, { op: 'clear', date, version: 'x' }] as const) {
+	for (const e of [{ op: 'move', date, entry: tea, blocks: [tea], before: null }, { op: 'remove', date, entry: tea, blocks: [tea] }, { op: 'clear', date, version: 'x' }] as Edit[]) {
 		assert.deepEqual([status(plan(date, null, e)), code(plan(date, null, e))], [409, 'changed']);
 	}
 });
@@ -330,9 +332,9 @@ test('a hand-spaced file is moved and removed all the same, and each edit undoes
 	assert.equal(blocksOf(text).length, 7);
 	const [weekend, notes, tea] = entriesOf(text).map((e) => e.id) as [string, string, string];
 	const edits: Edit[] = [
-		{ op: 'move', date, entry: weekend, before: null },
-		{ op: 'move', date, entry: tea, before: weekend },
-		{ op: 'remove', date, entry: notes },
+		{ op: 'move', date, entry: weekend, blocks: seenKeys(text, weekend), before: null },
+		{ op: 'move', date, entry: tea, blocks: seenKeys(text, tea), before: weekend },
+		{ op: 'remove', date, entry: notes, blocks: seenKeys(text, notes) },
 		{ op: 'clear', date, version: version(text) },
 	];
 	for (const e of edits) {
@@ -353,10 +355,10 @@ test('move, remove and clear are applied through the store with an undo that res
 	writeDay(dir, DATE, before);
 	const ids = entriesOf(before).map((e) => e.id);
 	for (const e of [
-		{ op: 'move', date: DATE, entry: ids[0]!, before: null },
-		{ op: 'remove', date: DATE, entry: ids[1]! },
+		{ op: 'move', date: DATE, entry: ids[0]!, blocks: seenKeys(before, ids[0]!), before: null },
+		{ op: 'remove', date: DATE, entry: ids[1]!, blocks: seenKeys(before, ids[1]!) },
 		{ op: 'clear', date: DATE, version: version(before) },
-	] as const satisfies readonly Edit[]) {
+	] as Edit[]) {
 		const done = applyEdit(dir, e);
 		assert.ok(done.ok, e.op);
 		assert.notEqual(read(dir), before);
@@ -379,10 +381,32 @@ test('join: two paragraphs side by side, named by key, become the one given, how
 	// Refused: a key gone, a pair not side by side, a block not a paragraph, writing that is not one paragraph.
 	assert.equal(status(join(text, 'deadbeef-0', two, 'x')), 409);
 	assert.equal(status(join(text, two, one, 'x')), 409);
-	assert.equal(code(join(text, two, keyOf(text, '- a list'), 'Two. a list')), 'unreadable');
-	assert.equal(code(join(text, one, two, 'One.\n\nTwo.')), 'unreadable');
+	assert.deepEqual([status(join(text, two, keyOf(text, '- a list'), 'Two. a list')), code(join(text, two, keyOf(text, '- a list'), 'Two. a list'))], [422, 'join']);
+	assert.deepEqual([status(join(text, one, two, 'One.\n\nTwo.')), code(join(text, one, two, 'One.\n\nTwo.'))], [422, 'join']);
 	// Undone by the range it answers with.
 	const after = textOf(join(spaced, one, two, 'One.Two.'));
 	const undo = undoOf(date, spaced, after);
 	assert.equal(textOf(plan(date, after, undo)), spaced);
+});
+
+test('remove and move name the entry as it was seen: one the file has added to since, or another under the same heading, is refused (Fable review, 2026-11-19)', () => {
+	const date = '2026-11-08';
+	const day = (...parts: string[]) => `${dateHeading(date)}\n\n${parts.join('\n\n')}\n`;
+	const seenOf = (t: string, i: number) => {
+		const e = entrySpansOf(t)[i]!;
+		return { entry: e.id, blocks: e.blocks.map((b) => b.key) };
+	};
+	// The person saw "Gym / Leg day." Then the bot added a line to it.
+	const seen = day('## 09:00 · Gym', 'Leg day.', '## Notes', 'Other.');
+	const now = day('## 09:00 · Gym', 'Leg day.', 'Remember to book the physio.', '## Notes', 'Other.');
+	const gym = seenOf(seen, 0);
+	assert.equal(code(plan(date, now, { op: 'remove', date, ...gym })), 'changed', 'the added line is never removed unseen');
+	assert.equal(code(plan(date, now, { op: 'move', date, ...gym, before: null })), 'changed');
+	// As seen, it goes.
+	assert.equal(textOf(plan(date, seen, { op: 'remove', date, ...gym })), day('## Notes', 'Other.'));
+	// Three entries under one heading: B is seen, then A is removed elsewhere, and B's id now names C.
+	const three = day('## Note', 'A.', '## Note', 'B.', '## Note', 'C.');
+	const b = seenOf(three, 1);
+	const afterA = day('## Note', 'B.', '## Note', 'C.');
+	assert.equal(code(plan(date, afterA, { op: 'remove', date, ...b })), 'changed', 'C is not taken for B');
 });

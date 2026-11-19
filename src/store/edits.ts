@@ -18,15 +18,15 @@
 // A block open for writing survives a write earlier in the day (D29): when `start..end` no longer holds `before` but exactly
 // one top-level block of the day now equals it, a `replace` or an `insert` anchors to that block. A `range` never moves.
 import {
-	MAX_DAY_BLOCKS, MAX_DAY_BYTES, TIME_RE, blocksOf, checkDay, dateHeading, entryHeading, entryOf, entrySpans, keyedBlocks, kindsOf, placesFor,
-	type Problem, type SpanBlock,
+	MAX_DAY_BLOCKS, MAX_DAY_BYTES, TIME_RE, blocksOf, checkDay, dateHeading, entryHeading, entryOf, entrySpansOf, inOrder, keyedBlocks, kindsOf,
+	placesFor, timePlace, type EntrySpan, type KeyedBlock, type Problem, type SpanBlock,
 } from '../format/index.ts';
 import type { WordKey } from '../engine/words.ts';
 import type { Edit, RangeEdit } from '../seam-types.ts';
 import { dayFits } from './size.ts';
 import { version } from './store.ts';
 
-export type RefusalCode = 'unreadable' | 'changed' | 'rules' | 'heading' | 'date-heading' | 'entry-exists' | 'malformed' | 'too-big' | 'order';
+export type RefusalCode = 'unreadable' | 'changed' | 'rules' | 'heading' | 'date-heading' | 'entry-exists' | 'malformed' | 'too-big' | 'order' | 'join';
 
 /** Why an edit was not saved: its status and code, the words key that says so, and the rules broken for `rules`. */
 export interface Refusal {
@@ -110,24 +110,17 @@ function planReplace(date: string, text: string, e: Extract<Edit, { op: 'replace
  * timed before and after it, stays where it is.
  */
 function inTimeOrder(text: string, index: number): string {
-	const blocks = blocksOf(text);
-	const time = entryOf(blocks[index]!.text)?.time ?? null;
+	const heading = blocksOf(text)[index]!;
+	const spans = entrySpansOf(text);
+	const from = spans.findIndex((e) => e.blocks[0]!.start === heading.start);
+	const time = spans[from]?.time ?? null;
 	if (time === null) return text;
-	const timed = blocks.flatMap((b, i) => {
-		const t = b.kind === 'heading' ? entryOf(b.text)?.time ?? null : null;
-		return t === null || i === index ? [] : [{ i, t }];
-	});
-	const before = timed.filter((x) => x.i < index).at(-1);
-	const after = timed.find((x) => x.i > index);
-	if ((before === undefined || before.t < time) && (after === undefined || after.t > time)) return text;
-	let last = index;
-	while (blocks[last + 1] !== undefined && blocks[last + 1]!.kind !== 'heading') last += 1;
-	const entry = text.slice(blocks[index]!.start, blocks[last]!.end);
-	const [from, to] = deleteRange(text, blocks[index]!.start, blocks[last]!.end);
-	const rest = text.slice(0, from) + text.slice(to);
-	const later = blocksOf(rest).find((b) => b.kind === 'heading' && (entryOf(b.text)?.time ?? '') > time);
-	if (later !== undefined) return `${rest.slice(0, later.start)}${entry}\n\n${rest.slice(later.start)}`;
-	return `${rest.trimEnd()}\n\n${entry}\n`;
+	const above = spans.slice(0, from).filter((e) => e.time !== null).at(-1)?.time;
+	const below = spans.slice(from + 1).find((e) => e.time !== null)?.time;
+	if (inOrder(time, above, below)) return text;
+	const rest = spans.filter((_, i) => i !== from);
+	rest.splice(timePlace(rest, time), 0, spans[from]!);
+	return rebuilt(text, rest);
 }
 
 function planInsert(date: string, text: string, e: Extract<Edit, { op: 'insert' }>): Plan {
@@ -160,7 +153,8 @@ function planEntry(date: string, text: string | null, e: Extract<Edit, { op: 'en
 	if (e.time === null) return checked(date, `${text.trimEnd()}\n\n${entry}\n`);
 	const time = e.time;
 	if (timesOf(blocks).includes(time)) return refuse(422, 'entry-exists', 'journal.problem.entry-exists', { time });
-	const later = blocks.find((b) => b.kind === 'heading' && (entryOf(b.text)?.time ?? '') > time);
+	const spans = entrySpansOf(text);
+	const later = spans[timePlace(spans, time)]?.blocks[0];
 	if (later !== undefined) return checked(date, `${text.slice(0, later.start)}${entry}\n\n${text.slice(later.start)}`);
 	return checked(date, `${text.trimEnd()}\n\n${entry}\n`);
 }
@@ -170,8 +164,16 @@ function planRange(date: string, text: string, e: RangeEdit): Plan {
 	return checked(date, text.slice(0, e.start) + e.after + text.slice(e.end));
 }
 
-/** The day's entries as its blocks group into them; the entry ids are the blocks' keys. */
-const spansOf = (text: string) => entrySpans(keyedBlocks(text));
+/**
+ * The entry `e` names, as the person saw it: its id, and exactly the blocks they saw under it. Null when it is gone, has
+ * changed (writing added, changed or taken away since), or the id now names another entry with the same heading.
+ */
+function seenIndex(spans: readonly EntrySpan<KeyedBlock>[], e: { entry: string; blocks: readonly string[] }): number {
+	const at = spans.findIndex((s) => s.id === e.entry);
+	if (at < 0) return -1;
+	const keys = spans[at]!.blocks.map((b) => b.key);
+	return keys.length === e.blocks.length && keys.every((k, i) => k === e.blocks[i]) ? at : -1;
+}
 
 /**
  * The day rebuilt from its date line and `spans`' own text, one blank line between: whatever spacing the file had by hand
@@ -184,8 +186,8 @@ function rebuilt(text: string, spans: readonly { blocks: readonly { start: numbe
 }
 
 function planMove(date: string, text: string, e: Extract<Edit, { op: 'move' }>): Plan {
-	const spans = spansOf(text);
-	const from = spans.findIndex((s) => s.id === e.entry);
+	const spans = entrySpansOf(text);
+	const from = seenIndex(spans, e);
 	const place = e.before === null ? spans.length : spans.findIndex((s) => s.id === e.before);
 	if (from < 0 || place < 0) return refuse(409, 'changed', 'journal.problem.changed');
 	if (!placesFor(spans, from).includes(place)) return refuse(422, 'order', 'journal.problem.entry-order');
@@ -197,23 +199,24 @@ function planMove(date: string, text: string, e: Extract<Edit, { op: 'move' }>):
 }
 
 function planRemove(date: string, text: string, e: Extract<Edit, { op: 'remove' }>): Plan {
-	const spans = spansOf(text);
-	if (!spans.some((s) => s.id === e.entry)) return refuse(409, 'changed', 'journal.problem.changed');
-	return checked(date, rebuilt(text, spans.filter((s) => s.id !== e.entry)));
+	const spans = entrySpansOf(text);
+	const at = seenIndex(spans, e);
+	if (at < 0) return refuse(409, 'changed', 'journal.problem.changed');
+	return checked(date, rebuilt(text, spans.filter((_, i) => i !== at)));
 }
 
 /**
- * Two paragraphs, straight one after the other, become the one paragraph `text` (what the editor holds: the second may
- * have been changed before Backspace). Whatever blank lines lay between them go with the join.
+ * Two paragraphs, straight one after the other, become the one paragraph `text`. `text` is the editor's writing, not
+ * derived here: the person may have changed the second paragraph before pressing Backspace. Whatever blank lines lay
+ * between them go with the join.
  */
 function planJoin(date: string, text: string, e: Extract<Edit, { op: 'join' }>): Plan {
 	const blocks = keyedBlocks(text);
 	const at = blocks.findIndex((b) => b.key === e.first);
 	if (at < 0 || blocks[at + 1]?.key !== e.second) return refuse(409, 'changed', 'journal.problem.changed');
-	const kinds = blocksOf(text);
 	const joined = tidy(e.text);
-	if (kinds[at]!.kind !== 'paragraph' || kinds[at + 1]!.kind !== 'paragraph' || kindsOf(joined).join() !== 'paragraph') {
-		return refuse(400, 'unreadable', 'journal.problem.join');
+	if (blocks[at]!.kind !== 'paragraph' || blocks[at + 1]!.kind !== 'paragraph' || kindsOf(joined).join() !== 'paragraph') {
+		return refuse(422, 'join', 'journal.problem.join');
 	}
 	return checked(date, text.slice(0, blocks[at]!.start) + joined + text.slice(blocks[at + 1]!.end));
 }
@@ -254,13 +257,14 @@ export function isEdit(e: unknown): e is Edit {
 	if (typeof e !== 'object' || e === null || Array.isArray(e)) return false;
 	const v = e as Record<string, unknown>;
 	const str = (k: string) => typeof v[k] === 'string';
+	const keys = () => Array.isArray(v.blocks) && v.blocks.length > 0 && v.blocks.every((k) => typeof k === 'string');
 	const offsets = () => Number.isSafeInteger(v.start) && Number.isSafeInteger(v.end) && (v.start as number) >= 0 && (v.end as number) >= (v.start as number);
 	if (!str('date')) return false;
 	switch (v.op) {
 		case 'replace': case 'range': return offsets() && str('before') && str('after');
 		case 'insert': return offsets() && str('before') && str('text');
-		case 'move': return str('entry') && (v.before === null || str('before'));
-		case 'remove': return str('entry');
+		case 'move': return str('entry') && keys() && (v.before === null || str('before'));
+		case 'remove': return str('entry') && keys();
 		case 'clear': return str('version');
 		case 'join': return str('first') && str('second') && str('text');
 		case 'entry': return (v.time === null || str('time')) && str('text') && (v.title === null || str('title'));

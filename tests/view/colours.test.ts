@@ -47,7 +47,7 @@ const PAIRS: [text: string, grounds: string[], lc: number][] = [
 
 const HOSTS: [string, Host][] = [['with the host’s values', HOST], ['without them', {}]];
 
-describe('the Journal’s colours', () => {
+describe('the Journal’s colours (worked out from the stylesheet source, as a browser would)', () => {
 	it('measures APCA as APCA-W3 does: black on white and white on black', () => {
 		assert.equal(apcaLc(hex('#000'), hex('#fff')).toFixed(2), '106.04');
 		assert.equal(apcaLc(hex('#fff'), hex('#000')).toFixed(2), '-107.88');

@@ -14,13 +14,13 @@ const TEXT = day('## Weekend', 'Leaving early.', '## 16:40', 'Tea.', '## Notes',
 describe('the edit that moves an entry', () => {
 	it('names the entry and the one it goes in front of, by id', () => {
 		const s = spans(TEXT);
-		assert.deepEqual(moveEditOf(DATE, s, 0, 3), { op: 'move', date: DATE, entry: s[0]!.id, before: s[3]!.id });
-		assert.deepEqual(moveEditOf(DATE, s, 2, 0), { op: 'move', date: DATE, entry: s[2]!.id, before: s[0]!.id });
+		assert.deepEqual(moveEditOf(DATE, s, 0, 3), { op: 'move', date: DATE, entry: s[0]!.id, blocks: s[0]!.blocks.map((b) => b.key), before: s[3]!.id });
+		assert.deepEqual(moveEditOf(DATE, s, 2, 0), { op: 'move', date: DATE, entry: s[2]!.id, blocks: s[2]!.blocks.map((b) => b.key), before: s[0]!.id });
 	});
 
 	it('a drop past the last entry is the end of the day', () => {
 		const s = spans(TEXT);
-		assert.deepEqual(moveEditOf(DATE, s, 0, 4), { op: 'move', date: DATE, entry: s[0]!.id, before: null });
+		assert.deepEqual(moveEditOf(DATE, s, 0, 4), { op: 'move', date: DATE, entry: s[0]!.id, blocks: s[0]!.blocks.map((b) => b.key), before: null });
 	});
 
 	it('nothing to send where the entry already is, or for a place that is not one', () => {

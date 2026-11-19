@@ -86,9 +86,20 @@ export function bodySpec(node: BlockNode): Spec {
 }
 
 /**
+ * The edit that removes the entry whose heading is `head`, naming it as the person sees it: its id and the keys of its
+ * blocks on the page (drafts are not in the file), so the engine refuses it if the entry has changed since.
+ */
+function removeSeen(head: BlockNode): Extract<Edit, { op: 'remove' }> {
+	const blocks = [head.dataset.key!];
+	for (let n = head.nextElementSibling as BlockNode | null; n !== null && !n.classList.contains('entry-head'); n = n.nextElementSibling as BlockNode | null) {
+		if (!n.classList.contains('draft') && n.dataset.key !== undefined) blocks.push(n.dataset.key);
+	}
+	return { op: 'remove', date: head.dataset.date!, entry: head.dataset.key!, blocks };
+}
+
+/**
  * The edit that removes `node`'s whole entry, when `node` is the only writing of an entry with a time and no title; null
- * otherwise. A time alone is not worth keeping: deleting the writing deletes the entry. The entry is named by its heading's
- * key, and the engine finds the bytes.
+ * otherwise. A time alone is not worth keeping: deleting the writing deletes the entry.
  */
 function emptiedEntry(node: BlockNode): Extract<Edit, { op: 'remove' }> | null {
 	const head = node.previousElementSibling as BlockNode | null;
@@ -96,7 +107,7 @@ function emptiedEntry(node: BlockNode): Extract<Edit, { op: 'remove' }> | null {
 	let next = node.nextElementSibling as BlockNode | null;
 	while (next !== null && next.classList.contains('draft')) next = next.nextElementSibling as BlockNode | null;
 	if (next !== null && !next.classList.contains('entry-head')) return null;
-	return { op: 'remove', date: node.dataset.date!, entry: head.dataset.key };
+	return removeSeen(head);
 }
 
 /** The start of a line that makes it a list, a to-do, a quote or a heading, not a title. */
@@ -201,7 +212,7 @@ export function headingSpec(node: BlockNode): Spec {
 		setTimed: timing.setTimed,
 		/** Delete on a heading removes the whole entry: its time, title and writing. */
 		remove(s) {
-			void s.save({ op: 'remove', date: node.dataset.date!, entry: node.dataset.key! }, 'stay', Number(node.dataset.start));
+			void s.save(removeSeen(node), 'stay', Number(node.dataset.start));
 		},
 	};
 }

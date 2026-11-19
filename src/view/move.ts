@@ -17,5 +17,5 @@ export const entryName = (e: Pick<EntrySpan, 'title' | 'time'>): string => e.tit
  */
 export function moveEditOf(date: string, spans: readonly EntrySpan<Block>[], from: number, slot: number): Extract<Edit, { op: 'move' }> | null {
 	if (isStill(from, slot) || spans[from] === undefined || slot < 0 || slot > spans.length) return null;
-	return { op: 'move', date, entry: spans[from].id, before: spans[slot]?.id ?? null };
+	return { op: 'move', date, entry: spans[from].id, blocks: spans[from].blocks.map((b) => b.key), before: spans[slot]?.id ?? null };
 }

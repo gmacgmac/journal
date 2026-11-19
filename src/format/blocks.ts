@@ -13,11 +13,9 @@ export interface SpanBlock {
 	kind: Block['kind'];
 }
 
-export interface KeyedBlock {
+/** A block with its key: a `SpanBlock` that a change elsewhere in the day never renames. */
+export interface KeyedBlock extends SpanBlock {
 	key: string;
-	start: number;
-	end: number;
-	text: string;
 }
 
 /** Every top-level block of `text`, in order. */
@@ -47,10 +45,10 @@ export const KEY_RE = /^[0-9a-f]{8}-\d{1,6}$/;
  */
 export function keyedBlocks(text: string): KeyedBlock[] {
 	const seen = new Map<string, number>();
-	return blocksOf(text).map(({ start, end, text: t }) => {
+	return blocksOf(text).map(({ start, end, text: t, kind }) => {
 		const h = hash(t);
 		const n = seen.get(h) ?? 0;
 		seen.set(h, n + 1);
-		return { key: `${h}-${n}`, start, end, text: t };
+		return { key: `${h}-${n}`, start, end, text: t, kind };
 	});
 }

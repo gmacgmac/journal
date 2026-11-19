@@ -38,7 +38,7 @@ const wide = CSS.replace(narrow, '');
 const TAP = 'var(--journal-tap)';
 const CONTROLS = ['.toolbar button', '.toolbar input', '.bar button', '.bar-link input', '.add-entry', '.gap-add', '.feed-more'];
 
-describe('the phone layout', () => {
+describe('the phone layout (a stylesheet check, read from the source: no browser lays it out here)', () => {
 	it('every control of the toolbar and the writing bar, and Add an entry, is at least --journal-tap high', () => {
 		assert.ok(CSS.indexOf(NARROW) >= 0, 'the narrow layout is a container query');
 		assert.match(CSS, /--journal-tap:\s*44px;/);

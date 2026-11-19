@@ -68,9 +68,12 @@ function storeRefusal(date: string, r: Refusal): ToolResult {
 		case 'malformed': return refused('malformed', { ...about(date), problems: '' });
 		case 'heading': case 'date-heading': return refused(r.code);
 		// The bot cannot send a move; were one to arrive, it is refused as a heading is.
-		case 'order': return refused('heading');
 		case 'changed': return refused('stale');
 		case 'unreadable': return r.say === 'journal.problem.entry-untimed' ? refused('untimed') : refused('input', { field: 'text' });
+		// The bot's tools never send `move`, `remove`, `clear` or `join`: should one of their refusals reach here, the
+		// sentence that holds is the one for a page that has moved on, or for writing not taken.
+		case 'order': return refused('stale');
+		case 'join': return refused('input', { field: 'text' });
 	}
 }
 

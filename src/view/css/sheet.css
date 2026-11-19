@@ -35,7 +35,8 @@
 	   not show it either. */
 	@media (hover: none) {
 		.day > header .day-remove, .day > header:hover .day-remove { opacity: 0; pointer-events: none; }
-		.day.revealed > header .day-remove { opacity: 1; pointer-events: auto; }
+		/* Shown when revealed, and whenever a keyboard has focused it: a destructive control is never focused unseen. */
+		.day.revealed > header .day-remove, .day > header .day-remove:focus-visible { opacity: 1; pointer-events: auto; }
 		.day-remove span { display: none; }
 	}
 	/* Today: named above its date. */

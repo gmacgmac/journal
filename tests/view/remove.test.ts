@@ -17,25 +17,25 @@ describe('removing', () => {
 	it('Delete on an entry’s heading removes the entry by its id, writing and all', async () => {
 		const { from } = recent();
 		const m = await mounted((h) => h.files.set(from, fileOf(from, '## 08:00', 'Morning.', '## 09:00', 'Later.')));
-		const first = m.dayOf(from).blocks[1]!;
+		const [, first, morning] = m.dayOf(from).blocks;
 		fire(q(m.root, '.block.entry-head'), 'click');
 		fire(q(m.root, '.block-bin'), 'click');
 		await settle();
-		assert.deepEqual(m.calls.edits, [{ op: 'remove', date: from, entry: first.key }]);
+		assert.deepEqual(m.calls.edits, [{ op: 'remove', date: from, entry: first!.key, blocks: [first!.key, morning!.key] }]);
 		assert.equal(m.files.get(from), fileOf(from, '## 09:00', 'Later.'));
 		assert.equal((q(m.root, '.toast').querySelector('span') as unknown as FakeElement).textContent, say('journal.view.deleted'));
-		assert.ok(!keys(m.root, from).includes(first.key), 'gone from the page');
+		assert.ok(!keys(m.root, from).includes(first!.key), 'gone from the page');
 		m.view.unmount();
 	});
 
 	it('emptying the only writing of an entry with a time and no title removes the entry, by its id', async () => {
 		const { from } = recent();
 		const m = await mounted((h) => h.files.set(from, fileOf(from, '## 08:00', 'Morning.', '## 09:00', 'Later.')));
-		const head = m.dayOf(from).blocks[1]!;
+		const [, head, morning] = m.dayOf(from).blocks;
 		fire(q(m.root, '.block[data-kind="paragraph"]'), 'click');
 		fire(q(m.root, '.block-bin'), 'click');
 		await settle();
-		assert.deepEqual(m.calls.edits, [{ op: 'remove', date: from, entry: head.key }]);
+		assert.deepEqual(m.calls.edits, [{ op: 'remove', date: from, entry: head!.key, blocks: [head!.key, morning!.key] }]);
 		assert.equal(m.files.get(from), fileOf(from, '## 09:00', 'Later.'));
 		m.view.unmount();
 	});
@@ -108,6 +108,20 @@ describe('removing', () => {
 		fire(head(to), 'click');
 		assert.ok(!shown(to), 'a second press puts it away');
 		assert.deepEqual(m.calls.edits, [], 'a press shows it; only Remove itself removes');
+		m.view.unmount();
+	});
+
+	it('an entry the bot has added to since the person saw it is not removed: the edit is refused and the line stays (Fable review)', async () => {
+		const { from } = recent();
+		const m = await mounted((h) => h.files.set(from, fileOf(from, '## 09:00 · Gym', 'Leg day.')));
+		// The bot adds a line to the entry; the page has not caught up.
+		const added = fileOf(from, '## 09:00 · Gym', 'Leg day.', 'Remember to book the physio.');
+		m.files.set(from, added);
+		fire(q(m.root, '.block.entry-head'), 'click');
+		fire(q(m.root, '.block-bin'), 'click');
+		await settle();
+		assert.equal(m.files.get(from), added, 'nothing removed unseen');
+		assert.equal(m.calls.notes.length, 1, 'the person is told');
 		m.view.unmount();
 	});
 });

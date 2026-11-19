@@ -44,7 +44,7 @@ describe('the focus ring', () => {
 		stop();
 	});
 
-	it('every focus-visible ring reads --journal-ring, which the mark sets to nothing', () => {
+	it('every focus-visible ring reads --journal-ring, which the mark sets to nothing (a stylesheet check, read from the source)', () => {
 		const rings = CSS.split('\n').filter((l) => l.includes(':focus-visible') && /outline|box-shadow/.test(l));
 		assert.ok(rings.length > 0);
 		for (const line of rings) assert.ok(!line.includes('var(--journal-focus)'), line.trim());

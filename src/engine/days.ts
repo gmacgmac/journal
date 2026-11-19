@@ -72,15 +72,16 @@ export function readPages<T extends { date: string }>(
 	let bytes = 0;
 	let cursor = before;
 	// Files that are no page are passed over, so a batch of dates may give fewer pages than it lists: list on until `count`
-	// pages are had, or no older file is left. One page more than `count` is looked for, to know whether older pages remain.
+	// pages are had, or no older file is left. `next` is given only once an older page has been found past the last one
+	// given, so a reader is never promised pages that are only bare files.
 	for (;;) {
 		const dates = datesWithPages(dir, cursor, count + 1);
 		for (const date of dates) {
-			if (days.length === count) return { days, next: days.at(-1)!.date };
 			const file = readDayFile(dir, date);
 			// A file that went between the listing and the read is not a page; nor is one holding only its date line, which
 			// the journal shows as a day with no page.
 			if (file.state === 'none' || (file.state === 'text' && !hasWriting(keyedBlocks(file.text)))) continue;
+			if (days.length === count) return { days, next: days.at(-1)!.date };
 			const day = shape(date, file);
 			chars += charsOf(file);
 			bytes += size(day) + 1;
