@@ -1,5 +1,8 @@
 # Handover to nclite: printing, as the Journal built it, and a print pattern to reuse
 
+> For nclite's merge with Vision Board's note, the same print pattern is set out in the shared headings in
+> `docs/specification/plugin-patterns.md`, beside the calendar, the date picker, scrollbars and dialogs.
+
 From the Journal, 2026-11-19, in answer to nclite's handover "printing in the Journal". The Journal's side is done at
 commit `265c00a` (branch `print-and-polish`, github.com/gmacgmac/journal). This note says what was built, then sets out
 the parts any plugin that prints can reuse, so nclite can write them up once as its print pattern, and the vision

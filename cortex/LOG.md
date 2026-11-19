@@ -13,3 +13,4 @@
 [[2026-11-19 15:05]] [journal-engine] Completed set: Review Fixes → Task: [[cortex-tasks/journal/2026-11-19_journal-engine_review-fixes/TASK-STATUS.md]]
 [[2026-11-19 15:40]] [journal-engine] Backspace's paragraph join is an engine edit (`join`, by block keys); no view-built range left outside undo → Task: [[cortex-tasks/journal/2026-11-19_journal-engine_backspace-join.md]]
 [[2026-11-19 15:40]] [journal-view] On a phone, Remove this day shows only on the day whose date line was pressed → Notes: `src/view/journal.ts` (`revealed`), `src/view/css/sheet.css` (`@media (hover: none)`) — user's ask, tested in tests/view/remove.test.ts
+[[2026-11-19 16:20]] [journal-contract] Pattern note for nclite (printing, calendar, date picker, scrollbars, dialogs, dates) in nclite's eight headings → Notes: `docs/specification/plugin-patterns.md` — for nclite to merge with Vision Board's; print handover points to it
