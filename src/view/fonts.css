@@ -1,0 +1,21 @@
+/* The Journal's own faces (nclite's fonts handover, ADR-0382 on nclite's side): Literata, an OFL book serif made for long
+   reading, roman and italic, its weight axis 200 to 900, Latin only. Each face is top level and plain, as nclite's check
+   asks: one name under the Journal's scope, one woff2 that `view.fonts` lists (`src/manifest.ts`), no other source. The
+   path is the built sheet's (`view/journal.css` beside `view/fonts/`), and the source's too, so the dev page reads the same
+   file. Not imported by the view, which would inline the files: the build puts this text at the top of the sheet. */
+@font-face {
+	font-family: "journal-literata";
+	src: url("fonts/literata-latin-wght-normal.woff2") format("woff2");
+	font-weight: 200 900;
+	font-style: normal;
+	font-display: swap;
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+	font-family: "journal-literata";
+	src: url("fonts/literata-latin-wght-italic.woff2") format("woff2");
+	font-weight: 200 900;
+	font-style: italic;
+	font-display: swap;
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}

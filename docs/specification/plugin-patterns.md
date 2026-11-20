@@ -87,6 +87,23 @@ host can provide it once. It is not code to copy. Paths are in this repo; `docs/
    left open while its anchor scrolled away: close on the scroller's scroll.
 8. **Open questions.** One popover for all plugins, or the native `popover` attribute once the shell supports it?
 
+## Fonts
+
+1. **The need.** A plugin's page, and its PDFs, read the same on every device, in the plugin's own type.
+2. **What we built.** Literata (OFL), roman and italic, in `src/view/fonts/` with its licence; the `@font-face` rules in
+   `src/view/fonts.css`, put at the top of the built sheet by `shipFonts` (`bin/build-plugin.ts`); `view.fonts` in the
+   manifest (`FONTS`, `src/manifest.ts`); the face first in `--journal-serif`. Test: `tests/build.test.ts`.
+3. **What the host should provide.** What nclite now does: `view.fonts` in the manifest, each face served from the
+   plugin's folder, checked (`wOF2`, `FONT_BYTES`), and loaded before a PDF is made. The host's `--host-font` is only a
+   suggestion for a plugin with no faces.
+4. **How a plugin uses it.** List each `.woff2`; declare each face plainly at the top level of its sheet under a scoped
+   name; put its face first in its stacks; ship the licence.
+5. **Fallback.** A host that refuses faces: the stack's next fonts.
+6. **Versioning.** `fonts` is optional in the manifest; an older host ignores it and the stack falls back.
+7. **Pitfalls found.** A bundler inlines a font `url()` as a data URL, which the host's check refuses: keep the rules out
+   of the bundle and add them after the build. A url resolves against the sheet's own folder, so the faces sit beside it.
+8. **Open questions.** Variable fonts in the desktop PDF (nclite is checking the weights embed).
+
 ## Scrollbars
 
 1. **The need.** Every scrolling area looks the same as the app's: a thin overlay thumb, not the system bar.

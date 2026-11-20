@@ -7,11 +7,14 @@
 		display: block; height: auto; min-height: 0; color-scheme: light; container-type: normal;
 		color: #000; background: #fff; font: 11pt/1.5 var(--journal-serif);
 		/* Days are set apart by a rule closing each one, never opening it: a day that starts a page starts clean. */
-		.print-day:not(:last-child) { margin-bottom: 1.2em; padding-bottom: 1.2em; border-bottom: 0.5pt solid #999; }
-		.print-date { margin: 0 0 0.8em; font: 600 16pt/1.25 var(--journal-serif); color: #000; break-after: avoid; }
+		/* The page's rhythm, as the Journal keeps it on screen (GM, 2026-11-20: the PDF read too tight): about two lines
+		   either side of the rule between days, where the screen has a day's foot and the gap before the next date; a line
+		   under each date; and entries a little further apart than on screen (1.6 lines), since paper has no hover room. */
+		.print-day:not(:last-child) { margin-bottom: 2em; padding-bottom: 2em; border-bottom: 0.5pt solid #999; }
+		.print-date { margin: 0 0 1em; font: 600 16pt/1.25 var(--journal-serif); color: #000; break-after: avoid; }
 		/* An entry is one piece: it ends on the page it starts on, and the next starts on the next page when it would not
 		   fit (GM, 2026-11-19). One longer than a page breaks between its blocks, its heading never left alone. */
-		.print-item { margin-top: 1.2em; break-inside: avoid; }
+		.print-item { margin-top: 1.6em; break-inside: avoid; }
 		.print-date + .print-item { margin-top: 0; }
 		.print-entry { display: flex; gap: 0.8em; align-items: baseline; margin: 0 0 0.3em; font: 600 12pt/1.3 var(--journal-serif); break-after: avoid; }
 		.print-time { font: 500 9pt/1 var(--journal-font); color: #444; font-variant-numeric: tabular-nums; }

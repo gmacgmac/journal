@@ -5,6 +5,8 @@ import type { Chip, ConfirmAsk, PluginEvent, PdfAsk, PluginHost } from '../src/v
 import { mount } from '../src/view/view.ts';
 import { installOverlayScroll } from './overlay-scroll/overlay-scroll.ts';
 import './overlay-scroll/overlay-scroll.css';
+// The view's own faces, as the built sheet carries them at its top (bin/build-plugin.ts `shipFonts`).
+import '../src/view/fonts.css';
 
 const $ = <T extends Element>(sel: string) => document.querySelector<T>(sel)!;
 const pane = $<HTMLElement>('#pane');

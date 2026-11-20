@@ -4,11 +4,16 @@ import os from 'node:os';
 import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import { buildPlugin } from '../bin/build-plugin.ts';
+import { FONT_BYTES } from '../src/vendor/plugin-host/plugin-host.ts';
 import ts from 'typescript';
 import { COPIES, MANIFEST, sha256, vendoredOf } from '../bin/sync-nclite.ts';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
-const PARTS = ['engine/engine.js', 'manifest.json', 'plugin.d.ts', 'skill.md', 'vendored.json', 'view/journal.css', 'view/journal.js', 'words.json'];
+const PARTS = [
+	'engine/engine.js', 'manifest.json', 'plugin.d.ts', 'skill.md', 'vendored.json',
+	'view/fonts/OFL-literata.txt', 'view/fonts/literata-latin-wght-italic.woff2', 'view/fonts/literata-latin-wght-normal.woff2',
+	'view/journal.css', 'view/journal.js', 'words.json',
+];
 
 const filesOf = (dir: string): string[] =>
 	fs.readdirSync(dir, { recursive: true, withFileTypes: true }).filter((e) => e.isFile()).map((e) => path.relative(dir, path.join(e.parentPath, e.name))).sort();
@@ -66,6 +71,32 @@ describe('the plugin folder', () => {
 		const mod = await import(`${file}?${Date.now()}`).catch(() => null);
 		if (mod) assert.deepEqual(Object.keys(mod), ['mount']);
 		else assert.match(text, /export\s*\{\s*\w+ as mount\s*\};?\s*$/);
+	});
+
+	it('ships its own faces as nclite takes them: each listed face a real woff2 within FONT_BYTES, declared at the top of the sheet, scoped, one listed source each', () => {
+		const m = JSON.parse(fs.readFileSync(path.join(a, 'manifest.json'), 'utf8')) as { view: { fonts?: string[] } };
+		const fonts = m.view.fonts ?? [];
+		assert.ok(fonts.length > 0);
+		for (const f of fonts) {
+			const bytes = fs.readFileSync(path.join(a, f));
+			assert.equal(bytes.subarray(0, 4).toString('latin1'), 'wOF2', f);
+			assert.ok(bytes.length <= FONT_BYTES, f);
+		}
+		const css = fs.readFileSync(path.join(a, 'view/journal.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+		const faces = [...css.matchAll(/@font-face\s*\{([^}]*)\}/g)].map((x) => x[1]!);
+		assert.equal(faces.length, fonts.length);
+		assert.ok(css.trimStart().startsWith('@font-face'), 'at the top level, first in the sheet');
+		for (const face of faces) {
+			assert.match(face, /font-family:\s*"journal-[\w-]+"/);
+			const urls = [...face.matchAll(/url\("?([^")]+)"?\)/g)].map((x) => `view/${x[1]}`);
+			assert.equal(urls.length, 1);
+			assert.ok(fonts.includes(urls[0]!), String(urls[0]));
+			assert.doesNotMatch(face, /\\|local\(/);
+			for (const d of face.split(';').map((x) => x.trim().split(':')[0]!).filter(Boolean)) {
+				assert.ok(['font-family', 'src', 'font-weight', 'font-style', 'font-display', 'unicode-range'].includes(d), d);
+			}
+		}
+		assert.ok(fs.existsSync(path.join(a, 'view/fonts/OFL-literata.txt')), 'the licence beside its faces');
 	});
 
 	it('the manifest names the files the folder holds', () => {

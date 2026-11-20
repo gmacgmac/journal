@@ -190,8 +190,6 @@ export interface PluginHost {
 	 * saved or cancelled; rejects, with the host's words and nothing changed, when it could not be made or one is under way.
 	 */
 	savePdf?(ask?: PdfAsk): Promise<void>;
-	/** @deprecated `savePdf` under its old name, the same function, until both plugins are re-vendored with `savePdf` (ADR-0381). */
-	print?(ask?: PdfAsk): Promise<void>;
 	/**
 	 * Saves a file the person asked for: `name` with its extension (the host never renames it), `type` its media type.
 	 * Resolves once handed over (saved, downloaded, or the person cancelled the save panel); rejects, with the host's words,
@@ -391,7 +389,8 @@ export interface PluginManifest {
 	/** The prefix every selector of its stylesheets starts with (`.<scope>`), and of every custom property they read
 	 *  (`--<scope>-`); absent, its id. Lowercase letters and digits, 2 to 16, never `host` or `ui`, never another plugin's. */
 	scope?: string;
-	view: { module: string; styles: string[]; export: string };
+	/** `fonts`: the `.woff2` faces its sheets declare (`docs/plugins.md` § A guest in the app's page, Fonts). */
+	view: { module: string; styles: string[]; export: string; fonts?: string[] };
 	engine: { module: string; export: string };
 	chips: ChipDecl[];
 	tools: ToolDecl[];
@@ -404,6 +403,8 @@ export interface PluginManifest {
 
 /** The most bytes a `skill.md` may hold unless the plugin's row grants more: it rides every turn while the plugin is on. */
 export const SKILL_BYTES = 8192;
+/** The most bytes one font file a plugin brings may hold: a whole variable face fits well under it. */
+export const FONT_BYTES = 512 * 1024;
 
 /**
  * A file of the plugin folder: the sha256 of each nclite source file the plugin carries a copy of, by its path in nclite. A

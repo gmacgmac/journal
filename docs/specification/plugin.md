@@ -76,7 +76,8 @@ words key. The `input` of each tool is that tool's JSON Schema exactly as `tools
   "version": "0.1.0",
   "seam": 2,
   "icon": "journal",
-  "view": { "module": "view/journal.js", "styles": ["view/journal.css"], "export": "mount" },
+  "view": { "module": "view/journal.js", "styles": ["view/journal.css"], "export": "mount",
+            "fonts": ["view/fonts/literata-latin-wght-normal.woff2", "view/fonts/literata-latin-wght-italic.woff2"] },
   "engine": { "module": "engine/engine.js", "export": "createEngine" },
   "chips": [
     { "kind": "block", "words": "journal.plugin.chips.block" },
@@ -727,8 +728,15 @@ paper as its own look when the host sets none.
   line (rows start together, and a time's line is as tall as that first line, `--journal-line`, a title's 1.1 times it); more room between entries (1.45em) than inside one; a list's bullets
   small, in the date ink. Italics are for quotes and emphasis only.
 - **Type**: `--journal-font: var(--host-font, system-ui, sans-serif)`, `--journal-mono: var(--host-font-mono, ui-monospace, monospace)`;
-  the date headings keep the paper's serif, `--journal-serif` (the Journal's own); `--host-text-scale` scales the page's text
-  (default 1).
+  the page's writing and dates are in the paper's serif, `--journal-serif`, whose first face is the Journal's own:
+  **Literata** (OFL, a book serif made for long reading; roman and italic, weight axis 200 to 900, Latin only), shipped in
+  `view/fonts/` with its licence and listed in `view.fonts` (`FONTS`, `src/manifest.ts`). Its `@font-face` rules
+  (`src/view/fonts.css`) go at the top of the built sheet, at top level and as written (`shipFonts`,
+  `bin/build-plugin.ts`): one scoped name, `journal-literata`, and one listed woff2 each, as nclite's fonts handover asks
+  (ADR-0382 on nclite's side). The system serifs follow it, for a character outside its set or a host that refuses
+  faces. `--host-text-scale` scales the page's text (default 1). Proven by `tests/build.test.ts` "ships its own faces as
+  nclite takes them: each listed face a real woff2 within FONT_BYTES, declared at the top of the sheet, scoped, one listed
+  source each".
 - **Paper, tinted by the bot's colour**: each token is a host property, or a small mix of the bot's accent into one, so the
   page reads as paper in the bot's colours:
 

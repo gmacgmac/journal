@@ -1,11 +1,11 @@
 // `npm run build:plugin [-- --out <folder>]`: the journal as one plugin folder, `dist/plugin/journal/` by default:
-// manifest.json, view/journal.js and view/journal.css, engine/engine.js, words.json, skill.md, plugin.d.ts and vendored.json.
+// manifest.json, view/journal.js and view/journal.css (its faces in view/fonts/), engine/engine.js, words.json, skill.md, plugin.d.ts and vendored.json.
 // A host copies the folder; nothing in it depends on how it was made. The same input gives the same bytes.
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { build } from 'vite';
-import { manifestOf } from '../src/manifest.ts';
+import { FONTS, manifestOf } from '../src/manifest.ts';
 import { engineBuild, viewBuild } from '../vite.config.ts';
 import { vendoredOf } from './sync-nclite.ts';
 import { pluginTypes } from './types.ts';
@@ -28,11 +28,25 @@ export function textFiles(): Record<string, string> {
 	};
 }
 
+/**
+ * The view's own faces: each file `FONTS` names, and the licence, copied to `view/fonts/`, and the `@font-face` rules
+ * (`src/view/fonts.css`) put at the top of the built sheet, at top level and as written (Vite would inline the files).
+ */
+function shipFonts(out: string): void {
+	const from = path.join(ROOT, 'src/view/fonts');
+	const to = path.join(out, 'view/fonts');
+	fs.mkdirSync(to, { recursive: true });
+	for (const name of [...FONTS, 'OFL-literata.txt']) fs.copyFileSync(path.join(from, name), path.join(to, name));
+	const sheet = path.join(out, 'view/journal.css');
+	fs.writeFileSync(sheet, `${read('src/view/fonts.css')}${fs.readFileSync(sheet, 'utf8')}`);
+}
+
 /** Write the folder `out` anew. */
 export async function buildPlugin({ out = DEFAULT_OUT } = {}): Promise<string> {
 	fs.rmSync(out, { recursive: true, force: true });
 	await build(engineBuild(out));
 	await build(viewBuild(out));
+	shipFonts(out);
 	for (const [name, text] of Object.entries(textFiles())) {
 		fs.mkdirSync(path.dirname(path.join(out, name)), { recursive: true });
 		fs.writeFileSync(path.join(out, name), text);

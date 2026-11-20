@@ -36,7 +36,9 @@
 	--journal-end: 40px;
 	--journal-font: var(--host-font, system-ui, -apple-system, 'Segoe UI', sans-serif);
 	--journal-mono: var(--host-font-mono, ui-monospace, Menlo, monospace);
-	--journal-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, ui-serif, serif;
+	/* The page's own face first (`src/view/fonts.css`), so the page and its PDFs read the same on every device; the system
+	   serifs after it only cover a character outside its Latin set, or a host that refuses faces. */
+	--journal-serif: "journal-literata", 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, ui-serif, serif;
 	/* THE WRITING, ONE STEP LIGHTER (GM, 2026-11-19): the inks and accent the writing is set in (dates, times, titles, body,
 	   links) are the host's mixed with 12% white (`88%, #fff 12%` below), so its rich colours read a step lighter on the
 	   page. Everything else, the buttons, toolbar, bar, fills and focus ring (`--journal-chrome-*`, `--journal-app-*`,

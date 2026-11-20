@@ -7,6 +7,9 @@ import { SEAM } from './seam.ts';
 /** The plugin's id: the manifest's, and the one every chip the view makes carries. */
 export const PLUGIN_ID = 'journal';
 
+/** The faces the view's sheet declares (`src/view/fonts.css`), shipped in `view/fonts/` beside the sheet. */
+export const FONTS = ['literata-latin-wght-normal.woff2', 'literata-latin-wght-italic.woff2'];
+
 /** The words of the change line each kind of write names (docs/specification/plugin.md § Tools, What a write gives). */
 export const CHANGE_WORDS = ['journal.change.entry', 'journal.change.replace', 'journal.change.delete', 'journal.change.insert'];
 
@@ -17,7 +20,7 @@ export function manifestOf(version: string): PluginManifest {
 		version,
 		seam: SEAM,
 		icon: 'journal',
-		view: { module: 'view/journal.js', styles: ['view/journal.css'], export: 'mount' },
+		view: { module: 'view/journal.js', styles: ['view/journal.css'], export: 'mount', fonts: FONTS.map((f) => `view/fonts/${f}`) },
 		engine: { module: 'engine/engine.js', export: 'createEngine' },
 		chips: [
 			{ kind: 'block', words: 'journal.plugin.chips.block' },
