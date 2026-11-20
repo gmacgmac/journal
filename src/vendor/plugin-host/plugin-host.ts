@@ -185,6 +185,46 @@ export interface PluginHost {
 	 * coalesces calls. Never call it from `unmount` or after it.
 	 */
 	pageChanged(): void;
+	/**
+	 * Prints, through the host's own print window: `ask.content` alone when given, else the plugin's pane as it stands.
+	 * Resolves once the print window has closed, printed or cancelled; rejects, with the host's words and nothing left
+	 * changed, when it could not open one or a print is already under way. Left out, the plugin draws no Print.
+	 */
+	print?(ask?: PrintAsk): Promise<void>;
+	/**
+	 * Saves a file the person asked for: `name` with its extension (the host never renames it), `type` its media type.
+	 * Resolves once handed over (saved, downloaded, or the person cancelled the save panel); rejects, with the host's words,
+	 * when it could not, or over {@link FILE_LIMITS}. Left out, the plugin draws no Export.
+	 */
+	saveFile?(name: string, type: string, bytes: Uint8Array): Promise<void>;
+	/**
+	 * Asks the person for one file of the types `accept` names (as an input's `accept`). Resolves it, or undefined when the
+	 * person chose none; rejects, with the host's words, over {@link FILE_LIMITS}. Left out, the plugin draws no Import.
+	 */
+	openFile?(accept: string): Promise<OpenedFile | undefined>;
+}
+
+/** The colours on paper: black on white with a margin, or the host's light or dark theme edge to edge. */
+export type PrintLook = 'plain' | 'light' | 'dark';
+export type PrintOrientation = 'portrait' | 'landscape';
+
+/** One print job. Every member may be left out: no title keeps the page's, `look` is `plain`, `orientation` `portrait`. */
+export interface PrintAsk {
+	/** The print window's title, and the PDF's default name. */
+	title?: string;
+	/**
+	 * The plugin's own element, built for paper (the DOM's `HTMLElement`, named `object` here as `Mount` names its root
+	 * `Root`: this file names no DOM-only type). While printing, only it shows; the host gives it back where it was.
+	 */
+	content?: object;
+	look?: PrintLook;
+	orientation?: PrintOrientation;
+}
+
+/** A file the person chose to open. */
+export interface OpenedFile {
+	name: string;
+	bytes: Uint8Array;
 }
 
 /**
@@ -192,6 +232,9 @@ export interface PluginHost {
  * A plugin that waits on something of its own inside either (a save) answers well within it.
  */
 export const VIEW_ANSWER_MS = 10000;
+
+/** The most bytes one saved or opened file may hold (the desktop shell's copy, `FILE_BYTES`, is held equal by its test). */
+export const FILE_LIMITS = { bytes: 67108864 } as const;
 
 /** What `mount` gives back. Every call the host makes into it is guarded: a throw or a hang there is the plugin's alone. */
 export interface PluginView {

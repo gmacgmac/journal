@@ -1,17 +1,16 @@
 // PRINTING (nclite's handover, 2026-11-19). The Journal owns the Print… control and what is printed; the host owns the
-// print window, the paper's size and margins, and hiding the rest of the app. The person chooses the day on screen, a
+// print window, the page (its size, and its margin: 10 mm for plain, none for light or dark, which go edge to edge), and
+// hiding the rest of the app. The person chooses the day on screen, a
 // range of days, or everything, and the colours: black on white (the handover's, and the default), or the theme's own,
 // light or dark, whatever mode the app is in (GM, 2026-11-19). The Journal reads those days, builds one element for paper
 // (`journal journal-print`: each day under its date, its entries as they read, no control of any kind, links as their
-// words), and hands it to `host.print`. The control is drawn only when the host can print.
+// words), and hands it to `host.print` with the look, so the host sets the page to match. The control is drawn only when
+// the host can print.
 //
 // The theme travels with the element: the host's colours are copied onto it as the host gives them (nclite gives each as
 // a light and dark pair), and its colour scheme is set to the mode chosen, so it prints the same wherever the host puts it.
-//
-// `print` is an optional member nclite is adding to the contract (`PrintAsk`, below, is its proposal word for word). Until
-// the vendored contract carries it, the Journal reads it through `printerOf`, and nothing else here changes when it does.
 import { MAX_PAGES, MAX_RANGE_DAYS, addDays, dateTitle, entryOf } from '../format/index.ts';
-import { HOST_PROPERTIES, type PluginHost, type PluginStore } from '../vendor/plugin-host/plugin-host.ts';
+import { HOST_PROPERTIES, type PluginHost, type PluginStore, type PrintAsk, type PrintLook } from '../vendor/plugin-host/plugin-host.ts';
 import { hasPage, writingOf } from './days.ts';
 import { dayMonth, shortDate } from './dates.ts';
 import type { DayPicker } from './day-picker.ts';
@@ -20,24 +19,18 @@ import { el, renderMarkdown } from './render.ts';
 import type { Day, Routes } from './wire.ts';
 import { say } from './words.ts';
 
-/** One print job. */
-export interface PrintAsk {
-	/** The document's title: shown in the print window and used as the PDF's default name. */
-	title: string;
-	/** The plugin's own element, built for paper. While printing, the host shows only this element; it gives it back untouched. */
-	content: HTMLElement;
-}
+export type { PrintLook };
 
-export type Printer = (ask: PrintAsk) => Promise<void>;
+/** A print job as the Journal always asks it: a title, its own element, and the look the person chose. */
+export type Printer = (ask: Required<Pick<PrintAsk, 'title' | 'content' | 'look'>>) => Promise<void>;
 
 /** The host's `print`, when it can print; null when it cannot (then no Print control is drawn at all). */
 export function printerOf(host: PluginHost): Printer | null {
-	const print = (host as PluginHost & { print?: unknown }).print;
-	return typeof print === 'function' ? (ask) => (print as Printer).call(host, ask) : null;
+	const print = host.print;
+	return typeof print === 'function' ? (ask) => print.call(host, ask) : null;
 }
 
-/** The colours on paper: black on white, or the theme's, light or dark. */
-export type PrintLook = 'plain' | 'light' | 'dark';
+/** The three looks, in the order the panel offers them. */
 export const PRINT_LOOKS: readonly PrintLook[] = ['plain', 'light', 'dark'];
 
 const LOOK_KEY = 'printLook';
@@ -188,7 +181,7 @@ export function createPrint(d: PrintDeps) {
 			if (!read.ok) return d.notify(read.reason);
 			if (read.days.length === 0) return d.notify(say('journal.view.print.nothing'), 'info');
 			// Built for this print alone, and let go once the print window closes, printed or cancelled.
-			await d.printer({ title: printTitle(choice), content: printContent(read.days, look, d.source) });
+			await d.printer({ title: printTitle(choice), content: printContent(read.days, look, d.source), look });
 		} catch {
 			// Only a print that could not start rejects: a cancelled one resolves.
 			if (d.live.on) d.notify(say('journal.view.print.failed'), 'error');

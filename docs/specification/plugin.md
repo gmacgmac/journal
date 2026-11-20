@@ -610,8 +610,11 @@ sample pages: black and white, the theme light, the theme dark; kept per device 
 print (the day on screen, a range of days, or everything), and a choice with nothing in it says "Nothing to print" and cannot
 be pressed. The element handed over is `journal journal-print` built for paper (`printContent`), the days that have a page,
 oldest first, read through the Journal's own routes within `MAX_RANGE_DAYS` and `MAX_PAGES` (`daysToPrint`); its rules for
-paper are `&.journal-print` in `src/view/css/print.css`. `print` is not yet in the vendored contract, so `PrintAsk` (`src/view/print.ts`) is
-the proposal's word for word, and the Journal stays on seam 2. What was built, and the pattern other plugins can reuse, is
+paper are `&.journal-print` in `src/view/css/print.css`. The ask is the contract's `PrintAsk`, always with `title`, `content`
+and `look` (the colours chosen), so the host sets the page: plain with a 10 mm margin, light or dark edge to edge. In light or
+dark the element's padding (14 mm by 16 mm, repeated on every page) is the margin, and a fixed backdrop, repeated on every
+printed page, gives each page its ground to the foot. `orientation` is left to the host's `portrait`. The contract's
+addition is optional, so the Journal stays on seam 2. What was built, and the pattern other plugins can reuse, is
 `docs/handover/print-pattern.md`; this page does not repeat it. Proven by `tests/view/print.test.ts`: "no Print control at all
 when the host cannot print", "This day prints the day on screen, under its date, with links as words and no control in it", "a
 range prints the days in it that have a page, oldest first", "Everything prints every page, oldest first, read a batch at a time",
@@ -658,7 +661,7 @@ saves; a to-do ticks and saves at once; Undo is a toast inside `root`.
 | `notify` | A refused save or tick (`error`), and a reveal it cannot show. A refused save that is a clash stays in the writing bar with its two choices instead |
 | `confirm` | From `leave()`, when writing could not be saved, and from Remove this day, before a whole day goes (above) |
 | `store` | The place, under `place`: `{ view, date, on }` (§ above). It may lose anything: a lost or unreadable place is the first-time one |
-| `print` | Optional: `print({ title, content })`, once a choice is pressed in the Print panel (above); a rejection is said through `notify`, a cancel is not. Read through `printerOf`, since the vendored contract does not carry it yet |
+| `print` | Optional: `print({ title, content, look })`, once a choice is pressed in the Print panel (above); a rejection is said through `notify`, a cancel is not. Feature-detected through `printerOf` |
 | `imageRoute` | Nothing |
 | `pageChanged` | Called once the first draw settles, then each time `pageChip()` would answer otherwise; never from `unmount` or after (§ below, `pageChip()`) |
 

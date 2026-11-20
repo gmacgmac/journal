@@ -31,9 +31,10 @@
 	   own paper, inks and accent, as the Journal shows them. */
 	&.journal-print:is([data-look='light'], [data-look='dark']) {
 		color-scheme: var(--host-color-scheme); color: var(--journal-body); background: var(--journal-page);
-		/* Room inside the coloured paper, on every page it runs over: the padding is drawn again at each page's top and
-		   foot, not only at the very start and end. The host's page margins round it stay the printer's white. */
-		padding: 20pt 24pt; box-decoration-break: clone; -webkit-box-decoration-break: clone;
+		/* The page's margin, as padding: in light or dark the host prints edge to edge (no margin, `PrintAsk.look`), so the
+		   room round the writing is the element's own, a little more than plain's 10 mm, and drawn again at every page's top
+		   and foot, not only at the very start and end. */
+		padding: 14mm 16mm; box-decoration-break: clone; -webkit-box-decoration-break: clone;
 		.print-day:not(:last-child) { border-bottom-color: var(--journal-rule); }
 		.print-date, .print-time, .print-block li::marker { color: var(--journal-date-ink); }
 		.print-entry { color: var(--journal-ink); }
@@ -41,6 +42,12 @@
 		.print-block :is(th, td) { border-color: var(--journal-rule); }
 	}
 	@media print {
+		/* Light or dark goes edge to edge, and every page wears the ground, down to its foot: the element's own background
+		   ends where the writing does, so the last page would be white below it. A fixed box is repeated on every printed
+		   page, so it paints the ground behind each one (print only: on screen it would cover the window). */
+		&.journal-print:is([data-look='light'], [data-look='dark'])::before {
+			content: ''; position: fixed; inset: 0; z-index: -1; background: var(--journal-page);
+		}
 		/* On paper, every colour as written: no background left out, no ink lightened by the browser. */
 		&.journal-print { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 	}

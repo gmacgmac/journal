@@ -1,5 +1,8 @@
 # Handover to nclite: printing, as the Journal built it, and a print pattern to reuse
 
+> Since written: nclite's contract now carries `print`, with `look` and `orientation`; the Journal passes `look`, and in
+> light or dark the host prints edge to edge (no margin), so the Journal pads its own element. See `plugin-patterns.md`.
+
 > For nclite's merge with Vision Board's note, the same print pattern is set out in the shared headings in
 > `docs/specification/plugin-patterns.md`, beside the calendar, the date picker, scrollbars and dialogs.
 

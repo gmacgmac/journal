@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { before, describe, it } from 'node:test';
 import { addDays, dateTitle, localToday } from '../../src/format/index.ts';
-import type { PrintAsk } from '../../src/view/print.ts';
+import type { PrintAsk } from '../../src/vendor/plugin-host/plugin-host.ts';
 import { say } from '../../src/view/words.ts';
 import { fire, installDom, settle, type FakeElement } from './fake-dom.ts';
 import { fakeHost, fileOf, mounted, pickDay } from './fake-host.ts';
@@ -14,7 +14,7 @@ const q = (root: unknown, sel: string) => (root as HTMLElement).querySelector(se
 async function printable(setup: (h: ReturnType<typeof fakeHost>) => void = () => {}, answer: () => Promise<void> = async () => {}) {
 	const asks: PrintAsk[] = [];
 	const m = await mounted((h) => {
-		(h.host as unknown as { print: (a: PrintAsk) => Promise<void> }).print = (ask) => (asks.push(ask), answer());
+		h.host.print = (ask) => (asks.push(ask!), answer());
 		setup(h);
 	});
 	return { ...m, asks };
@@ -22,7 +22,7 @@ async function printable(setup: (h: ReturnType<typeof fakeHost>) => void = () =>
 
 /** The dates, titles and words an ask's content holds, and whether anything in it could be pressed. */
 function read(ask: PrintAsk) {
-	const c = ask.content;
+	const c = ask.content as HTMLElement;
 	return {
 		classes: c.getAttribute('class'),
 		dates: [...c.querySelectorAll('.print-date')].map((h) => h.textContent),
@@ -62,7 +62,7 @@ describe('printing', () => {
 		assert.match(got.text, /☑ done.*☐ not yet/);
 		assert.equal(got.controls, 0);
 		// Each entry is one piece for paper: its heading and all its writing, kept together (journal.css).
-		const items = [...m.asks[0]!.content.querySelectorAll('.print-item')];
+		const items = [...(m.asks[0]!.content as HTMLElement).querySelectorAll('.print-item')];
 		assert.equal(items.length, 1);
 		assert.equal(items[0]!.querySelectorAll('.print-block').length, 2);
 		m.view.unmount();
@@ -79,7 +79,7 @@ describe('printing', () => {
 		await settle();
 		assert.equal(m.asks.length, 1);
 		assert.deepEqual(read(m.asks[0]!).dates, [dateTitle(a), dateTitle(b)]);
-		assert.match(m.asks[0]!.title, /^Journal, /);
+		assert.match(m.asks[0]!.title ?? '', /^Journal, /);
 		m.view.unmount();
 	});
 
@@ -97,7 +97,8 @@ describe('printing', () => {
 		const today = localToday();
 		const m = await printable((h) => h.files.set(today, fileOf(today, '## 08:00', 'Hi.')));
 		await choose(m.root, 'day');
-		assert.equal(m.asks[0]!.content.getAttribute('data-look'), 'plain');
+		assert.equal((m.asks[0]!.content as HTMLElement).getAttribute('data-look'), 'plain');
+		assert.equal(m.asks[0]!.look, 'plain', 'the host is told the look, so it sets the page: a margin for plain');
 		fire(q(m.root, '[data-print]'), 'click');
 		assert.equal(q(m.root, '[data-look="plain"]').getAttribute('aria-checked'), 'true');
 		fire(q(m.root, '[data-look="dark"]'), 'click');
@@ -105,8 +106,9 @@ describe('printing', () => {
 		fire(q(m.root, '[data-choice="day"]'), 'click');
 		await settle();
 		await settle();
-		const dark = m.asks[1]!.content as unknown as FakeElement & { style: { props: Map<string, string> } };
+		const dark = (m.asks[1]!.content as HTMLElement) as unknown as FakeElement & { style: { props: Map<string, string> } };
 		assert.equal(dark.getAttribute('data-look'), 'dark');
+		assert.equal(m.asks[1]!.look, 'dark', 'and none for light or dark, edge to edge');
 		assert.equal(dark.style.props.get('--host-color-scheme'), 'dark');
 		m.view.unmount();
 		// Kept on this device: the next mount offers it first.

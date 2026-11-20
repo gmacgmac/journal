@@ -1,9 +1,8 @@
 // The page's half of a stand-in host (`npm run dev`, see dev/server.ts): the contract's `PluginHost` for the real
 // `mount`, the way nclite's pane gives it (nclite `app/src/lib/plugins/host.ts`), plus switches to try the Journal in
 // its own colours or a bot's, light or dark, wide or in a narrow pane. Never shipped.
-import type { Chip, ConfirmAsk, PluginEvent, PluginHost } from '../src/vendor/plugin-host/plugin-host.ts';
+import type { Chip, ConfirmAsk, PluginEvent, PluginHost, PrintAsk } from '../src/vendor/plugin-host/plugin-host.ts';
 import { mount } from '../src/view/view.ts';
-import type { PrintAsk } from '../src/view/print.ts';
 import { installOverlayScroll } from './overlay-scroll/overlay-scroll.ts';
 import './overlay-scroll/overlay-scroll.css';
 
@@ -107,13 +106,19 @@ function confirmAsk(ask: ConfirmAsk): Promise<boolean> {
 	return new Promise((done) => dialog.addEventListener('close', () => done(dialog.returnValue === 'yes'), { once: true }));
 }
 
-/** nclite's coming `print` (its handover, 2026-11-19), stood in for: the element shown alone, Print opens the browser's
- * print window, and the promise settles once the stand-in closes, printed or not. */
+/** nclite's `print`, stood in for: the element shown alone, Print opens the browser's print window with the page nclite
+ * sets for the look (plain: a 10 mm margin; light or dark: none, the element's own ground edge to edge) and orientation,
+ * and the promise settles once the stand-in closes, printed or not. */
 const printWindow = $<HTMLDialogElement>('#print');
-function printAsk(ask: PrintAsk): Promise<void> {
-	log('print', ask.title);
-	printWindow.querySelector('strong')!.textContent = ask.title;
-	printWindow.querySelector('.paper-preview')!.replaceChildren(ask.content);
+const pageRule = document.head.appendChild(document.createElement('style'));
+function printAsk(ask: PrintAsk = {}): Promise<void> {
+	const title = ask.title ?? document.title;
+	const content = ask.content as HTMLElement;
+	const look = ask.look ?? 'plain';
+	log('print', `${title} (${look}, ${ask.orientation ?? 'portrait'})`);
+	pageRule.textContent = `@page { size: ${ask.orientation ?? 'portrait'}; margin: ${look === 'plain' ? '10mm' : '0'}; }`;
+	printWindow.querySelector('strong')!.textContent = title;
+	printWindow.querySelector('.paper-preview')!.replaceChildren(content);
 	const before = document.title;
 	printWindow.showModal();
 	const go = printWindow.querySelector<HTMLButtonElement>('.go')!;
@@ -122,10 +127,10 @@ function printAsk(ask: PrintAsk): Promise<void> {
 		// To paper from the page's own flow, then back into the preview.
 		const out = $<HTMLElement>('#print-out');
 		const print = () => {
-			document.title = ask.title;
-			out.replaceChildren(ask.content);
+			document.title = title;
+			out.replaceChildren(content);
 			window.print();
-			printWindow.querySelector('.paper-preview')!.replaceChildren(ask.content);
+			printWindow.querySelector('.paper-preview')!.replaceChildren(content);
 			document.title = before;
 		};
 		go.addEventListener('click', print);
@@ -140,8 +145,7 @@ function printAsk(ask: PrintAsk): Promise<void> {
 
 const PREFIX = 'journal-dev-store:';
 const chip = (c: Chip) => `${c.label}${c.detail ? ` (${c.detail})` : ''}`;
-// `print` is in nclite's proposal, not yet in the vendored contract (see src/view/print.ts).
-const host: PluginHost & { print(ask: PrintAsk): Promise<void> } = {
+const host: PluginHost = {
 	api: (path, init) => fetch(`/api/journal/${path}`, init),
 	events(listener) {
 		listeners.add(listener);

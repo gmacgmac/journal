@@ -22,12 +22,14 @@ host can provide it once. It is not code to copy. Paths are in this repo; `docs/
 1. **The need.** A person prints some of a plugin's content, or saves it as a PDF, in plain or themed colours.
 2. **What we built.** `src/view/print.ts`: `createPrint` (the Print… panel), `daysToPrint`, `printContent` (a fresh
    element for paper, no controls), `printerOf`. Paper styles in `src/view/css/print.css`. Tests: `tests/view/print.test.ts`.
-3. **What the host should provide.** A hook `print({ title, content }) → Promise<void>`: resolves when the window closes
-   (printed or cancelled), rejects only if printing cannot start. The host owns `@page` (size, margins), hiding the
-   app, and the window. Proposed: a `look` member (`plain | light | dark`) so the host can drop margins for a coloured page.
+3. **What the host should provide.** A hook `print({ title, content, look, orientation }) → Promise<void>` (every member
+   optional; nclite's contract has it): resolves when the window closes (printed or cancelled), rejects only if printing
+   cannot start. The host owns `@page`: plain gets a 10 mm margin, light and dark go edge to edge. It also owns hiding the
+   app, and the window.
 4. **How a plugin uses it.** Feature-detect `host.print`. Build its own element, `<plugin> <plugin>-print`, with
-   `data-look`. Call the hook; disable its control meanwhile; say a rejection with `host.notify`. The plugin still chooses
-   what to print and how it lays out.
+   `data-look`, and pass the same `look`. In light or dark it pads its own content (the margin is now its own). Call the
+   hook; disable its control meanwhile; say a rejection with `host.notify`. The plugin still chooses what to print and how
+   it lays out.
 5. **Fallback.** No hook: draw no Print control at all. No disabled button, no hint.
 6. **Versioning.** Optional member, feature-detected; new options are optional fields on the ask, ignored when unknown.
 7. **Pitfalls found.**
@@ -39,8 +41,11 @@ host can provide it once. It is not code to copy. Paths are in this repo; `docs/
    - An entry split across pages: `break-inside: avoid` on each unit; `break-after: avoid` on headings.
    - Padding only on the first and last page: `box-decoration-break: clone`.
    - A rule above each section printed alone at a page top: close sections with the rule instead.
+   - Edge to edge, the last page was white below the writing: an element's background ends with its content. A
+     `position: fixed` box behind it (print only) is repeated on every printed page, so every page wears the ground.
    - We print no icons, so we did not meet SVG strokes printing as filled shapes. Vision Board did; their fix should stand.
-8. **Open questions.** Who sets margins for a coloured page? Will `light-dark()` pairs be part of the contract?
+8. **Open questions.** Will `light-dark()` pairs be part of the contract? Should the host paint the page's ground for light
+   and dark itself, so each plugin needn't (the fixed box above)?
 
 ## The calendar (a month to pick a day from)
 
