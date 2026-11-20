@@ -7,7 +7,7 @@
 //   host.chat.add   a block, as a chip, from the writing bar's Add to chat
 //   host.notify     a refused save, tick or undo, and a reveal it cannot show
 //   host.confirm    from `leave()` (`leave.ts`), and before a whole day is removed
-//   host.print      Print…, when the host can print (`print.ts`)
+//   host.savePdf    Save as PDF…, when the host can save one (`pdf.ts`)
 //   host.pageChanged  once the first draw settles, then each time `pageChip()` would answer something else
 // Inside, the pieces are:
 //   views.ts    what is on the sheet: the running journal (feed.ts) or one day, and the place kept (place.ts)
@@ -28,7 +28,7 @@ import { readBlocks } from './dom-tree.ts';
 import { draftAfter, entryDraft } from './drafts.ts';
 import { writingOf } from './days.ts';
 import { createDrag } from './drag.ts';
-import { createPrint, printerOf } from './print.ts';
+import { createSavePdf, pdfSaverOf } from './pdf.ts';
 import { drawView } from './draw.ts';
 import { trackFocusSource } from './focus.ts';
 import { isEditing, startSession } from './editor.ts';
@@ -43,14 +43,14 @@ import { createRoutes } from './wire.ts';
 import { say } from './words.ts';
 
 export function mountJournal(root: HTMLElement, host: PluginHost): PluginView {
-	const printer = printerOf(host);
+	const saver = pdfSaverOf(host);
 	const toolbar = createToolbar({
 		view: (v) => void (v === views.place.view ? undefined : v === 'journal' ? views.showJournal() : views.showDay(views.place.date ?? localToday())),
 		step: (n) => void views.showDay(addDays(views.place.date ?? localToday(), n)),
 		go: (date) => void views.showDay(date),
 		add: (date) => void addPage(date),
 		pick: (anchor, ask, then) => picker.calendar(anchor, { ...ask, onPick: then }),
-		...(printer === null ? {} : { print: (anchor: HTMLElement) => print!.open(anchor) }),
+		...(saver === null ? {} : { pdf: (anchor: HTMLElement) => pdf!.open(anchor) }),
 	});
 	const parts = drawView(root, toolbar.el);
 	const { paper, sheet, hintId } = parts;
@@ -108,11 +108,11 @@ export function mountJournal(root: HTMLElement, host: PluginHost): PluginView {
 	}
 	const views = createViews({ paper, sheet, routes, page, toolbar, store: host.store, live, notify, onShow: chipMayHaveChanged });
 	const undo = createUndo(page, parts.toast, root);
-	const print = printer === null ? null : createPrint({
-		printer, routes, picker, live, notify, store: host.store, source: root,
+	const pdf = saver === null ? null : createSavePdf({
+		saver, routes, picker, live, notify, store: host.store, source: root,
 		dayOnScreen: () => views.place.date ?? localToday(),
 		today: localToday,
-		busy: (on) => toolbar.printing(on),
+		busy: (on) => toolbar.saving(on),
 	});
 	const drag = createDrag({ root, paper, sheet, page, day: (date) => views.shown.get(date), undo: (u, label) => undo.push(u, label), live });
 	const offFocus = trackFocusSource(root);

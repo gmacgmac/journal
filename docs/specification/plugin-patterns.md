@@ -17,20 +17,22 @@ host can provide it once. It is not code to copy. Paths are in this repo; `docs/
 - **Ask of nclite**: one shared definition: floating `YYYY-MM-DD` days, local `HH:MM` times, and when a plugin needs an
   instant, ISO 8601 with offset. Plus the person's locale and first day of the week as host settings.
 
-## Printing
+## Printing (Save as PDF)
 
-1. **The need.** A person prints some of a plugin's content, or saves it as a PDF, in plain or themed colours.
-2. **What we built.** `src/view/print.ts`: `createPrint` (the Print… panel), `daysToPrint`, `printContent` (a fresh
-   element for paper, no controls), `printerOf`. Paper styles in `src/view/css/print.css`. Tests: `tests/view/print.test.ts`.
-3. **What the host should provide.** A hook `print({ title, content, look, orientation }) → Promise<void>` (every member
-   optional; nclite's contract has it): resolves when the window closes (printed or cancelled), rejects only if printing
-   cannot start. The host owns `@page`: plain gets a 10 mm margin, light and dark go edge to edge. It also owns hiding the
-   app, and the window.
-4. **How a plugin uses it.** Feature-detect `host.print`. Build its own element, `<plugin> <plugin>-print`, with
-   `data-look`, and pass the same `look`. In light or dark it pads its own content (the margin is now its own). Call the
-   hook; disable its control meanwhile; say a rejection with `host.notify`. The plugin still chooses what to print and how
-   it lays out.
-5. **Fallback.** No hook: draw no Print control at all. No disabled button, no hint.
+1. **The need.** A person saves some of a plugin's content as a PDF, in plain or themed colours. (nclite replaced the print
+   window with Save as PDF; paper and PDF share one pattern.)
+2. **What we built.** `src/view/pdf.ts`: `createSavePdf` (the Save as PDF… panel), `daysToSave`, `printContent` (a fresh
+   element for paper, no controls), `pdfSaverOf`. Paper styles in `src/view/css/print.css`. Tests: `tests/view/pdf.test.ts`.
+3. **What the host should provide.** A hook `savePdf({ title, content, look, orientation, size }) → Promise<void>` (every
+   member optional; nclite's contract has it): `title` is the default file name without `.pdf`; resolves once saved or
+   cancelled, rejects only if the PDF cannot be made. The host owns the page: plain gets a 10 mm white margin; light and
+   dark get a 12 mm band of the element's own background at every page's top and foot, page 1 included. It also owns the
+   save panel and hiding the app.
+4. **How a plugin uses it.** Feature-detect `host.savePdf`. Build its own element, `<plugin> <plugin>-print`, with
+   `data-look`, and pass the same `look`. Its background is the page's ground in light and dark, so keep it the colour
+   wanted; give it side padding only. Call the hook; disable its control meanwhile; say a rejection with `host.notify`. The
+   plugin still chooses what to save and how it lays out.
+5. **Fallback.** No hook: draw no Save as PDF control at all. No disabled button, no hint.
 6. **Versioning.** Optional member, feature-detected; new options are optional fields on the ask, ignored when unknown.
 7. **Pitfalls found.**
    - Printing from inside a modal `<dialog>` clipped the print to the screen. Print from the page's own flow.
@@ -40,8 +42,8 @@ host can provide it once. It is not code to copy. Paths are in this repo; `docs/
    - A base `color-scheme: light` on the print element silently overrode the dark look.
    - An entry split across pages: `break-inside: avoid` on each unit; `break-after: avoid` on headings.
    - Padding only on the first and last page. `box-decoration-break: clone` fixes it in Chrome but not in WebKit (the
-     desktop shell). What holds in both: each unit (a day, an entry) carries the page band as padding and gives it back as
-     negative margin, so a break between units leaves the band on both pages.
+     desktop shell). A plugin-side fix (each unit carrying the band as padding, given back as negative margin) worked, but
+     the clean answer was the host's: it now draws the top and foot band on every page itself.
    - A rule above each section printed alone at a page top: close sections with the rule instead.
    - Edge to edge, the last page was white below the writing: an element's background ends with its content. A
      `position: fixed` box behind it (print only) is repeated on every printed page, so every page wears the ground.

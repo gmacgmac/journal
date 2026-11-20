@@ -1,7 +1,7 @@
 // The page's half of a stand-in host (`npm run dev`, see dev/server.ts): the contract's `PluginHost` for the real
 // `mount`, the way nclite's pane gives it (nclite `app/src/lib/plugins/host.ts`), plus switches to try the Journal in
 // its own colours or a bot's, light or dark, wide or in a narrow pane. Never shipped.
-import type { Chip, ConfirmAsk, PluginEvent, PluginHost, PrintAsk } from '../src/vendor/plugin-host/plugin-host.ts';
+import type { Chip, ConfirmAsk, PluginEvent, PdfAsk, PluginHost } from '../src/vendor/plugin-host/plugin-host.ts';
 import { mount } from '../src/view/view.ts';
 import { installOverlayScroll } from './overlay-scroll/overlay-scroll.ts';
 import './overlay-scroll/overlay-scroll.css';
@@ -106,17 +106,19 @@ function confirmAsk(ask: ConfirmAsk): Promise<boolean> {
 	return new Promise((done) => dialog.addEventListener('close', () => done(dialog.returnValue === 'yes'), { once: true }));
 }
 
-/** nclite's `print`, stood in for: the element shown alone, Print opens the browser's print window with the page nclite
- * sets for the look (plain: a 10 mm margin; light or dark: none, the element's own ground edge to edge) and orientation,
- * and the promise settles once the stand-in closes, printed or not. */
+/** nclite's `savePdf`, stood in for: the element shown alone, and Save opens the browser's print window (to save as PDF)
+ * with the page nclite sets for the look (plain: a 10 mm white margin; light or dark: a 12 mm band of the element's own
+ * ground at every page's top and foot) and orientation. The promise settles once the stand-in closes, saved or not. */
 const printWindow = $<HTMLDialogElement>('#print');
 const pageRule = document.head.appendChild(document.createElement('style'));
-function printAsk(ask: PrintAsk = {}): Promise<void> {
+function savePdfAsk(ask: PdfAsk = {}): Promise<void> {
 	const title = ask.title ?? document.title;
 	const content = ask.content as HTMLElement;
 	const look = ask.look ?? 'plain';
-	log('print', `${title} (${look}, ${ask.orientation ?? 'portrait'})`);
-	pageRule.textContent = `@page { size: ${ask.orientation ?? 'portrait'}; margin: ${look === 'plain' ? '10mm' : '0'}; }`;
+	log('savePdf', `${title} (${look}, ${ask.orientation ?? 'portrait'})`);
+	const ground = look === 'plain' ? '#fff' : getComputedStyle(content).backgroundColor;
+	pageRule.textContent = `@page { size: ${ask.orientation ?? 'portrait'}; margin: ${look === 'plain' ? '10mm' : '12mm 0'}; }`
+		+ `@media print { html, body { background: ${ground}; } }`;
 	printWindow.querySelector('strong')!.textContent = title;
 	printWindow.querySelector('.paper-preview')!.replaceChildren(content);
 	const before = document.title;
@@ -162,7 +164,7 @@ const host: PluginHost = {
 	settings: { get: () => undefined, on: () => () => {} },
 	notify: (text, tone = 'info') => log(`notify ${tone}`, text),
 	confirm: confirmAsk,
-	print: printAsk,
+	savePdf: savePdfAsk,
 	store: {
 		get(key) {
 			try { return localStorage.getItem(PREFIX + key); } catch { return null; }

@@ -186,11 +186,12 @@ export interface PluginHost {
 	 */
 	pageChanged(): void;
 	/**
-	 * Prints, through the host's own print window: `ask.content` alone when given, else the plugin's pane as it stands.
-	 * Resolves once the print window has closed, printed or cancelled; rejects, with the host's words and nothing left
-	 * changed, when it could not open one or a print is already under way. Left out, the plugin draws no Print.
+	 * Saves a PDF where the person chooses: `ask.content` alone when given, else the plugin's pane as it stands. Resolves once
+	 * saved or cancelled; rejects, with the host's words and nothing changed, when it could not be made or one is under way.
 	 */
-	print?(ask?: PrintAsk): Promise<void>;
+	savePdf?(ask?: PdfAsk): Promise<void>;
+	/** @deprecated `savePdf` under its old name, the same function, until both plugins are re-vendored with `savePdf` (ADR-0381). */
+	print?(ask?: PdfAsk): Promise<void>;
 	/**
 	 * Saves a file the person asked for: `name` with its extension (the host never renames it), `type` its media type.
 	 * Resolves once handed over (saved, downloaded, or the person cancelled the save panel); rejects, with the host's words,
@@ -208,17 +209,19 @@ export interface PluginHost {
 export type PrintLook = 'plain' | 'light' | 'dark';
 export type PrintOrientation = 'portrait' | 'landscape';
 
-/** One print job. Every member may be left out: no title keeps the page's, `look` is `plain`, `orientation` `portrait`. */
-export interface PrintAsk {
-	/** The print window's title, and the PDF's default name. */
+/** One Save as PDF. Every member may be left out: no title is the host's default name, `look` `plain`, `orientation` `portrait`. */
+export interface PdfAsk {
+	/** The PDF's default name, without `.pdf`. */
 	title?: string;
 	/**
 	 * The plugin's own element, built for paper (the DOM's `HTMLElement`, named `object` here as `Mount` names its root
-	 * `Root`: this file names no DOM-only type). While printing, only it shows; the host gives it back where it was.
+	 * `Root`: this file names no DOM-only type). While saving, only it shows; the host gives it back where it was.
 	 */
 	content?: object;
 	look?: PrintLook;
 	orientation?: PrintOrientation;
+	/** One page of exactly this size, in CSS px, instead of paper (`orientation` is then ignored): a board's own extent. */
+	size?: { width: number; height: number };
 }
 
 /** A file the person chose to open. */

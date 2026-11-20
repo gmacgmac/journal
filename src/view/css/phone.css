@@ -36,7 +36,7 @@
 		.view-opt { min-width: 0; padding: 3px 10px; }
 		.view-opt:not(.on), .add-words { display: none; }
 		.add-page { min-width: var(--journal-tap); justify-content: center; padding: 4px; }
-		.toolbar .print { min-width: var(--journal-tap); justify-content: center; padding: 4px; }
+		.toolbar .pdf { min-width: var(--journal-tap); justify-content: center; padding: 4px; }
 		.day-nav [data-nav='prev'], .day-nav [data-nav='next'] { min-width: 36px; }
 		.toolbar .day-pick { width: 6.8em; }
 		.bar button { min-width: var(--journal-tap); }

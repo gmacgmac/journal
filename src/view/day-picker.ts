@@ -25,7 +25,7 @@ export interface CalendarAsk {
 
 export interface DayPicker {
 	calendar(anchor: HTMLElement, ask: CalendarAsk): void;
-	/** Any content of the Journal's own (Print's choices) in the same kind of panel, under `anchor`. */
+	/** Any content of the Journal's own (Save as PDF's choices) in the same kind of panel, under `anchor`. */
 	panel(anchor: HTMLElement, content: HTMLElement, label: string, focus: () => void): void;
 	/** The days `from`..`to` (a gap), newest first, `STRIP_DAYS` at most, then the calendar for the rest. */
 	strip(anchor: HTMLElement, from: string, to: string, onPick: (date: string) => void): void;

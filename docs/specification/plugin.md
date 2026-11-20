@@ -604,27 +604,27 @@ nearest", "unmount mid-lift leaves no copy, no line and no listener, and saves n
 the day", "nothing to send where the entry already is, or for a place that is not one"; `tests/view/days.test.ts` "only an
 entry with no time has one: a timed entry keeps its place by its time".
 
-**Print…** (`createPrint`, `src/view/print.ts`) is drawn in the toolbar beside Add a page only when the host gives `print`
-(`printerOf`): no disabled control and no hint otherwise. It opens a panel under the control: the colours first (three small
-sample pages: black and white, the theme light, the theme dark; kept per device in `store` under `printLook`), then what to
-print (the day on screen, a range of days, or everything), and a choice with nothing in it says "Nothing to print" and cannot
-be pressed. The element handed over is `journal journal-print` built for paper (`printContent`), the days that have a page,
-oldest first, read through the Journal's own routes within `MAX_RANGE_DAYS` and `MAX_PAGES` (`daysToPrint`); its rules for
-paper are `&.journal-print` in `src/view/css/print.css`. The ask is the contract's `PrintAsk`, always with `title`, `content`
-and `look` (the colours chosen), so the host sets the page: plain with a 10 mm margin, light or dark edge to edge. In light or
-dark the element's padding (14 mm by 16 mm) is the first page's top and the last page's foot; between, each day and each
-entry carries a 14 mm band as padding, given back as negative margin, so a page break between them leaves the band at the
-foot of one page and the top of the next, in WebKit as in Chrome (nclite's measurement); an entry longer than a page still
-breaks at the edge. A fixed backdrop, repeated on every printed page, gives each page its ground to the foot. `orientation` is left to the host's `portrait`. The contract's
-addition is optional, so the Journal stays on seam 2. What was built, and the pattern other plugins can reuse, is
-`docs/handover/print-pattern.md`; this page does not repeat it. Proven by `tests/view/print.test.ts`: "no Print control at all
-when the host cannot print", "This day prints the day on screen, under its date, with links as words and no control in it", "a
-range prints the days in it that have a page, oldest first", "Everything prints every page, oldest first, read a batch at a time",
-"the colours: black and white by default; the theme, light or dark, carries its mode; the choice is kept", "a choice with
-nothing to print says so and cannot be pressed: the day on screen, or all of them with no pages", "the control waits while
-printing; a print that cannot start is said, a cancelled one is not"; and `tests/view/build.test.ts` "built stylesheet check
-(a build rule, read from the output): nclite's at-rules only (@media, @supports, @container, its own keyframes), url() only
-to data:" (no `@page`).
+**Save as PDF…** (`createSavePdf`, `src/view/pdf.ts`) is drawn in the toolbar beside Add a page only when the host gives
+`savePdf` (`pdfSaverOf`): no disabled control and no hint otherwise. It opens a panel under the control: the colours first
+(three small sample pages: black and white, the theme light, the theme dark; kept per device in `store` under `printLook`),
+then what to save (the day on screen, a range of days, or everything), and a choice with nothing in it says "Nothing to
+save" and cannot be pressed. The element handed over is `journal journal-print` built for paper (`printContent`), the days
+that have a page, oldest first, read through the Journal's own routes within `MAX_RANGE_DAYS` and `MAX_PAGES`
+(`daysToSave`); its rules for paper are `&.journal-print` in `src/view/css/print.css`. The ask is the contract's `PdfAsk`,
+always with `title` (the PDF's default name, `pdfTitle`), `content` and `look` (the colours chosen), so the host sets the
+page: plain with a 10 mm white margin; light or dark with a 12 mm band of the element's own ground at every page's top and
+foot, page 1 included, the ground read from the element's background. So in light or dark the element has side padding only
+(16 mm), and a fixed backdrop, repeated on every page, gives each page its ground to the foot. `orientation` and `size` are
+left to the host's defaults. A rejection is said in the Journal's words (`journal.view.pdf.failed`); a cancel is not. The
+contract's addition is optional, so the Journal stays on seam 2. What was built, and the pattern other plugins can reuse,
+is `docs/specification/plugin-patterns.md` § Printing. Proven by `tests/view/pdf.test.ts`: "no Save as PDF control at all
+when the host cannot save one", "This day saves the day on screen, under its date, with links as words and no control in
+it", "a range saves the days in it that have a page, oldest first", "Everything saves every page, oldest first, read a
+batch at a time", "the colours: black and white by default; the theme, light or dark, carries its mode; the choice is
+kept", "a choice with nothing to save says so and cannot be pressed: the day on screen, or all of them with no pages", "the
+control waits while saving; a PDF that cannot be saved is said, a cancelled one is not"; and `tests/view/build.test.ts`
+"built stylesheet check (a build rule, read from the output): nclite's at-rules only (@media, @supports, @container, its own
+keyframes), url() only to data:" (no `@page`).
 
 **Hover controls show at two strengths**: `--journal-faint` (0.3) where a control is offered and `--journal-hint` (0.55) once the
 pointer is in its place, and full only when pointed at itself (the drag handle, Remove this day, the gap's Add a page, the
@@ -663,7 +663,7 @@ saves; a to-do ticks and saves at once; Undo is a toast inside `root`.
 | `notify` | A refused save or tick (`error`), and a reveal it cannot show. A refused save that is a clash stays in the writing bar with its two choices instead |
 | `confirm` | From `leave()`, when writing could not be saved, and from Remove this day, before a whole day goes (above) |
 | `store` | The place, under `place`: `{ view, date, on }` (§ above). It may lose anything: a lost or unreadable place is the first-time one |
-| `print` | Optional: `print({ title, content, look })`, once a choice is pressed in the Print panel (above); a rejection is said through `notify`, a cancel is not. Feature-detected through `printerOf` |
+| `savePdf` | Optional: `savePdf({ title, content, look })`, once a choice is pressed in the Save as PDF panel (above); a rejection is said through `notify`, a cancel is not. Feature-detected through `pdfSaverOf`. The deprecated alias `print` is not used |
 | `imageRoute` | Nothing |
 | `pageChanged` | Called once the first draw settles, then each time `pageChip()` would answer otherwise; never from `unmount` or after (§ below, `pageChip()`) |
 
@@ -837,6 +837,6 @@ compiles alone with the DOM types", "a host that gives the contract's PluginHost
   handle, line and glide on a real screen. `tests/view/drag.test.ts` holds what drag sends and says, not how it looks.
 - `> ` carrying a quote on (`convert`, `src/view/editor-keys.ts`): `tests/view/dom-tree.test.ts` holds that `> ` is a marker,
   nothing holds what it does under a quote.
-- A page's print on paper: `tests/view/print.test.ts` holds what is handed to `host.print`; how the host's window sets it
-  is the host's (`docs/handover/print-pattern.md`).
+- A saved PDF's pages: `tests/view/pdf.test.ts` holds what is handed to `host.savePdf`; how the host lays it on pages is the
+  host's (`docs/specification/plugin-patterns.md`).
 - Moving the notes out of the workspace, a lock, and a journal for more than one person (nclite PLAN, Out of Scope).

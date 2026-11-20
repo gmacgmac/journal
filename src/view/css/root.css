@@ -140,39 +140,39 @@
 	/* An icon is a flat stroke in its text's colour, as tall as a capital and a little more. */
 	.icon { width: 1.15em; height: 1.15em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 	.add-page { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; }
-	.toolbar .print { display: inline-flex; align-items: center; gap: 5px; }
-	.toolbar .print:disabled { opacity: 0.5; cursor: progress; }
-	/* The Print panel, in the date panel's own box: two sections, each under a small name. The colours first, three small
-	   pages side by side, each drawn in its own colours, the chosen one ringed; then what to print, one row each, which
-	   prints at once. */
-	.print-menu { display: flex; flex-direction: column; gap: 10px; width: 19em; max-width: 100%; padding: 2px; }
-	.print-menu > div + div { padding-top: 10px; border-top: 1px solid var(--dp-line); }
-	.print-section { margin: 0 6px 6px; font-size: 0.72em; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--dp-muted); }
-	.print-looks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-	.print-menu .print-looks button { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 6px; border-radius: 9px; }
-	.print-swatch {
+	.toolbar .pdf { display: inline-flex; align-items: center; gap: 5px; }
+	.toolbar .pdf:disabled { opacity: 0.5; cursor: progress; }
+	/* The Save as PDF panel, in the date panel's own box: two sections, each under a small name. The colours first, three small
+	   pages side by side, each drawn in its own colours, the chosen one ringed; then what to save, one row each, which
+	   saves at once. */
+	.pdf-menu { display: flex; flex-direction: column; gap: 10px; width: 19em; max-width: 100%; padding: 2px; }
+	.pdf-menu > div + div { padding-top: 10px; border-top: 1px solid var(--dp-line); }
+	.pdf-section { margin: 0 6px 6px; font-size: 0.72em; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--dp-muted); }
+	.pdf-looks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+	.pdf-menu .pdf-looks button { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 6px; border-radius: 9px; }
+	.pdf-swatch {
 		display: flex; flex-direction: column; gap: 4px; height: 44px; padding: 8px 9px;
 		border-radius: 5px; box-shadow: 0 0 0 1px var(--dp-line); transition: box-shadow 120ms;
 	}
-	.print-swatch > span { display: block; height: 3px; border-radius: 2px; }
-	.print-swatch .sw-date { width: 55%; height: 4px; margin-bottom: 2px; }
-	.print-swatch .sw-short { width: 70%; }
-	.print-looks [data-look='plain'] .print-swatch { background: #fff; }
-	.print-looks [data-look='plain'] .sw-date { background: #000; }
-	.print-looks [data-look='plain'] .sw-line { background: #777; }
+	.pdf-swatch > span { display: block; height: 3px; border-radius: 2px; }
+	.pdf-swatch .sw-date { width: 55%; height: 4px; margin-bottom: 2px; }
+	.pdf-swatch .sw-short { width: 70%; }
+	.pdf-looks [data-look='plain'] .pdf-swatch { background: #fff; }
+	.pdf-looks [data-look='plain'] .sw-date { background: #000; }
+	.pdf-looks [data-look='plain'] .sw-line { background: #777; }
 	/* The theme's own paper, date and writing, in the mode each shows. */
-	.print-looks [data-look='light'] .print-swatch { color-scheme: light; }
-	.print-looks [data-look='dark'] .print-swatch { color-scheme: dark; }
-	.print-looks :is([data-look='light'], [data-look='dark']) .print-swatch { background: var(--journal-page); }
-	.print-looks :is([data-look='light'], [data-look='dark']) .sw-date { background: var(--journal-date-ink); }
-	.print-looks :is([data-look='light'], [data-look='dark']) .sw-line { background: var(--journal-body); opacity: 0.7; }
-	.print-swatch-name { font-size: 0.85em; text-align: center; color: var(--dp-muted); white-space: nowrap; }
-	.print-looks button:hover .print-swatch { box-shadow: 0 0 0 1px var(--dp-ink); }
-	.print-looks button[aria-checked='true'] .print-swatch { box-shadow: 0 0 0 2px var(--dp-surface), 0 0 0 4px var(--dp-accent); }
-	.print-looks button[aria-checked='true'] .print-swatch-name { color: var(--dp-ink); font-weight: 600; }
-	.print-choices { display: flex; flex-direction: column; gap: 1px; }
-	.print-menu .print-choices button { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 8px 10px; text-align: left; }
-	.print-note { color: var(--dp-muted); font-variant-numeric: tabular-nums; }
-	.print-more { display: flex; }
-	.print-menu .print-choices button:disabled { cursor: default; color: var(--dp-muted); }
+	.pdf-looks [data-look='light'] .pdf-swatch { color-scheme: light; }
+	.pdf-looks [data-look='dark'] .pdf-swatch { color-scheme: dark; }
+	.pdf-looks :is([data-look='light'], [data-look='dark']) .pdf-swatch { background: var(--journal-page); }
+	.pdf-looks :is([data-look='light'], [data-look='dark']) .sw-date { background: var(--journal-date-ink); }
+	.pdf-looks :is([data-look='light'], [data-look='dark']) .sw-line { background: var(--journal-body); opacity: 0.7; }
+	.pdf-swatch-name { font-size: 0.85em; text-align: center; color: var(--dp-muted); white-space: nowrap; }
+	.pdf-looks button:hover .pdf-swatch { box-shadow: 0 0 0 1px var(--dp-ink); }
+	.pdf-looks button[aria-checked='true'] .pdf-swatch { box-shadow: 0 0 0 2px var(--dp-surface), 0 0 0 4px var(--dp-accent); }
+	.pdf-looks button[aria-checked='true'] .pdf-swatch-name { color: var(--dp-ink); font-weight: 600; }
+	.pdf-choices { display: flex; flex-direction: column; gap: 1px; }
+	.pdf-menu .pdf-choices button { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 8px 10px; text-align: left; }
+	.pdf-note { color: var(--dp-muted); font-variant-numeric: tabular-nums; }
+	.pdf-more { display: flex; }
+	.pdf-menu .pdf-choices button:disabled { cursor: default; color: var(--dp-muted); }
 }

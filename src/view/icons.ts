@@ -12,7 +12,8 @@ const ICONS = {
 	// Six dots, two columns of three: a stroke of no length with round ends is a dot.
 	grip: ['M9 6h.01', 'M15 6h.01', 'M9 12h.01', 'M15 12h.01', 'M9 18h.01', 'M15 18h.01'],
 	chevron: ['M9.5 6l6 6-6 6'],
-	print: ['M7 9V4h10v5', 'rect:4,9,16,8,2', 'M7 14h10v6H7z'],
+	// A page with its corner turned and an arrow down: a document saved.
+	pdf: ['M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z', 'M14 3v5h5', 'M12 11v6', 'M9 14l3 3 3-3'],
 	trash: ['M4 7h16', 'M9 7V4.5h6V7', 'M6 7l1 13h10l1-13', 'M10 11v5.5', 'M14 11v5.5'],
 } as const;
 

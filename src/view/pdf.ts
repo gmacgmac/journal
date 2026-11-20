@@ -1,16 +1,17 @@
-// PRINTING (nclite's handover, 2026-11-19). The Journal owns the Print… control and what is printed; the host owns the
-// print window, the page (its size, and its margin: 10 mm for plain, none for light or dark, which go edge to edge), and
-// hiding the rest of the app. The person chooses the day on screen, a
-// range of days, or everything, and the colours: black on white (the handover's, and the default), or the theme's own,
-// light or dark, whatever mode the app is in (GM, 2026-11-19). The Journal reads those days, builds one element for paper
-// (`journal journal-print`: each day under its date, its entries as they read, no control of any kind, links as their
-// words), and hands it to `host.print` with the look, so the host sets the page to match. The control is drawn only when
-// the host can print.
+// SAVE AS PDF (nclite's handover, 2026-11-20; ADR-0381 on nclite's side). The Journal owns the Save as PDF… control and
+// what goes in the PDF; the host owns the rest: the save panel, the page (plain: a 10 mm white margin; light or dark: a
+// 12 mm band of the element's own ground at every page's top and foot), and hiding the rest of the app. The person
+// chooses the day on screen, a range of days, or everything, and the colours: black on white (the default), or the
+// theme's own, light or dark, whatever mode the app is in (GM, 2026-11-19). The Journal reads those days, builds one
+// element for paper (`journal journal-print`: each day under its date, its entries as they read, no control of any kind,
+// links as their words), and hands it to `host.savePdf` with the look. The control is drawn only when the host can save a
+// PDF.
 //
 // The theme travels with the element: the host's colours are copied onto it as the host gives them (nclite gives each as
-// a light and dark pair), and its colour scheme is set to the mode chosen, so it prints the same wherever the host puts it.
+// a light and dark pair), and its colour scheme is set to the mode chosen. The host reads the page's ground from this
+// element's background, so the paper styles keep it the ground wanted (`src/view/css/print.css`).
 import { MAX_PAGES, MAX_RANGE_DAYS, addDays, dateTitle, entryOf } from '../format/index.ts';
-import { HOST_PROPERTIES, type PluginHost, type PluginStore, type PrintAsk, type PrintLook } from '../vendor/plugin-host/plugin-host.ts';
+import { HOST_PROPERTIES, type PluginHost, type PluginStore, type PdfAsk, type PrintLook } from '../vendor/plugin-host/plugin-host.ts';
 import { hasPage, writingOf } from './days.ts';
 import { dayMonth, shortDate } from './dates.ts';
 import type { DayPicker } from './day-picker.ts';
@@ -22,12 +23,12 @@ import { say } from './words.ts';
 export type { PrintLook };
 
 /** A print job as the Journal always asks it: a title, its own element, and the look the person chose. */
-export type Printer = (ask: Required<Pick<PrintAsk, 'title' | 'content' | 'look'>>) => Promise<void>;
+export type PdfSaver = (ask: Required<Pick<PdfAsk, 'title' | 'content' | 'look'>>) => Promise<void>;
 
-/** The host's `print`, when it can print; null when it cannot (then no Print control is drawn at all). */
-export function printerOf(host: PluginHost): Printer | null {
-	const print = host.print;
-	return typeof print === 'function' ? (ask) => print.call(host, ask) : null;
+/** The host's `savePdf`, when it can save a PDF; null when it cannot (then no Save as PDF control is drawn at all). */
+export function pdfSaverOf(host: PluginHost): PdfSaver | null {
+	const save = host.savePdf;
+	return typeof save === 'function' ? (ask) => save.call(host, ask) : null;
 }
 
 /** The three looks, in the order the panel offers them. */
@@ -57,14 +58,14 @@ function keepLook(store: PluginStore, look: PrintLook): void {
 const THEME_PROPERTIES = HOST_PROPERTIES.filter((p) => p !== '--host-text-scale' && p !== '--host-color-scheme');
 
 /** What the person chose to print. */
-export type PrintChoice = { kind: 'day'; date: string } | { kind: 'range'; from: string; to: string } | { kind: 'all' };
+export type SaveChoice = { kind: 'day'; date: string } | { kind: 'range'; from: string; to: string } | { kind: 'all' };
 
 /** The date everything is read before: past any page. A longer range, and every page, are read in parts within the routes'
  * limits (`MAX_RANGE_DAYS`, `MAX_PAGES`). */
 const NO_LATER = '9999-12-31';
 
 /** The days `choice` names that have a page, oldest first, as a printed journal reads; or why they could not be read. */
-export async function daysToPrint(routes: Routes, choice: PrintChoice): Promise<{ ok: true; days: Day[] } | { ok: false; reason: string }> {
+export async function daysToSave(routes: Routes, choice: SaveChoice): Promise<{ ok: true; days: Day[] } | { ok: false; reason: string }> {
 	const days: Day[] = [];
 	if (choice.kind === 'all') {
 		for (let before: string | null = NO_LATER; before !== null;) {
@@ -87,11 +88,11 @@ export async function daysToPrint(routes: Routes, choice: PrintChoice): Promise<
 }
 
 /** The print's title: the day, the range, or the whole journal. */
-export function printTitle(choice: PrintChoice): string {
-	if (choice.kind === 'day') return say('journal.view.print.titleDay', { date: dateTitle(choice.date) });
-	if (choice.kind === 'all') return say('journal.view.print.titleAll');
+export function pdfTitle(choice: SaveChoice): string {
+	if (choice.kind === 'day') return say('journal.view.pdf.titleDay', { date: dateTitle(choice.date) });
+	if (choice.kind === 'all') return say('journal.view.pdf.titleAll');
 	const sameYear = choice.from.slice(0, 4) === choice.to.slice(0, 4);
-	return say('journal.view.print.titleRange', { from: sameYear ? dayMonth(choice.from) : dateTitle(choice.from), to: dateTitle(choice.to) });
+	return say('journal.view.pdf.titleRange', { from: sameYear ? dayMonth(choice.from) : dateTitle(choice.from), to: dateTitle(choice.to) });
 }
 
 /** Writing for paper: links and pictures as their words, a to-do's box as a printed box, nothing that can be pressed. */
@@ -142,12 +143,12 @@ export function printContent(days: readonly Day[], look: PrintLook = 'plain', so
 	return content;
 }
 
-let prints = 0;
+let panels = 0;
 
-const LOOK_WORDS = { plain: 'journal.view.print.plain', light: 'journal.view.print.light', dark: 'journal.view.print.dark' } as const;
+const LOOK_WORDS = { plain: 'journal.view.pdf.plain', light: 'journal.view.pdf.light', dark: 'journal.view.pdf.dark' } as const;
 
-export interface PrintDeps {
-	printer: Printer;
+export interface SavePdfDeps {
+	saver: PdfSaver;
 	routes: Routes;
 	picker: DayPicker;
 	/** Where the colours chosen last are kept. */
@@ -157,34 +158,34 @@ export interface PrintDeps {
 	/** The day on screen: Day's day, or the running journal's day at the top (today when it is at the top). */
 	dayOnScreen(): string;
 	today(): string;
-	/** Print is under way (the control waits) or done. */
+	/** A PDF is being saved (the control waits), or it is done. */
 	busy(on: boolean): void;
 	notify(text: string, tone?: 'info' | 'error'): void;
 	live: { readonly on: boolean };
 }
 
-/** Print…: its three choices, then the days read, built for paper and handed to the host; one print at a time. */
-export function createPrint(d: PrintDeps) {
+/** Save as PDF…: its choices, then the days read, built for paper and handed to the host; one PDF at a time. */
+export function createSavePdf(d: SavePdfDeps) {
 	let running = false;
 	/** This mount's own ids for the panel's two section names. */
-	const id = `journal-print-${(prints += 1)}`;
+	const id = `journal-pdf-${(panels += 1)}`;
 
 	let look = readLook(d.store);
 
-	async function run(choice: PrintChoice): Promise<void> {
+	async function run(choice: SaveChoice): Promise<void> {
 		if (running) return;
 		running = true;
 		d.busy(true);
 		try {
-			const read = await daysToPrint(d.routes, choice);
+			const read = await daysToSave(d.routes, choice);
 			if (!d.live.on) return;
 			if (!read.ok) return d.notify(read.reason);
-			if (read.days.length === 0) return d.notify(say('journal.view.print.nothing'), 'info');
-			// Built for this print alone, and let go once the print window closes, printed or cancelled.
-			await d.printer({ title: printTitle(choice), content: printContent(read.days, look, d.source), look });
+			if (read.days.length === 0) return d.notify(say('journal.view.pdf.nothing'), 'info');
+			// Built for this PDF alone, and let go once the host is done with it, saved or cancelled.
+			await d.saver({ title: pdfTitle(choice), content: printContent(read.days, look, d.source), look });
 		} catch {
 			// Only a print that could not start rejects: a cancelled one resolves.
-			if (d.live.on) d.notify(say('journal.view.print.failed'), 'error');
+			if (d.live.on) d.notify(say('journal.view.pdf.failed'), 'error');
 		} finally {
 			running = false;
 			if (d.live.on) d.busy(false);
@@ -199,13 +200,13 @@ export function createPrint(d: PrintDeps) {
 	function looks(): HTMLElement {
 		const option = (l: PrintLook) => {
 			const page = el('span', [el('span', [], { class: 'sw-date' }), el('span', [], { class: 'sw-line' }), el('span', [], { class: 'sw-line sw-short' })], {
-				class: 'print-swatch', 'aria-hidden': 'true',
+				class: 'pdf-swatch', 'aria-hidden': 'true',
 			});
-			return el('button', [page, el('span', [say(LOOK_WORDS[l])], { class: 'print-swatch-name' })], {
+			return el('button', [page, el('span', [say(LOOK_WORDS[l])], { class: 'pdf-swatch-name' })], {
 				type: 'button', role: 'radio', 'data-look': l, 'aria-checked': String(l === look), tabindex: l === look ? '0' : '-1',
 			});
 		};
-		const group = el('div', PRINT_LOOKS.map(option), { class: 'print-looks', role: 'radiogroup', 'aria-labelledby': `${id}-looks` });
+		const group = el('div', PRINT_LOOKS.map(option), { class: 'pdf-looks', role: 'radiogroup', 'aria-labelledby': `${id}-looks` });
 		group.addEventListener('keydown', (e) => {
 			if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
 			e.preventDefault();
@@ -214,7 +215,7 @@ export function createPrint(d: PrintDeps) {
 			choose(next, group);
 			group.querySelector<HTMLElement>(`[data-look="${next}"]`)?.focus();
 		});
-		return el('div', [el('div', [say('journal.view.print.look')], { class: 'print-section', id: `${id}-looks` }), group]);
+		return el('div', [el('div', [say('journal.view.pdf.look')], { class: 'pdf-section', id: `${id}-looks` }), group]);
 	}
 
 	function choose(l: PrintLook, within: HTMLElement): void {
@@ -242,28 +243,28 @@ export function createPrint(d: PrintDeps) {
 			if (b === null || !b.isConnected) continue;
 			const moveFocus = b === document.activeElement;
 			b.disabled = true;
-			const note = b.querySelector('.print-note')!;
-			note.replaceChildren(say('journal.view.print.empty'));
-			note.classList.remove('print-more');
+			const note = b.querySelector('.pdf-note')!;
+			note.replaceChildren(say('journal.view.pdf.empty'));
+			note.classList.remove('pdf-more');
 			note.removeAttribute('aria-hidden');
 			if (moveFocus) [...choices.querySelectorAll<HTMLButtonElement>('button')].find((x) => !x.disabled)?.focus();
 		}
 	}
 
-	/** The panel under the Print… button: the colours first, then what to print, which prints at once. */
+	/** The panel under the Save as PDF… button: the colours first, then what to save, which saves at once. */
 	function open(anchor: HTMLElement): void {
 		const day = d.dayOnScreen();
 		const choice = (words: string, kind: string, note: Node) =>
 			el('button', [el('span', [words]), note], { type: 'button', 'data-choice': kind });
 		const choices = el('div', [
-			choice(say('journal.view.print.day'), 'day', el('span', [shortDate(day)], { class: 'print-note' })),
-			choice(say('journal.view.print.range'), 'range', el('span', [icon('chevron')], { class: 'print-note print-more', 'aria-hidden': 'true' })),
-			choice(say('journal.view.print.all'), 'all', el('span', [], { class: 'print-note' })),
-		], { class: 'print-choices', role: 'group', 'aria-labelledby': `${id}-what` });
+			choice(say('journal.view.pdf.day'), 'day', el('span', [shortDate(day)], { class: 'pdf-note' })),
+			choice(say('journal.view.pdf.range'), 'range', el('span', [icon('chevron')], { class: 'pdf-note pdf-more', 'aria-hidden': 'true' })),
+			choice(say('journal.view.pdf.all'), 'all', el('span', [], { class: 'pdf-note' })),
+		], { class: 'pdf-choices', role: 'group', 'aria-labelledby': `${id}-what` });
 		const menu = el('div', [
 			looks(),
-			el('div', [el('div', [say('journal.view.print.what')], { class: 'print-section', id: `${id}-what` }), choices]),
-		], { class: 'print-menu' });
+			el('div', [el('div', [say('journal.view.pdf.what')], { class: 'pdf-section', id: `${id}-what` }), choices]),
+		], { class: 'pdf-menu' });
 		void markEmpty(choices, day);
 		menu.addEventListener('click', (e) => {
 			const picked = (e.target as Element).closest<HTMLElement>('[data-look]');
@@ -276,14 +277,14 @@ export function createPrint(d: PrintDeps) {
 			// A range: the first day, then the last, no later than today and no earlier than the first.
 			const today = d.today();
 			d.picker.calendar(anchor, {
-				value: day, max: today, align: 'end', label: say('journal.view.print.from'),
+				value: day, max: today, align: 'end', label: say('journal.view.pdf.from'),
 				onPick: (from) => d.picker.calendar(anchor, {
-					value: from > day ? from : day, min: from, max: today, align: 'end', label: say('journal.view.print.to'),
+					value: from > day ? from : day, min: from, max: today, align: 'end', label: say('journal.view.pdf.to'),
 					onPick: (to) => void run({ kind: 'range', from, to }),
 				}),
 			});
 		});
-		d.picker.panel(anchor, menu, say('journal.view.print.menu'), () => choices.querySelector<HTMLElement>('button')?.focus());
+		d.picker.panel(anchor, menu, say('journal.view.pdf.menu'), () => choices.querySelector<HTMLElement>('button')?.focus());
 	}
 
 	return { open };
