@@ -544,10 +544,13 @@ it, the paper scrolling, or its own button pressed again. The package's sheet is
 mount tests "Add a page asks which day…" and "a gap of one day adds a page there at once; a longer gap offers its days,
 newest first".
 
-**The toolbar is one row at every width** (`src/view/toolbar.ts`): the view toggle, the view shown filled as Done is
-(`--journal-fill`, white on it; a press switches to the other view, and a press on the other view's name, where both show, goes there;
-a narrow pane shows only the view it is on); in Day, the day's controls; and Add a page, a flat plus (`src/view/icons.ts`)
-and "Page" (a narrow pane shows only the plus; its name is "Add a page" either way).
+**The toolbar** (`src/view/toolbar.ts`): the view toggle, the view shown filled as Done is (`--journal-fill`, white on it; a
+press switches to the other view, and a press on the other view's name goes there), both names always shown and never
+wrapped (`.toolbar .views`, laid out in full so a host's button rules cannot stack them); in Day, the day's controls; Add a
+page, a flat plus (`src/view/icons.ts`) and "Page"; and Save as PDF, its icon and "PDF". One row on a wide pane. On a narrow
+one (`src/view/css/phone.css`) Add a page and Save as PDF show their icons alone (named "Add a page" and "Save as PDF…"
+either way), and in Day the day's controls take a second row, centred under the first. CSS only, held by no test (§ Not
+covered).
 
 **The writing bar is one row at every width** (`src/view/draw.ts`, GM 2026-11-09): B, I, Link, To-do (icons), Add title, No
 time or Add time, then Add to chat (a send icon and "Chat"; on a narrow pane the icon alone), in a strip

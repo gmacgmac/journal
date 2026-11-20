@@ -112,7 +112,7 @@
 		display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 8px 16px;
 		font: calc(14px * var(--journal-scale))/1.3 var(--journal-font); background: var(--journal-app-bg); color: var(--journal-app-ink); border-bottom: 1px solid var(--journal-app-line);
 	}
-	/* One row at every width: nothing in it wraps or grows. */
+	/* One row, nothing growing: on a wide pane it always fits; a narrow one gives Day its own second row (phone.css). */
 	.toolbar { display: flex; flex: 1; flex-wrap: nowrap; align-items: center; gap: 6px; min-width: 0; }
 	.toolbar > * { flex: none; }
 	.toolbar button {
@@ -124,10 +124,12 @@
 	.toolbar :focus-visible { outline: 2px solid var(--journal-ring); outline-offset: 2px; }
 	.toolbar [hidden] { display: none; }
 	/* Which view: one toggle, the view shown filled as a primary button is (Done), the other quiet beside it. */
-	.toolbar .views { display: inline-flex; gap: 2px; padding: 2px; }
+	/* Laid out in full here, wrap and alignment included: a host's own rules for buttons reach in (nclite's left the two
+	   names stacked in a tall box), and a toggle that wraps reads as broken. */
+	.toolbar .views { display: inline-flex; flex-wrap: nowrap; align-items: stretch; gap: 2px; padding: 2px; white-space: nowrap; }
 	.view-opt {
-		display: inline-flex; align-items: center; justify-content: center; min-width: 5.5em; padding: 3px 12px;
-		border-radius: 6px; color: var(--journal-app-muted);
+		display: inline-flex; flex: none; align-items: center; justify-content: center; min-width: 5.5em; padding: 3px 12px;
+		border-radius: 6px; color: var(--journal-app-muted); white-space: nowrap;
 	}
 	.views:hover .view-opt:not(.on) { color: var(--journal-app-ink); }
 	.view-opt.on { color: var(--journal-on-fill); background: var(--journal-fill); }

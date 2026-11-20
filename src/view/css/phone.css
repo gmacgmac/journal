@@ -31,10 +31,14 @@
 		.drag-handle, .has-title .drag-handle { left: auto; right: -6px; top: 0; height: 1.2em; }
 		/* A finger's reach: every control of the two bars, and Add an entry, at least --journal-tap high. */
 		.toolbar button, .toolbar input, .bar button, .bar-link input, .add-entry, .gap-add, .feed-more { min-height: var(--journal-tap); }
-		/* One row in a narrow pane: the toggle shows only the view it is on, Add a page is its +, and the day is narrower. */
+		/* A narrow pane: the toggle keeps both views, closer set (GM, 2026-11-20: one name alone read as a broken toggle), and
+		   Add a page and Save as PDF are their icons. In Day, the day's own controls take a second row, centred under the
+		   first: there is no room for them beside the toggle, and squeezed they would wrap anyway. */
+		.toolbar { flex-wrap: wrap; row-gap: 6px; }
+		.toolbar .day-nav { order: 1; flex: 1 0 100%; justify-content: center; }
 		.toolbar button { padding: 4px 10px; }
-		.view-opt { min-width: 0; padding: 3px 10px; }
-		.view-opt:not(.on), .add-words { display: none; }
+		.view-opt { min-width: 0; padding: 3px 9px; }
+		.add-words { display: none; }
 		.add-page { min-width: var(--journal-tap); justify-content: center; padding: 4px; }
 		.toolbar .pdf { min-width: var(--journal-tap); justify-content: center; padding: 4px; }
 		.day-nav [data-nav='prev'], .day-nav [data-nav='next'] { min-width: 36px; }
