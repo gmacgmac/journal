@@ -612,8 +612,10 @@ be pressed. The element handed over is `journal journal-print` built for paper (
 oldest first, read through the Journal's own routes within `MAX_RANGE_DAYS` and `MAX_PAGES` (`daysToPrint`); its rules for
 paper are `&.journal-print` in `src/view/css/print.css`. The ask is the contract's `PrintAsk`, always with `title`, `content`
 and `look` (the colours chosen), so the host sets the page: plain with a 10 mm margin, light or dark edge to edge. In light or
-dark the element's padding (14 mm by 16 mm, repeated on every page) is the margin, and a fixed backdrop, repeated on every
-printed page, gives each page its ground to the foot. `orientation` is left to the host's `portrait`. The contract's
+dark the element's padding (14 mm by 16 mm) is the first page's top and the last page's foot; between, each day and each
+entry carries a 14 mm band as padding, given back as negative margin, so a page break between them leaves the band at the
+foot of one page and the top of the next, in WebKit as in Chrome (nclite's measurement); an entry longer than a page still
+breaks at the edge. A fixed backdrop, repeated on every printed page, gives each page its ground to the foot. `orientation` is left to the host's `portrait`. The contract's
 addition is optional, so the Journal stays on seam 2. What was built, and the pattern other plugins can reuse, is
 `docs/handover/print-pattern.md`; this page does not repeat it. Proven by `tests/view/print.test.ts`: "no Print control at all
 when the host cannot print", "This day prints the day on screen, under its date, with links as words and no control in it", "a

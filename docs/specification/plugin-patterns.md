@@ -39,7 +39,9 @@ host can provide it once. It is not code to copy. Paths are in this repo; `docs/
      set `color-scheme`. This only works because nclite gives colours as `light-dark()` pairs.
    - A base `color-scheme: light` on the print element silently overrode the dark look.
    - An entry split across pages: `break-inside: avoid` on each unit; `break-after: avoid` on headings.
-   - Padding only on the first and last page: `box-decoration-break: clone`.
+   - Padding only on the first and last page. `box-decoration-break: clone` fixes it in Chrome but not in WebKit (the
+     desktop shell). What holds in both: each unit (a day, an entry) carries the page band as padding and gives it back as
+     negative margin, so a break between units leaves the band on both pages.
    - A rule above each section printed alone at a page top: close sections with the rule instead.
    - Edge to edge, the last page was white below the writing: an element's background ends with its content. A
      `position: fixed` box behind it (print only) is repeated on every printed page, so every page wears the ground.

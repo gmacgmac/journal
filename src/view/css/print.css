@@ -32,9 +32,18 @@
 	&.journal-print:is([data-look='light'], [data-look='dark']) {
 		color-scheme: var(--host-color-scheme); color: var(--journal-body); background: var(--journal-page);
 		/* The page's margin, as padding: in light or dark the host prints edge to edge (no margin, `PrintAsk.look`), so the
-		   room round the writing is the element's own, a little more than plain's 10 mm, and drawn again at every page's top
-		   and foot, not only at the very start and end. */
-		padding: 14mm 16mm; box-decoration-break: clone; -webkit-box-decoration-break: clone;
+		   room round the writing is the element's own, a little more than plain's 10 mm. This pads the first page's top and
+		   the last page's foot; the pages between get theirs from each entry's band, below. */
+		padding: 14mm 16mm;
+		/* Each entry carries the page band (14 mm) as padding and gives it back as negative margin, so the space between
+		   entries is unchanged (1.2em, as plain) and a page break, which falls between entries, leaves the band at the foot
+		   of one page and the top of the next. Measured by nclite in WebKit, which does not repeat padding across pages
+		   (`box-decoration-break`), so it holds in every engine. An entry longer than a page still breaks at the edge. */
+		.print-item { padding: 14mm 0; margin: calc(1.2em - 28mm) 0 -14mm; }
+		.print-date + .print-item { margin-top: -14mm; }
+		/* A break can fall before a day too, so its date line carries the top band the same way: the space between days is
+		   unchanged, and a day that starts a page starts 14 mm down. */
+		.print-day { padding-top: 14mm; margin-top: -14mm; }
 		.print-day:not(:last-child) { border-bottom-color: var(--journal-rule); }
 		.print-date, .print-time, .print-block li::marker { color: var(--journal-date-ink); }
 		.print-entry { color: var(--journal-ink); }
